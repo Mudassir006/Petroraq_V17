@@ -5,6 +5,7 @@ from odoo.exceptions import UserError, AccessError
 from odoo.tools import format_amount, html_escape
 from odoo.tools.float_utils import float_round, float_compare
 from odoo.tools import frozendict
+from odoo.fields import Command
 
 
 class SaleOrder(models.Model):
@@ -132,6 +133,65 @@ class SaleOrder(models.Model):
         self.ensure_one()
         return self.order_line.filtered(lambda l: l.is_downpayment and not l.display_type)[:1]
 
+    def _dp_deduction_account(self):
+        self.ensure_one()
+        dp_line = self._dp_sale_line()
+        product = dp_line.product_id if dp_line else False
+        account = False
+
+        if product:
+            accounts = product._get_product_accounts()
+            account = accounts.get("income") or accounts.get("income_refund")
+
+        account = account or getattr(self.company_id, "account_default_income_id", False)
+        if not account:
+            raise UserError(_("Please configure an income account for down payment deductions."))
+
+        return account
+
+    def _dp_invoice_base_for_move(self, move):
+        self.ensure_one()
+        base_lines = move.invoice_line_ids.filtered(
+            lambda l: not l.display_type
+            and l.sale_line_ids
+            and self in l.sale_line_ids.order_id
+            and not any(sl.is_downpayment for sl in l.sale_line_ids)
+        )
+        return sum(base_lines.mapped("price_subtotal")) or 0.0
+
+    def _prepare_dp_deduction_line_vals(self, move, invoice_base):
+        self.ensure_one()
+        dp_percent = self.dp_percent or 0.0
+        if not dp_percent:
+            return False
+
+        dp_paid = self._dp_paid_amount()
+        if not dp_paid:
+            return False
+
+        remaining_dp_amount = self._dp_remaining_amount()
+        currency = self.currency_id or self.company_id.currency_id
+        if currency.is_zero(remaining_dp_amount):
+            return False
+
+        target_amount = min(remaining_dp_amount, invoice_base * dp_percent)
+        target_amount = currency.round(target_amount)
+
+        if currency.is_zero(target_amount):
+            return False
+
+        name = _("Down Payment Deduction")
+        if len(move.invoice_line_ids.sale_line_ids.order_id) > 1:
+            name = _("Down Payment Deduction (%s)") % self.name
+
+        return {
+            "name": name,
+            "quantity": 1.0,
+            "price_unit": -target_amount,
+            "account_id": self._dp_deduction_account().id,
+            "tax_ids": [Command.set([])],
+        }
+
     def _dp_deducted_qty(self):
         """
         How much of DP line (out of 1.0) has already been deducted in REGULAR invoices.
@@ -178,57 +238,32 @@ class SaleOrder(models.Model):
         return res
 
     def _get_invoiceable_lines(self, final=False):
-        lines = super()._get_invoiceable_lines(final=final)
+        return super()._get_invoiceable_lines(final=final)
 
-        for order in self:
-            dp_percent = order.dp_percent or 0.0
-            if not dp_percent:
+    def _create_invoices(self, grouped=False, final=False, date=None):
+        invoices = super()._create_invoices(grouped=grouped, final=final, date=date)
+
+        for move in invoices:
+            if move.move_type != "out_invoice":
                 continue
 
-            dp_paid = order._dp_paid_amount()
-            if not dp_paid:
-                continue  # no posted DP invoice yet
+            orders = move.invoice_line_ids.sale_line_ids.order_id
+            for order in orders:
+                dp_percent = order.dp_percent or 0.0
+                if not dp_percent:
+                    continue
 
-            deducted_qty = order._dp_deducted_qty()
-            remaining_qty = max(0.0, 1.0 - deducted_qty)
-            if remaining_qty <= 0:
-                continue
+                invoice_base = order._dp_invoice_base_for_move(move)
+                if invoice_base <= 0:
+                    continue
 
-            # Invoice base (untaxed) for THIS invoice = delivered qty_to_invoice * final_price_unit
-            base_lines = lines.filtered(
-                lambda l: l.order_id == order and not l.display_type and not l.is_downpayment
-            )
+                vals = order._prepare_dp_deduction_line_vals(move, invoice_base)
+                if not vals:
+                    continue
 
-            invoice_base = 0.0
-            for l in base_lines:
-                qty = l.qty_to_invoice if l.qty_to_invoice is not None else 0.0
-                # Use your commercial unit price for correct base (since you override invoice line price_unit)
-                unit = l.final_price_unit or l.price_unit or 0.0
-                invoice_base += qty * unit
+                move.write({"invoice_line_ids": [Command.create(vals)]})
 
-            if invoice_base <= 0:
-                continue
-
-            remaining_dp_amount = order._dp_remaining_amount()
-
-            vat_factor = 1.15
-            target_amount = min(remaining_dp_amount, invoice_base * vat_factor * dp_percent)
-            currency = order.currency_id or order.company_id.currency_id
-            target_amount = target_amount
-
-            if currency.is_zero(target_amount):
-                continue
-
-            fraction = target_amount / dp_paid
-            fraction = min(fraction, remaining_qty)
-
-            if fraction <= 0:
-                continue
-
-            for dp_so_line in lines.filtered(lambda l: l.order_id == order and l.is_downpayment):
-                dp_so_line.qty_to_invoice = -fraction
-
-        return lines
+        return invoices
 
     @api.depends("order_line", "overhead_percent", "risk_percent", "profit_percent", "currency_id")
     def _compute_final_totals(self):
