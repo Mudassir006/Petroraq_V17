@@ -90,53 +90,91 @@ class SaleOrder(models.Model):
                 return False
         return True
 
-    def _get_invoiceable_lines(self, final=False):
-        lines = super()._get_invoiceable_lines(final=final)
+    def _prepare_dp_deduction_line_vals(self, invoice, dp_line, amount):
+        self.ensure_one()
+        currency = self.currency_id or self.company_id.currency_id
+        if currency.is_zero(amount):
+            return {}
+
+        product = dp_line.product_id
+        accounts = product._get_product_accounts() if product else {}
+        account = accounts.get("income") or product.property_account_income_id
+        if not account and product:
+            account = product.categ_id.property_account_income_categ_id
+        if not account:
+            account = self.company_id.account_default_sale_account_id
+
+        taxes = dp_line.tax_id
+        if not account:
+            return {}
+
+        return {
+            "move_id": invoice.id,
+            "name": dp_line.name or "Down Payment Deduction",
+            "quantity": 1.0,
+            "price_unit": -amount,
+            "account_id": account.id,
+            "tax_ids": [(6, 0, taxes.ids)] if taxes else False,
+            "sale_line_ids": [(6, 0, dp_line.ids)],
+        }
+
+    def _get_invoice_order_base(self, invoice):
+        self.ensure_one()
+
+        base_lines = invoice.invoice_line_ids.filtered(
+            lambda l: not l.display_type
+                      and not l.is_downpayment
+                      and self in l.sale_line_ids.order_id
+        )
+        return sum(base_lines.mapped("price_subtotal"))
+
+    def _create_invoices(self, grouped=False, final=False, date=None):
+        invoices = super()._create_invoices(grouped=grouped, final=final, date=date)
 
         for order in self:
             dp_percent = order.dp_percent or 0.0
             if not dp_percent:
                 continue
 
+            dp_line = order._dp_sale_line()
+            if not dp_line:
+                continue
+
             dp_paid = order._dp_paid_amount()
             if not dp_paid:
                 continue  # no posted DP invoice yet
 
-            deducted_qty = order._dp_deducted_qty()
-            remaining_qty = max(0.0, 1.0 - deducted_qty)
-            if remaining_qty <= 0:
-                continue
-
-            # Invoice base (untaxed) for THIS invoice = delivered qty_to_invoice * final_price_unit
-            base_lines = lines.filtered(
-                lambda l: l.order_id == order and not l.display_type and not l.is_downpayment
-            )
-
-            invoice_base = 0.0
-            for l in base_lines:
-                qty = l.qty_to_invoice if l.qty_to_invoice is not None else 0.0
-                # Use your commercial unit price for correct base (since you override invoice line price_unit)
-                unit = l.final_price_unit or l.price_unit or 0.0
-                invoice_base += qty * unit
-
-            if invoice_base <= 0:
-                continue
-
             remaining_dp_amount = order._dp_remaining_amount()
-            target_amount = min(remaining_dp_amount, invoice_base * dp_percent)
-            fraction = target_amount / dp_paid
             currency = order.currency_id or order.company_id.currency_id
-
-            if currency.is_zero(target_amount):
+            if currency.is_zero(remaining_dp_amount):
                 continue
 
-            fraction = target_amount / dp_paid
-            fraction = min(fraction, remaining_qty)
+            order_invoices = invoices.filtered(
+                lambda move: move.move_type == "out_invoice"
+                and order in move.invoice_line_ids.sale_line_ids.order_id
+            )
+            for invoice in order_invoices:
+                existing = invoice.invoice_line_ids.filtered(
+                    lambda l: dp_line in l.sale_line_ids
+                    and not l.display_type
+                    and (l.price_subtotal or 0.0) < 0.0
+                )
+                if existing:
+                    continue
 
-            if fraction <= 0:
-                continue
+                invoice_base = order._get_invoice_order_base(invoice)
+                if invoice_base <= 0:
+                    continue
 
-            for dp_so_line in lines.filtered(lambda l: l.order_id == order and l.is_downpayment):
-                dp_so_line.qty_to_invoice = -fraction
+                target_amount = min(remaining_dp_amount, invoice_base * dp_percent)
+                if currency.is_zero(target_amount) or target_amount <= 0:
+                    continue
 
-        return lines
+                vals = order._prepare_dp_deduction_line_vals(invoice, dp_line, target_amount)
+                if not vals:
+                    continue
+
+                self.env["account.move.line"].create(vals)
+                remaining_dp_amount -= target_amount
+
+        return invoices
