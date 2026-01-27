@@ -10,6 +10,20 @@
               name="Work Orders"
               parent="menu_pr_work_root"
               action="action_pr_work_order"/>
-</odoo>
 
+    <menuitem id="menu_pr_work_order_reporting"
+              name="Reporting"
+              parent="menu_pr_work_root"
+              sequence="90"/>
+
+    <menuitem id="menu_pr_work_order_costing_report"
+              name="Work Order Costing"
+              parent="menu_pr_work_order_reporting"
+              action="action_pr_work_order_costing_report"/>
+
+    <menuitem id="menu_pr_work_order_costing_section_report"
+              name="Costing Breakdown"
+              parent="menu_pr_work_order_reporting"
+              action="action_pr_work_order_costing_section_report"/>
+</odoo>
 

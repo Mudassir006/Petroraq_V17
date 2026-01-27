@@ -139,6 +139,14 @@
                             <field name="date_start" required="1"/>
                             <field name="date_end" required="1"/>
                             <field name="budgeted_cost"/>
+                            <field name="overhead_percent"/>
+                            <field name="overhead_amount" readonly="1"/>
+                            <field name="risk_percent"/>
+                            <field name="risk_amount" readonly="1"/>
+                            <field name="total_expected_cost" readonly="1"/>
+                            <field name="profit_percent"/>
+                            <field name="profit_amount" readonly="1"/>
+                            <field name="total_with_profit" readonly="1"/>
                             <!--                            />-->
 
                             <!--                            <field name="budgeted_margin" readonly="1"/>-->

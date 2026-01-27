@@ -26,6 +26,7 @@
         "views/project_views.xml",
         "views/account_move_views.xml",
         "views/work_order_reject_wizard_view.xml",
+        "views/job_costing_report_views.xml",
 
     ],
     "installable": True,

@@ -86,6 +86,7 @@ class PetroraqEstimation(models.Model):
 
 
     sale_order_id = fields.Many2one("sale.order", string="Quotation", readonly=True, copy=False)
+    work_order_id = fields.Many2one("pr.work.order", string="Work Order", readonly=True, copy=False)
 
     material_total = fields.Monetary(
         string="Material Total",
@@ -240,19 +241,24 @@ class PetroraqEstimation(models.Model):
 
     def action_create_sale_order(self):
         self.ensure_one()
+        order = self._ensure_sale_order()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Quotation"),
+            "res_model": "sale.order",
+            "res_id": order.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
+    def _ensure_sale_order(self):
+        self.ensure_one()
         if self.approval_state != "approved":
             raise UserError(_("You can only create a quotation after final approval."))
         if not self.partner_id:
             raise UserError(_("Please set a customer before creating a quotation."))
         if self.sale_order_id:
-            return {
-                "type": "ir.actions.act_window",
-                "name": _("Quotation"),
-                "res_model": "sale.order",
-                "res_id": self.sale_order_id.id,
-                "view_mode": "form",
-                "target": "current",
-            }
+            return self.sale_order_id
 
         term = self.env.ref("petroraq_sale_workflow.payment_term_immediate", raise_if_not_found=False)
         company = self.company_id
@@ -272,17 +278,69 @@ class PetroraqEstimation(models.Model):
         if self.order_inquiry_id:
             order_vals["order_inquiry_id"] = self.order_inquiry_id.id
         order = self.env["sale.order"].with_company(company).create(order_vals)
+        order_lines = self._prepare_sale_order_lines(order)
+        if order_lines:
+            order.write({"order_line": order_lines})
 
         self.sale_order_id = order.id
+        return order
 
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("Quotation"),
-            "res_model": "sale.order",
-            "res_id": order.id,
-            "view_mode": "form",
-            "target": "current",
+    def _prepare_sale_order_lines(self, order):
+        section_map = {
+            "material": _("Material"),
+            "labor": _("Labor"),
+            "equipment": _("Equipment"),
+            "subcontract": _("Sub Contract / TPS"),
         }
+        lines = []
+        estimation_lines = self.line_ids.sorted(lambda l: (l.section_type or "", l.id))
+        for section_type in SECTION_TYPES:
+            section_lines = estimation_lines.filtered(lambda l: l.section_type == section_type[0])
+            if not section_lines:
+                continue
+            section_name = section_map.get(section_type[0], section_type[1])
+            lines.append((0, 0, {
+                "display_type": "line_section",
+                "name": section_name,
+                "order_id": order.id,
+            }))
+            for line in section_lines:
+                if not line.product_id:
+                    lines.append((0, 0, {
+                        "display_type": "line_note",
+                        "name": line.name or section_name,
+                        "order_id": order.id,
+                    }))
+                    continue
+                qty = line.quantity_hours if line.section_type in ("labor", "equipment") else (line.quantity or 0.0)
+                uom = line.uom_id or line.product_id.uom_id
+                line_vals = {
+                    "order_id": order.id,
+                    "product_id": line.product_id.id,
+                    "name": line.name or (line.product_id.display_name if line.product_id else section_name),
+                    "product_uom_qty": qty,
+                    "product_uom": uom.id if uom else False,
+                    "price_unit": line.unit_cost or 0.0,
+                }
+                lines.append((0, 0, line_vals))
+        return lines
+
+    def action_create_work_order(self):
+        self.ensure_one()
+        if self.work_order_id:
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Work Order"),
+                "res_model": "pr.work.order",
+                "res_id": self.work_order_id.id,
+                "view_mode": "form",
+                "target": "current",
+            }
+        order = self._ensure_sale_order()
+        action = order.action_create_work_order()
+        if order.work_order_id:
+            self.work_order_id = order.work_order_id.id
+        return action
 
     def action_confirm_estimation(self):
         for record in self:

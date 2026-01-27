@@ -57,6 +57,16 @@
                             string="Open Quotation"
                             class="btn-secondary"
                             invisible="not sale_order_id"/>
+                    <button name="action_create_work_order"
+                            type="object"
+                            string="Create Work Order"
+                            class="btn-primary"
+                            invisible="work_order_id or approval_state != 'approved'"/>
+                    <button name="action_create_work_order"
+                            type="object"
+                            string="Open Work Order"
+                            class="btn-secondary"
+                            invisible="not work_order_id"/>
                 </header>
                 <sheet>
                     <div class="alert alert-danger"
@@ -73,6 +83,7 @@
                         <field name="partner_id"/>
                         <field name="date"/>
                         <field name="sale_order_id" readonly="1"/>
+                        <field name="work_order_id" readonly="1"/>
                     </group>
                     <notebook>
                         <page string="Material">

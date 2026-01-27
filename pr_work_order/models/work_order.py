@@ -84,6 +84,53 @@ class PRWorkOrder(models.Model):
         store=True,
     )
 
+    overhead_percent = fields.Float(
+        string="Overhead (%)",
+        default=0.0,
+        digits=(16, 2),
+    )
+    risk_percent = fields.Float(
+        string="Risk (%)",
+        default=0.0,
+        digits=(16, 2),
+    )
+    profit_percent = fields.Float(
+        string="Profit (%)",
+        default=0.0,
+        digits=(16, 2),
+    )
+    overhead_amount = fields.Monetary(
+        string="Overhead Amount",
+        currency_field="currency_id",
+        compute="_compute_cost_buffers",
+        store=True,
+    )
+    risk_amount = fields.Monetary(
+        string="Risk Amount",
+        currency_field="currency_id",
+        compute="_compute_cost_buffers",
+        store=True,
+    )
+    profit_amount = fields.Monetary(
+        string="Profit Amount",
+        currency_field="currency_id",
+        compute="_compute_cost_buffers",
+        store=True,
+    )
+    total_expected_cost = fields.Monetary(
+        string="Total Expected Cost",
+        currency_field="currency_id",
+        compute="_compute_cost_buffers",
+        store=True,
+        help="Budgeted cost plus overhead and risk buffers.",
+    )
+    total_with_profit = fields.Monetary(
+        string="Total With Profit",
+        currency_field="currency_id",
+        compute="_compute_cost_buffers",
+        store=True,
+    )
+
     actual_revenue = fields.Monetary(
         string="Actual Revenue",
         currency_field="currency_id",
@@ -141,6 +188,20 @@ class PRWorkOrder(models.Model):
     def _compute_budgeted_margin(self):
         for rec in self:
             rec.budgeted_margin = (rec.contract_amount or 0.0) - (rec.budgeted_cost or 0.0)
+
+    @api.depends("budgeted_cost", "overhead_percent", "risk_percent", "profit_percent")
+    def _compute_cost_buffers(self):
+        for rec in self:
+            budget = rec.budgeted_cost or 0.0
+            overhead = budget * (rec.overhead_percent or 0.0) / 100.0
+            risk = budget * (rec.risk_percent or 0.0) / 100.0
+            buffer_total = budget + overhead + risk
+            profit = buffer_total * (rec.profit_percent or 0.0) / 100.0
+            rec.overhead_amount = overhead
+            rec.risk_amount = risk
+            rec.total_expected_cost = buffer_total
+            rec.profit_amount = profit
+            rec.total_with_profit = buffer_total + profit
 
     @api.depends("analytic_account_id")
     def _compute_actuals(self):
