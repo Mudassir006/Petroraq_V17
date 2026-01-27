@@ -57,6 +57,26 @@ class PetroraqEstimation(models.Model):
         "estimation_id",
         string="Estimation Lines",
     )
+    material_line_ids = fields.One2many(
+        "petroraq.estimation.line",
+        "material_estimation_id",
+        string="Material Lines",
+    )
+    labor_line_ids = fields.One2many(
+        "petroraq.estimation.line",
+        "labor_estimation_id",
+        string="Labor Lines",
+    )
+    equipment_line_ids = fields.One2many(
+        "petroraq.estimation.line",
+        "equipment_estimation_id",
+        string="Equipment Lines",
+    )
+    subcontract_line_ids = fields.One2many(
+        "petroraq.estimation.line",
+        "subcontract_estimation_id",
+        string="Subcontract Lines",
+    )
     sale_order_id = fields.Many2one("sale.order", string="Quotation", readonly=True, copy=False)
 
     material_total = fields.Monetary(
@@ -155,32 +175,32 @@ class PetroraqEstimation(models.Model):
                     "petroraq_sale_workflow.group_sale_approval_md"))
             )
 
+    @api.onchange("partner_id")
+    def _onchange_partner_company(self):
+        for record in self:
+            if record.partner_id.company_id and record.partner_id.company_id != record.company_id:
+                record.company_id = record.partner_id.company_id
+
     @api.depends(
-        "line_ids.subtotal",
-        "line_ids.section_type",
+        "material_line_ids.subtotal",
+        "labor_line_ids.subtotal",
+        "equipment_line_ids.subtotal",
+        "subcontract_line_ids.subtotal",
         "overhead_percent",
         "risk_percent",
         "profit_percent",
     )
     def _compute_totals(self):
         for record in self:
-            totals = {
-                "material": 0.0,
-                "labor": 0.0,
-                "equipment": 0.0,
-                "subcontract": 0.0,
-            }
-            for line in record.line_ids:
-                # When a user adds a new line in the editable list, the line may exist
-                # in-memory before `section_type` is set. Avoid crashing totals.
-                if not line.section_type:
-                    continue
-                totals[line.section_type] += line.subtotal
-            record.material_total = totals["material"]
-            record.labor_total = totals["labor"]
-            record.equipment_total = totals["equipment"]
-            record.subcontract_total = totals["subcontract"]
-            base_total = sum(totals.values())
+            material_total = sum(record.material_line_ids.mapped("subtotal"))
+            labor_total = sum(record.labor_line_ids.mapped("subtotal"))
+            equipment_total = sum(record.equipment_line_ids.mapped("subtotal"))
+            subcontract_total = sum(record.subcontract_line_ids.mapped("subtotal"))
+            record.material_total = material_total
+            record.labor_total = labor_total
+            record.equipment_total = equipment_total
+            record.subcontract_total = subcontract_total
+            base_total = material_total + labor_total + equipment_total + subcontract_total
             overhead_amount = base_total * (record.overhead_percent or 0.0) / 100.0
             risk_amount = base_total * (record.risk_percent or 0.0) / 100.0
             buffer_total = base_total + overhead_amount + risk_amount
@@ -229,16 +249,23 @@ class PetroraqEstimation(models.Model):
             }
 
         term = self.env.ref("petroraq_sale_workflow.payment_term_immediate", raise_if_not_found=False)
+        company = self.company_id
+        if self.partner_id.company_id:
+            company = self.partner_id.company_id
+        partner = self.partner_id.with_company(company)
+        addresses = partner.address_get(["invoice", "delivery"])
         order_vals = {
             "partner_id": self.partner_id.id,
-            "company_id": self.company_id.id,
-            "currency_id": self.currency_id.id,
+            "company_id": company.id,
+            "currency_id": company.currency_id.id,
             "inquiry_type": "construction",
             "payment_term_id": term.id if term else False,
+            "partner_invoice_id": addresses.get("invoice"),
+            "partner_shipping_id": addresses.get("delivery"),
         }
         if self.order_inquiry_id:
             order_vals["order_inquiry_id"] = self.order_inquiry_id.id
-        order = self.env["sale.order"].create(order_vals)
+        order = self.env["sale.order"].with_company(company).create(order_vals)
 
         self.sale_order_id = order.id
 
@@ -253,7 +280,8 @@ class PetroraqEstimation(models.Model):
 
     def action_confirm_estimation(self):
         for record in self:
-            if not record.line_ids:
+            if not (record.material_line_ids or record.labor_line_ids or record.equipment_line_ids
+                    or record.subcontract_line_ids):
                 raise UserError(_("Please add at least one estimation line."))
             record.approval_state = "to_manager"
             record.approval_comment = False
@@ -287,11 +315,74 @@ class PetroraqEstimationLine(models.Model):
     _description = "Estimation Line"
     _order = "section_type, id"
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            vals = self._prepare_section_vals(vals)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        for line in self:
+            line_vals = dict(vals)
+            line_vals = line._prepare_section_vals(line_vals)
+            super(PetroraqEstimationLine, line).write(line_vals)
+        return True
+
+    def _prepare_section_vals(self, vals):
+        section_type = vals.get("section_type") or self.env.context.get("default_section_type") or self.section_type
+        estimation_id = vals.get("estimation_id") or self.estimation_id.id
+        section_field_map = {
+            "material": "material_estimation_id",
+            "labor": "labor_estimation_id",
+            "equipment": "equipment_estimation_id",
+            "subcontract": "subcontract_estimation_id",
+        }
+        for section, field_name in section_field_map.items():
+            if vals.get(field_name):
+                vals["estimation_id"] = vals[field_name]
+                vals["section_type"] = section
+                for other_field in section_field_map.values():
+                    if other_field != field_name:
+                        vals.setdefault(other_field, False)
+                return vals
+        if section_type:
+            vals["section_type"] = section_type
+        if section_type and estimation_id and not vals.get(section_field_map[section_type]):
+            vals[section_field_map[section_type]] = estimation_id
+        return vals
+
     estimation_id = fields.Many2one(
         "petroraq.estimation",
         string="Estimation",
-        required=True,
         ondelete="cascade",
+    )
+    material_estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Material Estimation",
+        compute="_compute_section_estimation_ids",
+        inverse="_inverse_section_estimation_ids",
+        store=True,
+    )
+    labor_estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Labor Estimation",
+        compute="_compute_section_estimation_ids",
+        inverse="_inverse_section_estimation_ids",
+        store=True,
+    )
+    equipment_estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Equipment Estimation",
+        compute="_compute_section_estimation_ids",
+        inverse="_inverse_section_estimation_ids",
+        store=True,
+    )
+    subcontract_estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Subcontract Estimation",
+        compute="_compute_section_estimation_ids",
+        inverse="_inverse_section_estimation_ids",
+        store=True,
     )
     section_type = fields.Selection(
         SECTION_TYPES,
@@ -319,7 +410,7 @@ class PetroraqEstimationLine(models.Model):
     uom_id = fields.Many2one("uom.uom", string="Unit of Measure")
     currency_id = fields.Many2one(
         "res.currency",
-        related="estimation_id.currency_id",
+        compute="_compute_currency_id",
         store=True,
         readonly=True,
     )
@@ -330,6 +421,61 @@ class PetroraqEstimationLine(models.Model):
         compute="_compute_subtotal",
         store=False,
     )
+
+    @api.depends(
+        "estimation_id",
+        "section_type",
+        "material_estimation_id",
+        "labor_estimation_id",
+        "equipment_estimation_id",
+        "subcontract_estimation_id",
+    )
+    def _compute_section_estimation_ids(self):
+        for line in self:
+            line.material_estimation_id = line.estimation_id if line.section_type == "material" else False
+            line.labor_estimation_id = line.estimation_id if line.section_type == "labor" else False
+            line.equipment_estimation_id = line.estimation_id if line.section_type == "equipment" else False
+            line.subcontract_estimation_id = line.estimation_id if line.section_type == "subcontract" else False
+
+    def _inverse_section_estimation_ids(self):
+        for line in self:
+            if line.material_estimation_id:
+                line.estimation_id = line.material_estimation_id
+                line.section_type = "material"
+            elif line.labor_estimation_id:
+                line.estimation_id = line.labor_estimation_id
+                line.section_type = "labor"
+            elif line.equipment_estimation_id:
+                line.estimation_id = line.equipment_estimation_id
+                line.section_type = "equipment"
+            elif line.subcontract_estimation_id:
+                line.estimation_id = line.subcontract_estimation_id
+                line.section_type = "subcontract"
+
+    @api.depends(
+        "estimation_id",
+        "material_estimation_id",
+        "labor_estimation_id",
+        "equipment_estimation_id",
+        "subcontract_estimation_id",
+    )
+    def _compute_currency_id(self):
+        for line in self:
+            estimation = line.material_estimation_id or line.labor_estimation_id or line.equipment_estimation_id or \
+                line.subcontract_estimation_id or line.estimation_id
+            line.currency_id = estimation.currency_id if estimation else False
+
+    @api.constrains("material_estimation_id", "labor_estimation_id", "equipment_estimation_id", "subcontract_estimation_id")
+    def _check_single_section(self):
+        for line in self:
+            section_fields = [
+                line.material_estimation_id,
+                line.labor_estimation_id,
+                line.equipment_estimation_id,
+                line.subcontract_estimation_id,
+            ]
+            if sum(bool(field) for field in section_fields) > 1:
+                raise ValidationError(_("Only one section reference can be set per estimation line."))
 
     @api.onchange("product_id")
     def _onchange_product_id(self):

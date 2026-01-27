@@ -76,7 +76,7 @@
                     </group>
                     <notebook>
                         <page string="Material">
-                            <field name="line_ids" domain="[('section_type','=','material')]"
+                            <field name="material_line_ids"
                                    context="{'default_section_type':'material'}">
                                 <tree editable="bottom">
                                     <field name="section_type" invisible="1"/>
@@ -90,7 +90,7 @@
                             </field>
                         </page>
                         <page string="Labor">
-                            <field name="line_ids" domain="[('section_type','=','labor')]"
+                            <field name="labor_line_ids"
                                    context="{'default_section_type':'labor'}">
                                 <tree editable="bottom">
                                     <field name="section_type" invisible="1"/>
@@ -107,7 +107,7 @@
                             </field>
                         </page>
                         <page string="Equipment">
-                            <field name="line_ids" domain="[('section_type','=','equipment')]"
+                            <field name="equipment_line_ids"
                                    context="{'default_section_type':'equipment'}">
                                 <tree editable="bottom">
                                     <field name="section_type" invisible="1"/>
@@ -124,7 +124,7 @@
                             </field>
                         </page>
                         <page string="Sub Contract / TPS">
-                            <field name="line_ids" domain="[('section_type','=','subcontract')]"
+                            <field name="subcontract_line_ids"
                                    context="{'default_section_type':'subcontract'}">
                                 <tree editable="bottom">
                                     <field name="section_type" invisible="1"/>
