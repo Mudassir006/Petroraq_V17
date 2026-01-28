@@ -17,6 +17,18 @@ class SaleOrder(models.Model):
         ("approved", "Approved"),
         ("rejected", "Rejected"),
     ], default="draft", tracking=True, copy=False)
+    estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Estimation",
+        readonly=True,
+        copy=False,
+    )
+    estimation_line_ids = fields.One2many(
+        "petroraq.estimation.line",
+        related="estimation_id.line_ids",
+        string="Estimation Lines",
+        readonly=True,
+    )
 
     can_create_remaining_delivery = fields.Boolean(
         compute="_compute_can_create_remaining_delivery",
@@ -643,6 +655,18 @@ class SaleOrder(models.Model):
         for order in self:
             if not order.order_line:
                 raise UserError(_("Please add at least one line item to the quotation."))
+            if order.estimation_id:
+                currency = order.currency_id or order.company_id.currency_id
+                estimation_total = currency.round(order.estimation_id.total_with_profit or 0.0)
+                quotation_total = currency.round(order.profit_grand_total or 0.0)
+                if float_compare(
+                        estimation_total,
+                        quotation_total,
+                        precision_rounding=currency.rounding,
+                ) != 0:
+                    raise UserError(
+                        _("The quotation total must match the estimation total before submission.")
+                    )
         self.approval_state = "to_manager"
         self.state = "draft"
         self.approval_comment = False

@@ -83,6 +83,11 @@ class PetroraqEstimation(models.Model):
     )
 
     sale_order_id = fields.Many2one("sale.order", string="Quotation", readonly=True, copy=False)
+    sale_order_state = fields.Selection(
+        related="sale_order_id.state",
+        string="Quotation Status",
+        readonly=True,
+    )
     work_order_id = fields.Many2one("pr.work.order", string="Work Order", readonly=True, copy=False)
 
     material_total = fields.Monetary(
@@ -251,8 +256,6 @@ class PetroraqEstimation(models.Model):
 
     def _ensure_sale_order(self):
         self.ensure_one()
-        if self.approval_state != "approved":
-            raise UserError(_("You can only create a quotation after final approval."))
         if not self.partner_id:
             raise UserError(_("Please set a customer before creating a quotation."))
         if self.sale_order_id:
@@ -272,18 +275,16 @@ class PetroraqEstimation(models.Model):
             "payment_term_id": term.id if term else False,
             "partner_invoice_id": addresses.get("invoice"),
             "partner_shipping_id": addresses.get("delivery"),
+            "estimation_id": self.id,
         }
         if self.order_inquiry_id:
             order_vals["order_inquiry_id"] = self.order_inquiry_id.id
         order = self.env["sale.order"].with_company(company).create(order_vals)
-        order_lines = self._prepare_sale_order_lines(order)
-        if order_lines:
-            order.write({"order_line": order_lines})
 
         self.sale_order_id = order.id
         return order
 
-    def _prepare_sale_order_lines(self, order):
+    def _prepare_work_order_boq_lines(self, work_order):
         section_map = {
             "material": _("Material"),
             "labor": _("Labor"),
@@ -297,30 +298,33 @@ class PetroraqEstimation(models.Model):
             if not section_lines:
                 continue
             section_name = section_map.get(section_type[0], section_type[1])
-            lines.append((0, 0, {
+            lines.append({
+                "work_order_id": work_order.id,
                 "display_type": "line_section",
                 "name": section_name,
-                "order_id": order.id,
-            }))
+                "section_name": section_name,
+            })
             for line in section_lines:
                 if not line.product_id:
-                    lines.append((0, 0, {
+                    lines.append({
+                        "work_order_id": work_order.id,
                         "display_type": "line_note",
                         "name": line.name or section_name,
-                        "order_id": order.id,
-                    }))
+                        "section_name": section_name,
+                    })
                     continue
                 qty = line.quantity_hours if line.section_type in ("labor", "equipment") else (line.quantity or 0.0)
                 uom = line.uom_id or line.product_id.uom_id
-                line_vals = {
-                    "order_id": order.id,
-                    "product_id": line.product_id.id,
+                lines.append({
+                    "work_order_id": work_order.id,
+                    "display_type": "product",
                     "name": line.name or (line.product_id.display_name if line.product_id else section_name),
-                    "product_uom_qty": qty,
-                    "product_uom": uom.id if uom else False,
-                    "price_unit": line.unit_cost or 0.0,
-                }
-                lines.append((0, 0, line_vals))
+                    "product_id": line.product_id.id,
+                    "uom_id": uom.id if uom else False,
+                    "qty": qty,
+                    "unit_cost": line.unit_cost or 0.0,
+                    "section_name": section_name,
+                })
         return lines
 
     def action_create_work_order(self):
@@ -335,10 +339,111 @@ class PetroraqEstimation(models.Model):
                 "target": "current",
             }
         order = self._ensure_sale_order()
-        action = order.action_create_work_order()
+        if order.state != "sale":
+            raise UserError(_("You can only create a work order after the quotation is confirmed."))
+
         if order.work_order_id:
             self.work_order_id = order.work_order_id.id
-        return action
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Work Order"),
+                "res_model": "pr.work.order",
+                "res_id": order.work_order_id.id,
+                "view_mode": "form",
+                "target": "current",
+            }
+
+        Project = self.env["project.project"]
+        WorkOrder = self.env["pr.work.order"]
+
+        project_vals = {
+            "name": order.order_inquiry_id.description if order.order_inquiry_id else (order.name or self.name),
+            "partner_id": order.partner_id.id,
+            "company_id": order.company_id.id,
+        }
+        if order.analytic_account_id:
+            project_vals["analytic_account_id"] = order.analytic_account_id.id
+
+        project = Project.create(project_vals)
+
+        work_order_vals = {
+            "company_id": order.company_id.id,
+            "sale_order_id": order.id,
+            "partner_id": order.partner_id.id,
+            "project_id": project.id,
+            "contract_amount": order.final_grand_total,
+        }
+        if order.analytic_account_id:
+            work_order_vals["analytic_account_id"] = order.analytic_account_id.id
+
+        work_order = WorkOrder.create(work_order_vals)
+
+        for picking in order.picking_ids:
+            picking.move_ids_without_package.write({
+                "work_order_id": work_order.id,
+            })
+
+        section_map = {
+            "material": _("Material"),
+            "labor": _("Labor"),
+            "equipment": _("Equipment"),
+            "subcontract": _("Sub Contract / TPS"),
+        }
+        sections = [
+            section_map.get(section_type[0], section_type[1])
+            for section_type in SECTION_TYPES
+            if self.line_ids.filtered(lambda l: l.section_type == section_type[0])
+        ]
+
+        wo_cost_center_model = self.env["pr.work.order.cost.center"]
+        analytic_model = self.env["account.analytic.account"]
+        analytic_plan = self.env.ref("pr_account.pr_account_analytic_plan_our_project")
+
+        for section_name in sections:
+            analytic = analytic_model.create({
+                "name": f"{order.name} - {section_name}",
+                "company_id": order.company_id.id,
+                "plan_id": analytic_plan.id,
+                "partner_id": order.partner_id.id,
+            })
+
+            wo_cost_center_model.create({
+                "work_order_id": work_order.id,
+                "section_name": section_name,
+                "analytic_account_id": analytic.id,
+                "partner_id": order.partner_id.id,
+                "department_id": False,
+                "section_id": False,
+            })
+
+        for line_vals in self._prepare_work_order_boq_lines(work_order):
+            work_order.boq_line_ids.create(line_vals)
+
+        for boq in work_order.boq_line_ids:
+            if boq.display_type == 'line_section':
+                self.env['project.task'].create({
+                    'name': boq.name,
+                    'project_id': project.id,
+                    'work_order_id': work_order.id,
+                    'company_id': work_order.company_id.id,
+                })
+
+        order.write({
+            "work_order_id": work_order.id,
+            "project_id": project.id,
+            "analytic_account_id": work_order.analytic_account_id.id if work_order.analytic_account_id else False,
+        })
+
+        self.work_order_id = work_order.id
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Work Order"),
+            "res_model": "pr.work.order",
+            "res_id": work_order.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     def action_confirm_estimation(self):
         for record in self:

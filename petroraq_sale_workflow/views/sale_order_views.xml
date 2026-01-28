@@ -223,6 +223,28 @@
                        column_invisible="True"/>
             </xpath>
 
+            <xpath expr="//notebook" position="inside">
+                <page string="Estimation" invisible="not estimation_id">
+                    <group>
+                        <field name="estimation_id" readonly="1"/>
+                    </group>
+                    <field name="estimation_line_ids"
+                           readonly="1"
+                           context="{'group_by': 'section_type'}">
+                        <tree>
+                            <field name="section_type"/>
+                            <field name="product_id"/>
+                            <field name="name"/>
+                            <field name="quantity"/>
+                            <field name="quantity_hours"/>
+                            <field name="uom_id"/>
+                            <field name="unit_cost"/>
+                            <field name="subtotal"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+
             <xpath expr="//group[@name='sale_total']" position="replace">
                 <field name="inquiry_type" readonly="1" invisible="1"/>
                 <group class="oe_subtotal_footer o_petroraq_totals" colspan="2" name="sale_total">

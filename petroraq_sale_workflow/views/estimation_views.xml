@@ -20,38 +20,12 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <field name="approval_state" widget="statusbar"
-                           statusbar_visible="draft,to_manager,to_md,approved,rejected"
-                           invisible="approval_state == 'approved'"/>
-                    <field name="show_reject_button" invisible="1"/>
-                    <button string="Submit"
-                            type="object"
-                            name="action_confirm_estimation"
-                            class="btn-primary"
-                            invisible="approval_state in ('to_manager','to_md','approved','rejected')"/>
-                    <button string="Approve"
-                            type="object"
-                            name="action_manager_approve"
-                            class="btn-petroraq-custom-blue"
-                            invisible="approval_state in ('draft','to_md','approved','rejected')"
-                            groups="petroraq_sale_workflow.group_sale_approval_manager"/>
-                    <button string="Approve"
-                            type="object"
-                            name="action_md_approve"
-                            class="btn-petroraq-custom-blue"
-                            invisible="approval_state in ('draft','to_manager','approved','rejected')"
-                            groups="petroraq_sale_workflow.group_sale_approval_md"/>
-                    <button string="Reject"
-                            type="object"
-                            name="action_reject"
-                            class="btn-danger"
-                            groups="petroraq_sale_workflow.group_sale_approval_manager,petroraq_sale_workflow.group_sale_approval_md"
-                            invisible="show_reject_button == False"/>
+                    <field name="sale_order_state" invisible="1"/>
                     <button name="action_create_sale_order"
                             type="object"
                             string="Create Quotation"
                             class="btn-primary"
-                            invisible="sale_order_id or approval_state != 'approved'"/>
+                            invisible="sale_order_id"/>
                     <button name="action_create_sale_order"
                             type="object"
                             string="Open Quotation"
@@ -61,7 +35,7 @@
                             type="object"
                             string="Create Work Order"
                             class="btn-primary"
-                            invisible="work_order_id or approval_state != 'approved'"/>
+                            invisible="work_order_id or sale_order_state != 'sale'"/>
                     <button name="action_create_work_order"
                             type="object"
                             string="Open Work Order"
@@ -69,15 +43,6 @@
                             invisible="not work_order_id"/>
                 </header>
                 <sheet>
-                    <div class="alert alert-danger"
-                         style="margin: 5px 0; font-size: 15px;"
-                         invisible="not approval_comment">
-                        ❗
-                        <strong>This Estimation is Rejected.</strong>
-                        <br/>
-                        Rejection Reason :
-                        <field name="approval_comment"/>
-                    </div>
                     <group>
                         <field name="name" readonly="1"/>
                         <field name="partner_id"/>
