@@ -11,6 +11,7 @@
                 <field name="work_order_id"/>
                 <field name="sale_order_id"/>
                 <field name="retention_amount"/>
+                <field name="amount_withheld"/>
                 <field name="amount_released"/>
                 <field name="amount_remaining"/>
                 <field name="state"/>
@@ -55,12 +56,23 @@
                             <field name="retention_percent" attrs="{'invisible': [('retention_type', '!=', 'percent')]}"/>
                             <field name="retention_fixed_amount" attrs="{'invisible': [('retention_type', '!=', 'amount')]}"/>
                             <field name="retention_amount" readonly="1"/>
+                            <field name="amount_withheld" readonly="1"/>
                             <field name="amount_released" readonly="1"/>
                             <field name="amount_remaining" readonly="1"/>
                         </group>
                     </group>
 
                     <notebook>
+                        <page string="Invoice Holdbacks">
+                            <field name="holdback_line_ids" readonly="1">
+                                <tree>
+                                    <field name="date"/>
+                                    <field name="invoice_id"/>
+                                    <field name="amount"/>
+                                    <field name="note"/>
+                                </tree>
+                            </field>
+                        </page>
                         <page string="Release Schedule">
                             <field name="line_ids">
                                 <tree editable="bottom">

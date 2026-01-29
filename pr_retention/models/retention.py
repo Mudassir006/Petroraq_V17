@@ -1,5 +1,6 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
+from odoo.tools import float_is_zero
 
 
 class PRRetention(models.Model):
@@ -73,6 +74,17 @@ class PRRetention(models.Model):
         "retention_id",
         string="Release Lines",
     )
+    holdback_line_ids = fields.One2many(
+        "pr.retention.holdback",
+        "retention_id",
+        string="Invoice Holdbacks",
+    )
+    amount_withheld = fields.Monetary(
+        string="Amount Withheld",
+        currency_field="currency_id",
+        compute="_compute_withheld_amount",
+        store=True,
+    )
     amount_released = fields.Monetary(
         string="Amount Released",
         currency_field="currency_id",
@@ -122,12 +134,17 @@ class PRRetention(models.Model):
             else:
                 rec.retention_amount = rec.retention_fixed_amount or 0.0
 
-    @api.depends("line_ids.amount", "line_ids.state", "retention_amount")
+    @api.depends("holdback_line_ids.amount")
+    def _compute_withheld_amount(self):
+        for rec in self:
+            rec.amount_withheld = sum(rec.holdback_line_ids.mapped("amount"))
+
+    @api.depends("line_ids.amount", "line_ids.state", "amount_withheld")
     def _compute_release_amounts(self):
         for rec in self:
             released = sum(rec.line_ids.filtered(lambda line: line.state == "released").mapped("amount"))
             rec.amount_released = released
-            rec.amount_remaining = (rec.retention_amount or 0.0) - released
+            rec.amount_remaining = (rec.amount_withheld or 0.0) - released
 
     @api.constrains("retention_percent")
     def _check_retention_percent(self):
@@ -155,7 +172,7 @@ class PRRetention(models.Model):
 
     def action_close(self):
         for rec in self:
-            if rec.amount_remaining > 0:
+            if not float_is_zero(rec.amount_remaining, precision_rounding=rec.currency_id.rounding):
                 raise ValidationError(_("Remaining retention must be 0 before closing."))
             rec.state = "closed"
         return True
@@ -227,3 +244,36 @@ class PRRetentionLine(models.Model):
     def action_cancel(self):
         self.write({"state": "cancelled"})
         return True
+
+
+class PRRetentionHoldback(models.Model):
+    _name = "pr.retention.holdback"
+    _description = "Retention Holdback Line"
+    _order = "date desc, id desc"
+
+    retention_id = fields.Many2one(
+        "pr.retention",
+        string="Retention",
+        required=True,
+        ondelete="cascade",
+    )
+    invoice_id = fields.Many2one(
+        "account.move",
+        string="Customer Invoice",
+        domain="[('move_type', 'in', ('out_invoice', 'out_refund'))]",
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        related="retention_id.currency_id",
+        store=True,
+        readonly=True,
+    )
+    date = fields.Date(string="Date", default=fields.Date.context_today, required=True)
+    amount = fields.Monetary(string="Withheld Amount", currency_field="currency_id", required=True)
+    note = fields.Char(string="Note")
+
+    @api.constrains("amount")
+    def _check_amount(self):
+        for rec in self:
+            if float_is_zero(rec.amount, precision_rounding=rec.currency_id.rounding):
+                raise ValidationError(_("Withheld amount must be non-zero."))

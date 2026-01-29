@@ -18,6 +18,8 @@
         "data/sequence.xml",
         "views/retention_views.xml",
         "views/menu_views.xml",
+        "views/sale_order_views.xml",
+        "views/account_move_views.xml",
     ],
     "installable": True,
     "application": True,

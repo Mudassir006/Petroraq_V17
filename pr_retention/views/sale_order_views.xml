@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_sale_order_form_retention" model="ir.ui.view">
+        <field name="name">sale.order.form.retention</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook/page[@name='other_info']" position="after">
+                <page string="Retention" name="retention">
+                    <group>
+                        <field name="retention_apply"/>
+                        <field name="retention_type" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                        <field name="retention_percent" attrs="{'invisible': [('retention_type', '!=', 'percent'), ('retention_apply', '=', False)]}"/>
+                        <field name="retention_fixed_amount" attrs="{'invisible': [('retention_type', '!=', 'amount'), ('retention_apply', '=', False)]}"/>
+                        <field name="retention_amount" readonly="1" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

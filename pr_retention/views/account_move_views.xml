@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_account_move_form_retention" model="ir.ui.view">
+        <field name="name">account.move.form.retention</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Retention" name="retention">
+                    <group>
+                        <field name="retention_apply"/>
+                        <field name="retention_type" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                        <field name="retention_percent" attrs="{'invisible': [('retention_type', '!=', 'percent'), ('retention_apply', '=', False)]}"/>
+                        <field name="retention_fixed_amount" attrs="{'invisible': [('retention_type', '!=', 'amount'), ('retention_apply', '=', False)]}"/>
+                        <field name="retention_amount" readonly="1" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                        <field name="amount_after_retention" readonly="1" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                        <field name="retention_id" readonly="1" attrs="{'invisible': [('retention_apply', '=', False)]}"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
