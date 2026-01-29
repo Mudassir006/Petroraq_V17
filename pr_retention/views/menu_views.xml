@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <menuitem id="menu_pr_retention"
+              name="Retentions"
+              parent="pr_work_order.menu_pr_work_root"
+              action="action_pr_retention"
+              sequence="30"/>
+</odoo>

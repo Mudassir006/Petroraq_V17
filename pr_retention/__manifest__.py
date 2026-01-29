@@ -1,0 +1,24 @@
+{
+    "name": "PR Retention Management",
+    "version": "17.0.1.0.0",
+    "category": "Projects",
+    "summary": "Manage construction retention holdbacks and releases",
+    "author": "Petroraq Engineering",
+    "website": "",
+    "license": "LGPL-3",
+    "depends": [
+        "mail",
+        "sale_management",
+        "project",
+        "account",
+        "pr_work_order",
+    ],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/sequence.xml",
+        "views/retention_views.xml",
+        "views/menu_views.xml",
+    ],
+    "installable": True,
+    "application": True,
+}
