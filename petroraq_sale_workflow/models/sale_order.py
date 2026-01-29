@@ -29,6 +29,12 @@ class SaleOrder(models.Model):
         string="Estimation Lines",
         readonly=True,
     )
+    estimation_display_line_ids = fields.One2many(
+        "petroraq.estimation.display.line",
+        compute="_compute_estimation_display_line_ids",
+        string="Estimation Lines",
+        readonly=True,
+    )
 
     can_create_remaining_delivery = fields.Boolean(
         compute="_compute_can_create_remaining_delivery",
@@ -73,6 +79,20 @@ class SaleOrder(models.Model):
                     break
 
             order.can_create_remaining_delivery = remaining_found
+
+    @api.depends(
+        "estimation_id",
+        "estimation_id.line_ids",
+        "estimation_id.display_line_ids",
+    )
+    def _compute_estimation_display_line_ids(self):
+        for order in self:
+            if not order.estimation_id:
+                order.estimation_display_line_ids = False
+                continue
+            if not order.estimation_id.display_line_ids and order.estimation_id.line_ids:
+                order.estimation_id._rebuild_display_lines()
+            order.estimation_display_line_ids = order.estimation_id.display_line_ids
 
     def action_create_remaining_delivery(self):
         self.ensure_one()

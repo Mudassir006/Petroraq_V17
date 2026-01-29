@@ -56,6 +56,13 @@ class PetroraqEstimation(models.Model):
         "estimation_id",
         string="Estimation Lines",
     )
+    display_line_ids = fields.One2many(
+        "petroraq.estimation.display.line",
+        "estimation_id",
+        string="Estimation Display Lines",
+        readonly=True,
+        copy=False,
+    )
 
     material_line_ids = fields.One2many(
         "petroraq.estimation.line",
@@ -327,6 +334,50 @@ class PetroraqEstimation(models.Model):
                 })
         return lines
 
+    def _rebuild_display_lines(self):
+        section_map = {
+            "material": _("Material"),
+            "labor": _("Labor"),
+            "equipment": _("Equipment"),
+            "subcontract": _("Sub Contract / TPS"),
+        }
+        DisplayLine = self.env["petroraq.estimation.display.line"]
+        for estimation in self:
+            estimation.display_line_ids.unlink()
+            sequence = 1
+            estimation_lines = estimation.line_ids.sorted(lambda l: (l.section_type or "", l.id))
+            for section_type, section_label in SECTION_TYPES:
+                section_lines = estimation_lines.filtered(lambda l: l.section_type == section_type)
+                if not section_lines:
+                    continue
+                section_name = section_map.get(section_type, section_label)
+                DisplayLine.create({
+                    "estimation_id": estimation.id,
+                    "display_type": "line_section",
+                    "name": section_name,
+                    "sequence": sequence,
+                    "section_type": section_type,
+                })
+                sequence += 1
+                for line in section_lines:
+                    display_vals = {
+                        "estimation_id": estimation.id,
+                        "display_type": False,
+                        "name": line.name
+                        or (line.product_id.display_name if line.product_id else section_name),
+                        "product_id": line.product_id.id if line.product_id else False,
+                        "uom_id": line.uom_id.id if line.uom_id else False,
+                        "quantity": line.quantity or 0.0,
+                        "quantity_hours": line.quantity_hours or 0.0,
+                        "unit_cost": line.unit_cost or 0.0,
+                        "sequence": sequence,
+                        "section_type": section_type,
+                    }
+                    if not line.product_id:
+                        display_vals["display_type"] = "line_note"
+                    DisplayLine.create(display_vals)
+                    sequence += 1
+
     def action_create_work_order(self):
         self.ensure_one()
         if self.work_order_id:
@@ -587,6 +638,75 @@ class PetroraqEstimationLine(models.Model):
                 line.quantity_hours = (line.resource_count or 0.0) * (line.days or 0.0) * (line.hours_per_day or 0.0)
             else:
                 line.quantity_hours = 0.0
+
+    @api.depends(
+        "section_type",
+        "quantity",
+        "quantity_hours",
+        "unit_cost",
+    )
+    def _compute_subtotal(self):
+        for line in self:
+            qty = line.quantity_hours if line.section_type in ("labor", "equipment") else (line.quantity or 0.0)
+            line.subtotal = qty * (line.unit_cost or 0.0)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records.mapped("estimation_id")._rebuild_display_lines()
+        return records
+
+    def write(self, vals):
+        estimations = self.mapped("estimation_id")
+        res = super().write(vals)
+        (estimations | self.mapped("estimation_id"))._rebuild_display_lines()
+        return res
+
+    def unlink(self):
+        estimations = self.mapped("estimation_id")
+        res = super().unlink()
+        estimations._rebuild_display_lines()
+        return res
+
+
+class PetroraqEstimationDisplayLine(models.Model):
+    _name = "petroraq.estimation.display.line"
+    _description = "Estimation Display Line"
+    _order = "sequence, id"
+
+    estimation_id = fields.Many2one(
+        "petroraq.estimation",
+        string="Estimation",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(default=10)
+    display_type = fields.Selection(
+        [
+            ("line_section", "Section"),
+            ("line_note", "Note"),
+        ],
+        default=False,
+    )
+    section_type = fields.Selection(SECTION_TYPES, string="Section")
+    product_id = fields.Many2one("product.product", string="Product")
+    name = fields.Char(string="Description")
+    quantity = fields.Float(string="Quantity")
+    quantity_hours = fields.Float(string="Total Hours")
+    uom_id = fields.Many2one("uom.uom", string="Unit of Measure")
+    currency_id = fields.Many2one(
+        "res.currency",
+        related="estimation_id.currency_id",
+        store=True,
+        readonly=True,
+    )
+    unit_cost = fields.Monetary(string="Unit Cost", currency_field="currency_id")
+    subtotal = fields.Monetary(
+        string="Subtotal",
+        currency_field="currency_id",
+        compute="_compute_subtotal",
+        store=False,
+    )
 
     @api.depends(
         "section_type",
