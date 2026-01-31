@@ -74,14 +74,22 @@ class AccountMove(models.Model):
         )
         return sum(base_lines.mapped("price_subtotal"))
 
-    def _get_retention_account_id(self):
+    def _get_retention_account_id(self, sale_order=None):
         self.ensure_one()
         if self.company_id.retention_account_id:
             return self.company_id.retention_account_id
         candidate = self.invoice_line_ids.filtered(
             lambda l: not l.display_type and not l.is_retention_line and l.account_id
         )[:1]
-        return candidate.account_id if candidate else False
+        if candidate and candidate.account_id:
+            return candidate.account_id
+        if sale_order:
+            order_line = sale_order.order_line.filtered(
+                lambda l: not l.display_type and not l.is_downpayment
+            )[:1]
+            if order_line:
+                return order_line._get_invoice_line_account_id()
+        return False
 
     def _ensure_retention_line(self, sale_order):
         self.ensure_one()
@@ -102,7 +110,7 @@ class AccountMove(models.Model):
         if currency.is_zero(retention_amount):
             return
 
-        account_id = self._get_retention_account_id()
+        account_id = self._get_retention_account_id(sale_order=sale_order)
         if not account_id:
             return
 
