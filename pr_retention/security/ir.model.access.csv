@@ -2,3 +2,4 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_pr_retention_user,access_pr_retention_user,model_pr_retention,base.group_user,1,1,1,1
 access_pr_retention_line_user,access_pr_retention_line_user,model_pr_retention_line,base.group_user,1,1,1,1
 access_pr_retention_holdback_user,access_pr_retention_holdback_user,model_pr_retention_holdback,base.group_user,1,1,1,1
+access_pr_retention_release_wizard,access_pr_retention_release_wizard,model_pr_retention_release_wizard,base.group_user,1,1,1,1

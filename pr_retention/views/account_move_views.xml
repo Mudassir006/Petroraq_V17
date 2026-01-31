@@ -5,18 +5,16 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//notebook" position="inside">
-                <page string="Retention" name="retention">
-                    <group>
-                        <field name="retention_apply"/>
-                        <field name="retention_type" invisible="retention_apply == False"/>
-                        <field name="retention_percent" invisible="retention_type != 'percent' or retention_apply == False" />
-                        <field name="retention_fixed_amount" invisible="retention_type != 'amount' or retention_apply == False" />
-                        <field name="retention_amount" invisible="retention_apply == False" readonly="1" />
-                        <field name="amount_after_retention" readonly="1" invisible="retention_apply == False"/>
-                        <field name="retention_id" readonly="1" invisible="retention_apply == False"/>
-                    </group>
-                </page>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <div class="oe_stat_button"
+                     attrs="{'invisible': ['|', ('move_type', 'not in', ('out_invoice', 'out_refund')), ('retention_amount', '=', 0)]}">
+                    <field name="retention_amount" widget="statinfo" string="Retention"/>
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='invoice_payment_term_id']" position="after">
+                <field name="retention_amount"
+                       readonly="1"
+                       attrs="{'invisible': [('move_type', 'not in', ('out_invoice', 'out_refund'))]}"/>
             </xpath>
         </field>
     </record>

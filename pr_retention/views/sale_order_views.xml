@@ -5,18 +5,18 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//notebook" position="inside">
-                <page string="Retention" name="retention">
-                    <group>
-                        <field name="retention_apply"/>
-                        <field name="retention_type" invisible="retention_apply == False"/>
-                        <field name="retention_percent"
-                               invisible="retention_type != 'percent' or retention_apply == False"/>
-                        <field name="retention_fixed_amount"
-                               invisible="retention_type != 'amount' or retention_apply == False"/>
-                        <field name="retention_amount" invisible="retention_apply == False" readonly="1"/>
-                    </group>
-                </page>
+            <xpath expr="//header" position="inside">
+                <button name="action_release_retention"
+                        type="object"
+                        string="Release Retention"
+                        class="btn-secondary"
+                        attrs="{'invisible': [('retention_remaining', '=', 0)]}"/>
+            </xpath>
+            <xpath expr="//field[@name='payment_term_id']" position="after">
+                <field name="retention_percent"/>
+                <field name="retention_total" readonly="1"/>
+                <field name="retention_withheld_total" readonly="1"/>
+                <field name="retention_remaining" readonly="1"/>
             </xpath>
         </field>
     </record>

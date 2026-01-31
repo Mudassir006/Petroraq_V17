@@ -20,6 +20,8 @@
         "views/menu_views.xml",
         "views/sale_order_views.xml",
         "views/account_move_views.xml",
+        "views/res_config_settings_views.xml",
+        "views/retention_release_wizard_views.xml",
     ],
     "installable": True,
     "application": True,

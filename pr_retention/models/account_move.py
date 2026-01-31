@@ -1,6 +1,4 @@
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
-from odoo.tools import float_is_zero
 
 
 class AccountMove(models.Model):
@@ -29,38 +27,10 @@ class AccountMove(models.Model):
     # RETENTION FIELDS
     # -------------------------------------------------------------------------
 
-    retention_apply = fields.Boolean(string="Apply Retention", default=False)
-
-    retention_type = fields.Selection(
-        [
-            ("percent", "Percentage"),
-            ("amount", "Fixed Amount"),
-        ],
-        string="Retention Type",
-        default="percent",
-    )
-
-    retention_percent = fields.Float(
-        string="Retention (%)",
-        digits=(16, 2),
-    )
-
-    retention_fixed_amount = fields.Monetary(
-        string="Retention Fixed Amount",
-        currency_field="currency_id",
-    )
-
     retention_amount = fields.Monetary(
         string="Retention Amount",
         currency_field="currency_id",
         compute="_compute_retention_amount",
-        store=True,
-    )
-
-    amount_after_retention = fields.Monetary(
-        string="Net After Retention",
-        currency_field="currency_id",
-        compute="_compute_amount_after_retention",
         store=True,
     )
 
@@ -74,146 +44,76 @@ class AccountMove(models.Model):
             sale_orders = move.invoice_line_ids.sale_line_ids.order_id
             move.sale_order_id = sale_orders[:1].id if sale_orders else False
 
-    @api.depends(
-        "retention_apply",
-        "retention_type",
-        "retention_percent",
-        "retention_fixed_amount",
-        "amount_total",
-    )
+    @api.depends("invoice_line_ids.is_retention_line", "invoice_line_ids.price_subtotal")
     def _compute_retention_amount(self):
         for move in self:
-            if not move.retention_apply:
-                move.retention_amount = 0.0
-                continue
-
-            if move.retention_type == "percent":
-                move.retention_amount = (
-                    move.amount_total * (move.retention_percent or 0.0) / 100.0
-                )
-            else:
-                sign = -1.0 if move.amount_total < 0 else 1.0
-                move.retention_amount = sign * (move.retention_fixed_amount or 0.0)
-
-    @api.depends("amount_total", "retention_amount")
-    def _compute_amount_after_retention(self):
-        for move in self:
-            move.amount_after_retention = move.amount_total - (move.retention_amount or 0.0)
-
-    # -------------------------------------------------------------------------
-    # ONCHANGE
-    # -------------------------------------------------------------------------
-
-    @api.onchange("sale_order_id")
-    def _onchange_sale_order_id_retention(self):
-        for move in self:
-            if move.sale_order_id:
-                move.retention_apply = move.sale_order_id.retention_apply
-                move.retention_type = move.sale_order_id.retention_type
-                move.retention_percent = move.sale_order_id.retention_percent
-                move.retention_fixed_amount = move.sale_order_id.retention_fixed_amount
+            retention_lines = move.invoice_line_ids.filtered(lambda l: l.is_retention_line)
+            move.retention_amount = sum(abs(line.price_subtotal) for line in retention_lines)
 
     # -------------------------------------------------------------------------
     # RETENTION RECORD HANDLING
     # -------------------------------------------------------------------------
 
-    def _get_or_create_retention(self):
+    def _get_retention_sale_order(self):
         self.ensure_one()
+        sale_orders = self.invoice_line_ids.sale_line_ids.order_id
+        return sale_orders[:1] if sale_orders else False
 
-        retention = self.retention_id
-
-        if not retention:
-            domain = []
-            if self.sale_order_id:
-                domain = [("sale_order_id", "=", self.sale_order_id.id)]
-
-            if domain:
-                retention = self.env["pr.retention"].search(domain, limit=1)
-
-        if not retention:
-            base_amount = self.sale_order_id.amount_total if self.sale_order_id else self.amount_total
-
-            retention = self.env["pr.retention"].create(
-                {
-                    "partner_id": self.partner_id.id,
-                    "sale_order_id": self.sale_order_id.id,
-                    "company_id": self.company_id.id,
-                    "currency_id": self.currency_id.id,
-                    "base_amount": abs(base_amount),
-                    "retention_type": self.retention_type,
-                    "retention_percent": self.retention_percent,
-                    "retention_fixed_amount": abs(self.retention_fixed_amount),
-                    "state": "active",
-                }
-            )
-
-        self.retention_id = retention.id
-        return retention
-
-    def _create_retention_holdback(self):
+    def _get_retention_base_amount(self):
         self.ensure_one()
-
-        if not self.retention_apply:
-            return False
-
-        if self.move_type not in ("out_invoice", "out_refund"):
-            return False
-
-        retention = self._get_or_create_retention()
-
-        existing = retention.holdback_line_ids.filtered(
-            lambda l: l.invoice_id == self
+        # Retention base is the untaxed subtotal of invoice lines excluding retention itself.
+        base_lines = self.invoice_line_ids.filtered(
+            lambda l: not l.display_type and not l.is_retention_line
         )
+        return sum(base_lines.mapped("price_subtotal"))
 
-        if existing:
-            if float_is_zero(
-                self.retention_amount,
-                precision_rounding=self.currency_id.rounding,
-            ):
-                existing.unlink()
-                return False
+    def _get_retention_account_id(self):
+        self.ensure_one()
+        if self.company_id.retention_account_id:
+            return self.company_id.retention_account_id
+        candidate = self.invoice_line_ids.filtered(
+            lambda l: not l.display_type and not l.is_retention_line and l.account_id
+        )[:1]
+        return candidate.account_id if candidate else False
 
-            existing.write({"amount": self.retention_amount})
-            return existing
+    def _ensure_retention_line(self, sale_order):
+        self.ensure_one()
+        if self.move_type != "out_invoice":
+            return
 
-        if float_is_zero(
-            self.retention_amount,
-            precision_rounding=self.currency_id.rounding,
-        ):
-            return False
+        if not sale_order or not sale_order.retention_percent:
+            return
 
-        return self.env["pr.retention.holdback"].create(
+        if self.invoice_line_ids.filtered("is_retention_line"):
+            return
+
+        base_amount = self._get_retention_base_amount()
+        currency = self.currency_id or self.company_id.currency_id
+        retention_amount = currency.round(
+            (base_amount or 0.0) * (sale_order.retention_percent or 0.0) / 100.0
+        )
+        if currency.is_zero(retention_amount):
+            return
+
+        account_id = self._get_retention_account_id()
+        if not account_id:
+            return
+
+        self.write(
             {
-                "retention_id": retention.id,
-                "invoice_id": self.id,
-                "date": self.invoice_date or fields.Date.context_today(self),
-                "amount": self.retention_amount,
+                "invoice_line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "name": _("Retention (%s%%)") % (sale_order.retention_percent or 0.0),
+                            "quantity": 1.0,
+                            "price_unit": -retention_amount,
+                            "account_id": account_id.id,
+                            "tax_ids": [(6, 0, [])],
+                            "is_retention_line": True,
+                        },
+                    )
+                ]
             }
         )
-
-    # -------------------------------------------------------------------------
-    # POSTING
-    # -------------------------------------------------------------------------
-
-    def action_post(self):
-        res = super().action_post()
-        for move in self:
-            if move.state == "posted":
-                move._create_retention_holdback()
-        return res
-
-    # -------------------------------------------------------------------------
-    # CONSTRAINTS
-    # -------------------------------------------------------------------------
-
-    @api.constrains("retention_percent", "retention_fixed_amount")
-    def _check_retention_inputs(self):
-        for move in self:
-            if move.retention_percent < 0 or move.retention_percent > 100:
-                raise ValidationError(
-                    _("Retention percentage must be between 0 and 100.")
-                )
-            if move.retention_fixed_amount < 0:
-                raise ValidationError(
-                    _("Retention fixed amount cannot be negative.")
-                )
