@@ -54,6 +54,11 @@ class AccountMove(models.Model):
     # RETENTION RECORD HANDLING
     # -------------------------------------------------------------------------
 
+    def _is_downpayment_line(self, line):
+        return bool(line.sale_line_ids) and all(
+            sale_line.is_downpayment for sale_line in line.sale_line_ids
+        )
+
     def _get_retention_sale_order(self):
         self.ensure_one()
         sale_orders = self.invoice_line_ids.sale_line_ids.order_id
@@ -63,7 +68,9 @@ class AccountMove(models.Model):
         self.ensure_one()
         # Retention base is the untaxed subtotal of invoice lines excluding retention itself.
         base_lines = self.invoice_line_ids.filtered(
-            lambda l: not l.display_type and not l.is_retention_line
+            lambda l: not l.display_type
+            and not l.is_retention_line
+            and not self._is_downpayment_line(l)
         )
         return sum(base_lines.mapped("price_subtotal"))
 
@@ -99,7 +106,7 @@ class AccountMove(models.Model):
         if not account_id:
             return
 
-        self.write(
+        self.with_context(skip_retention_line=True).write(
             {
                 "invoice_line_ids": [
                     (
@@ -117,3 +124,26 @@ class AccountMove(models.Model):
                 ]
             }
         )
+
+    def _maybe_add_retention_line(self):
+        for move in self:
+            if move._context.get("skip_retention_line"):
+                continue
+            if move.move_type != "out_invoice":
+                continue
+            sale_order = move._get_retention_sale_order()
+            if not sale_order or not sale_order.retention_percent:
+                continue
+            move._ensure_retention_line(sale_order)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        moves._maybe_add_retention_line()
+        return moves
+
+    def write(self, vals):
+        res = super().write(vals)
+        if "invoice_line_ids" in vals and not self._context.get("skip_retention_line"):
+            self._maybe_add_retention_line()
+        return res
