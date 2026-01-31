@@ -38,11 +38,19 @@ class AccountMove(models.Model):
     # COMPUTES
     # -------------------------------------------------------------------------
 
-    @api.depends("invoice_line_ids.sale_line_ids.order_id")
+    @api.depends("invoice_line_ids.sale_line_ids.order_id", "invoice_origin")
     def _compute_sale_order_id(self):
         for move in self:
             sale_orders = move.invoice_line_ids.sale_line_ids.order_id
-            move.sale_order_id = sale_orders[:1].id if sale_orders else False
+            if sale_orders:
+                move.sale_order_id = sale_orders[:1].id
+                continue
+            if move.invoice_origin:
+                origin = move.invoice_origin.split(",")[0].strip()
+                order = self.env["sale.order"].search([("name", "=", origin)], limit=1)
+                move.sale_order_id = order.id if order else False
+                continue
+            move.sale_order_id = False
 
     @api.depends("invoice_line_ids.is_retention_line", "invoice_line_ids.price_subtotal")
     def _compute_retention_amount(self):
@@ -62,7 +70,14 @@ class AccountMove(models.Model):
     def _get_retention_sale_order(self):
         self.ensure_one()
         sale_orders = self.invoice_line_ids.sale_line_ids.order_id
-        return sale_orders[:1] if sale_orders else False
+        if sale_orders:
+            return sale_orders[:1]
+        if self.sale_order_id:
+            return self.sale_order_id
+        if self.invoice_origin:
+            origin = self.invoice_origin.split(",")[0].strip()
+            return self.env["sale.order"].search([("name", "=", origin)], limit=1)
+        return False
 
     def _get_retention_base_amount(self):
         self.ensure_one()
