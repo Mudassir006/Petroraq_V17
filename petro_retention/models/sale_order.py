@@ -114,57 +114,45 @@ class SaleOrder(models.Model):
     # -------------------------
     # Invoice hook (DP-style)
     # -------------------------
-    def _get_invoiceable_lines(self, final=False):
-        lines = super()._get_invoiceable_lines(final=final)
+    def _create_invoices(self, grouped=False, final=False, date=None):
+        moves = super()._create_invoices(grouped=grouped, final=final, date=date)
+        if not moves:
+            return moves
 
-        retention_deduct_amounts = dict(self.env.context.get("retention_deduct_amounts") or {})
-
+        remaining_map = {}
         for order in self:
             currency = order.currency_id or order.company_id.currency_id
+            remaining_map[order.id] = currency.round(order._retention_remaining_amount())
 
-            retention_pct = order.retention_percent or 0.0
-            if retention_pct <= 0:
-                continue
-
-            remaining = currency.round(order._retention_remaining_amount())
-            if currency.is_zero(remaining):
-                continue
-
-            # Base lines = invoiceable, real lines (exclude DP + retention)
-            base_lines = lines.filtered(
-                lambda l: l.order_id == order
-                          and not l.display_type
-                          and not getattr(l, "is_downpayment", False)
-                          and not getattr(l, "is_retention", False)
+        for move in moves:
+            retention_total = 0.0
+            invoice_lines = move.invoice_line_ids.filtered(
+                lambda l: not l.display_type and not getattr(l, "is_downpayment", False)
             )
-
-            # Invoice base (untaxed) like your DP calculation :contentReference[oaicite:3]{index=3}
-            invoice_base = 0.0
-            for l in base_lines:
-                qty = l.qty_to_invoice or 0.0
-                if not qty:
+            for order in move.invoice_line_ids.mapped("sale_line_ids.order_id"):
+                currency = order.currency_id or order.company_id.currency_id
+                retention_pct = order.retention_percent or 0.0
+                if retention_pct <= 0:
                     continue
-                unit = l.price_unit or 0.0
-                disc = (l.discount or 0.0) / 100.0
-                net_unit = unit * (1.0 - disc)
-                invoice_base += currency.round(net_unit * qty)
 
-            invoice_base = currency.round(invoice_base)
-            if invoice_base <= 0:
-                continue
+                remaining = currency.round(remaining_map.get(order.id, 0.0))
+                if currency.is_zero(remaining):
+                    continue
 
-            target = min(remaining, currency.round(invoice_base * retention_pct / 100.0))
-            if currency.is_zero(target):
-                continue
+                order_lines = invoice_lines.filtered(
+                    lambda l: order in l.sale_line_ids.order_id
+                )
+                invoice_base = currency.round(sum(order_lines.mapped("price_subtotal")) or 0.0)
+                if invoice_base <= 0:
+                    continue
 
-            retention_deduct_amounts[order.id] = target
+                target = min(remaining, currency.round(invoice_base * retention_pct / 100.0))
+                if currency.is_zero(target):
+                    continue
 
-        return lines.with_context(retention_deduct_amounts=retention_deduct_amounts)
+                retention_total += target
+                remaining_map[order.id] = currency.round(remaining - target)
 
-    def _prepare_invoice(self):
-        vals = super()._prepare_invoice()
-        retention_deduct_amounts = self.env.context.get("retention_deduct_amounts") or {}
-        if self:
-            order = self[0]
-            vals["retention_deduct_amount"] = retention_deduct_amounts.get(order.id, 0.0)
-        return vals
+            move.retention_deduct_amount = retention_total
+
+        return moves
