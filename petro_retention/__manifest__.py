@@ -8,6 +8,7 @@
         "data/retention_product.xml",
         "views/res_config_settings_views.xml",
         "views/sale_order_views.xml",
+        "views/account_move_views.xml",
     ],
     "license": "LGPL-3",
     "installable": True,

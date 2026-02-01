@@ -1,6 +1,4 @@
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
-from odoo.tools.float_utils import float_compare
+from odoo import api, fields, models
 
 
 class SaleOrder(models.Model):
@@ -43,39 +41,6 @@ class SaleOrder(models.Model):
     # -------------------------
     # Helpers
     # -------------------------
-    def _get_retention_product(self):
-        product_id = int(self.env["ir.config_parameter"].sudo().get_param(
-            "petro_retention.retention_product_id", "0"
-        ) or 0)
-        return self.env["product.product"].browse(product_id).exists()
-
-    def _retention_sale_line(self):
-        """One hidden SO line used only as a carrier to create invoice lines (like DP line carrier)."""
-        self.ensure_one()
-        return self.order_line.filtered(lambda l: getattr(l, "is_retention", False) and not l.display_type)[:1]
-
-    def _ensure_retention_sale_line(self):
-        self.ensure_one()
-        line = self._retention_sale_line()
-        if line:
-            return line
-
-        product = self._get_retention_product()
-        if not product:
-            raise UserError(_("No Retention Product configured. Set it in Settings → Retention."))
-
-        # Create minimal carrier line
-        line = self.env["sale.order.line"].create({
-            "order_id": self.id,
-            "product_id": product.id,
-            "name": _("Retention Deduction"),
-            "product_uom_qty": 0.0,
-            "price_unit": 0.0,
-            "discount": 0.0,
-            "is_retention": True,
-        })
-        return line
-
     def _retention_total_amount(self):
         """Total retention based on amount_untaxed (common in construction)."""
         self.ensure_one()
@@ -84,22 +49,23 @@ class SaleOrder(models.Model):
         return currency.round(base * (self.retention_percent or 0.0) / 100.0)
 
     def _retention_withheld_amount(self):
-        """Net withheld from posted invoices/refunds linked to the retention carrier line."""
+        """Net withheld from posted invoices/refunds using the tracked invoice retention amount."""
         self.ensure_one()
         currency = self.currency_id or self.company_id.currency_id
-        line = self._retention_sale_line()
-        if not line:
+        invoices = self.invoice_ids.filtered(
+            lambda m: m.state == "posted" and m.move_type in ("out_invoice", "out_refund")
+        )
+        if not invoices:
             return 0.0
 
-        amls = line.invoice_lines.filtered(
-            lambda l: l.move_id.state == "posted"
-                      and l.move_id.move_type in ("out_invoice", "out_refund")
-        )
-
-        # signed subtotal: out_invoice negative line -> negative, out_refund reversal -> positive
-        signed_sum = sum((getattr(l, "price_subtotal_signed", l.price_subtotal) or 0.0) for l in amls)
-        withheld = currency.round(-signed_sum)  # negative lines => positive withheld
-        return max(0.0, withheld)
+        withheld = 0.0
+        for move in invoices:
+            amount = currency.round(move.retention_deduct_amount or 0.0)
+            if move.move_type == "out_refund":
+                withheld -= amount
+            else:
+                withheld += amount
+        return max(0.0, currency.round(withheld))
 
     def _retention_remaining_amount(self):
         self.ensure_one()
@@ -111,8 +77,13 @@ class SaleOrder(models.Model):
     # -------------------------
     # Computes / inverse
     # -------------------------
-    @api.depends("amount_untaxed", "retention_percent", "order_line.invoice_lines.move_id.state",
-                 "order_line.invoice_lines.move_id.move_type", "order_line.invoice_lines.price_subtotal")
+    @api.depends(
+        "amount_untaxed",
+        "retention_percent",
+        "invoice_ids.state",
+        "invoice_ids.move_type",
+        "invoice_ids.retention_deduct_amount",
+    )
     def _compute_retention_totals(self):
         for order in self:
             currency = order.currency_id or order.company_id.currency_id
@@ -146,16 +117,10 @@ class SaleOrder(models.Model):
     def _get_invoiceable_lines(self, final=False):
         lines = super()._get_invoiceable_lines(final=final)
 
-        # Same pattern as dp_deduct_amounts map you already use :contentReference[oaicite:2]{index=2}
         retention_deduct_amounts = dict(self.env.context.get("retention_deduct_amounts") or {})
 
         for order in self:
             currency = order.currency_id or order.company_id.currency_id
-
-            # Always keep retention carrier line out of normal invoiceable lines
-            ret_line = order._retention_sale_line()
-            if ret_line:
-                lines = lines.filtered(lambda l: l.id != ret_line.id)
 
             retention_pct = order.retention_percent or 0.0
             if retention_pct <= 0:
@@ -194,9 +159,12 @@ class SaleOrder(models.Model):
 
             retention_deduct_amounts[order.id] = target
 
-            # Add retention carrier line as invoiceable with qty_to_invoice = -1
-            ret_line = order._ensure_retention_sale_line()
-            lines |= ret_line
-            ret_line.qty_to_invoice = -1.0
-
         return lines.with_context(retention_deduct_amounts=retention_deduct_amounts)
+
+    def _prepare_invoice(self):
+        vals = super()._prepare_invoice()
+        retention_deduct_amounts = self.env.context.get("retention_deduct_amounts") or {}
+        if self:
+            order = self[0]
+            vals["retention_deduct_amount"] = retention_deduct_amounts.get(order.id, 0.0)
+        return vals

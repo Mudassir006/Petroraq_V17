@@ -583,6 +583,18 @@
                                     مجموع ضريبة القيمة المضاف
                                 </td>
                             </tr>
+                            <tr t-if="o.retention_deduct_amount">
+                                <td width="35%" style="border:1px solid #000000;">
+                                    Retention Deduction
+                                </td>
+                                <td width="23%" style="text-align:center;border:1px solid #000000">
+                                    <span t-esc="o.retention_deduct_amount"
+                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                </td>
+                                <td width="42%" style="text-align:right;border:1px solid #000000">
+                                    خصم الاستبقاء
+                                </td>
+                            </tr>
                             <tr>
                                 <td width="35%" style="border:1px solid #000000;">
                                     Total Due Amount:
