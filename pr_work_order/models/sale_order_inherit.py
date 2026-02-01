@@ -36,32 +36,40 @@ class SaleOrder(models.Model):
         Project = self.env["project.project"]
         WorkOrder = self.env["pr.work.order"]
 
-        # --------------------------
-        # 1) Create Project
-        # --------------------------
-        project_vals = {
-            "name": order.order_inquiry_id.description or order.name,
-            "partner_id": order.partner_id.id,
-            "company_id": order.company_id.id,
-        }
-        if order.analytic_account_id:
-            project_vals["analytic_account_id"] = order.analytic_account_id.id
+        existing_projects = (
+            order.project_id
+            or order.order_line.mapped("project_id")
+        )
+        project = existing_projects[:1] if existing_projects else False
 
-        project = Project.create(project_vals)
+        # --------------------------
+        # 1) Create Project (only if not already created by SO confirmation)
+        # --------------------------
+        if not project:
+            project_vals = {
+                "name": order.order_inquiry_id.description or order.name,
+                "partner_id": order.partner_id.id,
+                "company_id": order.company_id.id,
+            }
+            if order.analytic_account_id:
+                project_vals["analytic_account_id"] = order.analytic_account_id.id
+
+            project = Project.create(project_vals)
 
         # --------------------------
         # 2) Create Work Order Header
         # --------------------------
+        analytic_account = order.analytic_account_id or project.analytic_account_id
         work_order_vals = {
             # "name": order.name,
             "company_id": order.company_id.id,
             "sale_order_id": order.id,
             "partner_id": order.partner_id.id,
-            "project_id": project.id,
+            "project_id": project.id if project else False,
             "contract_amount": order.final_grand_total,
         }
-        if order.analytic_account_id:
-            work_order_vals["analytic_account_id"] = order.analytic_account_id.id
+        if analytic_account:
+            work_order_vals["analytic_account_id"] = analytic_account.id
 
         work_order = WorkOrder.create(work_order_vals)
 
@@ -120,21 +128,22 @@ class SaleOrder(models.Model):
         # --------------------------
         # 5) Auto Create Tasks from BOQ Sections
         # --------------------------
-        for boq in work_order.boq_line_ids:
-            if boq.display_type == 'line_section':
-                self.env['project.task'].create({
-                    'name': boq.name,
-                    'project_id': project.id,
-                    'work_order_id': work_order.id,
-                    'company_id': work_order.company_id.id,
-                })
+        if project:
+            for boq in work_order.boq_line_ids:
+                if boq.display_type == "line_section":
+                    self.env["project.task"].create({
+                        "name": boq.name,
+                        "project_id": project.id,
+                        "work_order_id": work_order.id,
+                        "company_id": work_order.company_id.id,
+                    })
 
         # --------------------------
         # 6) Link SO fields
         # --------------------------
         order.write({
             "work_order_id": work_order.id,
-            "project_id": project.id,
+            "project_id": project.id if project else False,
             "analytic_account_id": work_order.analytic_account_id.id if work_order.analytic_account_id else False,
         })
 

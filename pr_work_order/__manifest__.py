@@ -15,6 +15,7 @@
         "stock",
         "mail",
         "purchase",
+        "purchase_request",
     ],
     "data": [
         "security/groups.xml",
@@ -27,6 +28,7 @@
         "views/sale_order_views.xml",
         "views/project_views.xml",
         "views/account_move_views.xml",
+        "views/purchase_request_views.xml",
         "views/work_order_reject_wizard_view.xml",
 
     ],
