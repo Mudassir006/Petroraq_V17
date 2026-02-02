@@ -12,6 +12,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         date_start = report_data["date_start"]
         date_end = report_data["date_end"]
         company = report_data["company"]
+        main_head = report_data.get("main_head")
         department = report_data.get("department")
         section = report_data.get("section")
         project = report_data.get("project")
@@ -85,33 +86,19 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         result = self.env.cr.fetchone()
         initial_balance = result[0] if result and result[0] else 0
 
-        if initial_balance >= 0:
-            initial_debit = initial_balance
-            initial_credit = 0
-        else:
-            initial_debit = 0
-            initial_credit = abs(initial_balance)
+        filtered_items = journal_items
+        if main_head == "revenue":
+            filtered_items = journal_items.filtered(lambda line: line.credit > 0)
+        elif main_head == "expense":
+            filtered_items = journal_items.filtered(lambda line: line.debit > 0)
 
-        t_debit = 0 + initial_debit
-        t_credit = 0 + initial_credit
-        init_balance = initial_balance
+        t_debit = 0
+        t_credit = 0
+        running_balance = 0
+        docs = []
 
-        docs = [
-            {
-                "transaction_ref": " ",
-                "date": f"{str(date_start)}",
-                "initial_balance": "{:,.2f}".format(init_balance),
-                "description": "Opening Balance",
-                "reference": " ",
-                "journal": " ",
-                "debit": "{:,.2f}".format(initial_debit),
-                "credit": "{:,.2f}".format(initial_credit),
-                "balance": "{:,.2f}".format(init_balance),
-            }
-        ]
-
-        for item in journal_items:
-            balance = initial_balance + (item.debit - item.credit)
+        for item in filtered_items:
+            running_balance += item.credit - item.debit
             t_debit += item.debit
             t_credit += item.credit
             docs.append(
@@ -124,10 +111,24 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
                     "journal": item.journal_id.name,
                     "debit": "{:,.2f}".format(item.debit),
                     "credit": "{:,.2f}".format(item.credit),
-                    "balance": "{:,.2f}".format(balance),
+                    "balance": "{:,.2f}".format(running_balance),
                 }
             )
-            initial_balance = balance
+
+        if not docs:
+            docs.append(
+                {
+                    "transaction_ref": " ",
+                    "date": f"{str(date_start)}",
+                    "initial_balance": "{:,.2f}".format(initial_balance),
+                    "description": "No matching entries",
+                    "reference": " ",
+                    "journal": " ",
+                    "debit": "{:,.2f}".format(0),
+                    "credit": "{:,.2f}".format(0),
+                    "balance": "{:,.2f}".format(0),
+                }
+            )
 
         docs.append(
             {
@@ -139,7 +140,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
                 "journal": " ",
                 "debit": "{:,.2f}".format(t_debit),
                 "credit": "{:,.2f}".format(t_credit),
-                "balance": "{:,.2f}".format(t_debit - t_credit),
+                "balance": "{:,.2f}".format(running_balance),
             }
         )
         return docs
@@ -150,6 +151,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             "date_end": wizard_id.date_end,
             "account": wizard_id.account_ids.ids,
             "company": wizard_id.company_id.id,
+            "main_head": wizard_id.main_head,
             "department": wizard_id.department_id.id if wizard_id.department_id else False,
             "section": wizard_id.section_id.id if wizard_id.section_id else False,
             "project": wizard_id.project_id.id if wizard_id.project_id else False,

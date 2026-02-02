@@ -53,21 +53,15 @@ class AccountLedgerMulti(models.TransientModel):
         domain="[('analytic_plan_type', '=', 'asset')]",
     )
 
-    @api.depends("date_start", "date_end", "main_head")
+    @api.depends("date_start", "date_end")
     def _compute_account_domain(self):
         for rec in self:
-            domain = []
             if self.env.user.has_group("account.group_account_manager") or self.env.user.has_group(
                 "pr_account.custom_group_accounting_manager"
             ):
-                domain = [("deprecated", "=", False)]
+                rec.account_domain = "[('deprecated','=',False)]"
             else:
-                domain = [("deprecated", "=", False), ("id", "not in", [748, 749, 1132])]
-
-            if rec.main_head:
-                domain.append(("main_head", "=", rec.main_head))
-
-            rec.account_domain = str(domain)
+                rec.account_domain = "[('deprecated','=',False), ('id', 'not in', [748, 749, 1132])]"
 
     def get_report(self):
         data = {
@@ -78,6 +72,7 @@ class AccountLedgerMulti(models.TransientModel):
                 "date_end": self.date_end.strftime("%Y-%m-%d"),
                 "account": self.account_ids.ids,
                 "company": self.company_id.id,
+                "main_head": self.main_head,
                 "department": self.department_id.id if self.department_id else False,
                 "section": self.section_id.id if self.section_id else False,
                 "project": self.project_id.id if self.project_id else False,

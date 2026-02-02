@@ -18,6 +18,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
         date_start = data["form"]["date_start"]
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
+        main_head = data["form"].get("main_head")
         department = data["form"].get("department")
         section = data["form"].get("section")
         project = data["form"].get("project")
@@ -91,28 +92,19 @@ class AccountLedgerMultiReport(models.AbstractModel):
         result = self.env.cr.fetchone()
         initial_balance = result[0] if result and result[0] else 0
 
+        filtered_items = journal_items
+        if main_head == "revenue":
+            filtered_items = journal_items.filtered(lambda line: line.credit > 0)
+        elif main_head == "expense":
+            filtered_items = journal_items.filtered(lambda line: line.debit > 0)
+
         t_debit = 0
         t_credit = 0
-        init_balance = initial_balance
-        opening_debit = initial_balance if initial_balance > 0 else 0
-        opening_credit = abs(initial_balance) if initial_balance < 0 else 0
+        running_balance = 0
+        docs = []
 
-        docs = [
-            {
-                "transaction_ref": "Opening",
-                "date": date_start,
-                "description": "Opening Balance",
-                "reference": " ",
-                "journal": " ",
-                "initial_balance": "{:,.2f}".format(initial_balance),
-                "debit": "{:,.2f}".format(opening_debit),
-                "credit": "{:,.2f}".format(opening_credit),
-                "balance": "{:,.2f}".format(initial_balance),
-            }
-        ]
-
-        for item in journal_items:
-            balance = initial_balance + (item.debit - item.credit)
+        for item in filtered_items:
+            running_balance += item.credit - item.debit
             t_debit += item.debit
             t_credit += item.credit
             docs.append(
@@ -125,10 +117,24 @@ class AccountLedgerMultiReport(models.AbstractModel):
                     "initial_balance": "{:,.2f}".format(initial_balance),
                     "debit": "{:,.2f}".format(item.debit),
                     "credit": "{:,.2f}".format(item.credit),
-                    "balance": "{:,.2f}".format(balance),
+                    "balance": "{:,.2f}".format(running_balance),
                 }
             )
-            initial_balance = balance
+
+        if not docs:
+            docs.append(
+                {
+                    "transaction_ref": " ",
+                    "date": date_start,
+                    "description": "No matching entries",
+                    "reference": " ",
+                    "journal": " ",
+                    "initial_balance": "{:,.2f}".format(initial_balance),
+                    "debit": "{:,.2f}".format(0),
+                    "credit": "{:,.2f}".format(0),
+                    "balance": "{:,.2f}".format(0),
+                }
+            )
 
         docs.append(
             {
@@ -137,10 +143,10 @@ class AccountLedgerMultiReport(models.AbstractModel):
                 "description": " ",
                 "reference": " ",
                 "journal": " ",
-                "initial_balance": "{:,.2f}".format(init_balance),
+                "initial_balance": "{:,.2f}".format(initial_balance),
                 "debit": "{:,.2f}".format(t_debit),
                 "credit": "{:,.2f}".format(t_credit),
-                "balance": "{:,.2f}".format(init_balance + t_debit - t_credit),
+                "balance": "{:,.2f}".format(running_balance),
             }
         )
 
@@ -152,6 +158,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
         date_start = data["form"]["date_start"]
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
+        main_head = data["form"].get("main_head")
 
         analytic_ids = []
         str_analytic_ids = []
@@ -171,6 +178,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
                 {
                     "account_name": account.display_name,
                     "docs": self._build_account_docs(account_id, data, analytic_ids, str_analytic_ids),
+                    "main_head": main_head,
                 }
             )
 
