@@ -10,6 +10,7 @@
                 <group>
                     <group string="Filters">
                         <field name="account_domain" invisible="1"/>
+                        <field name="main_head"/>
                         <field name="account_ids" widget="many2many_tags"
                                domain="account_domain"
                                options="{'no_create':True, 'no_create_edit':True, 'no_quick_create':True}"/>
