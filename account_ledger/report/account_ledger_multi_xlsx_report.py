@@ -8,11 +8,12 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
     _name = "report.account_ledger.account_ledger_multi_xlsx_report"
     _inherit = "report.report_xlsx.abstract"
 
-    def _build_account_docs(self, account_id, report_data, analytic_ids, str_analytic_ids):
+    def _build_partner_docs(self, partner_id, report_data, analytic_ids, str_analytic_ids):
         date_start = report_data["date_start"]
         date_end = report_data["date_end"]
         company = report_data["company"]
         main_head = report_data.get("main_head")
+        account_ids = report_data.get("account") or []
         department = report_data.get("department")
         section = report_data.get("section")
         project = report_data.get("project")
@@ -24,15 +25,18 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             ("date", ">=", datetime.strptime(str(date_start), DATE_FORMAT).date()),
             ("date", "<=", datetime.strptime(str(date_end), DATE_FORMAT).date()),
             ("move_id.state", "=", "posted"),
-            ("account_id", "=", account_id),
+            ("partner_id", "=", partner_id),
         ]
         opening_balance_domain = [
             ("company_id", "=", company),
             ("date", ">=", datetime.strptime(str(date_start), DATE_FORMAT).date()),
             ("date", "<=", datetime.strptime(str(date_end), DATE_FORMAT).date()),
             ("move_id.state", "=", "posted"),
-            ("account_id", "=", account_id),
+            ("partner_id", "=", partner_id),
         ]
+        if account_ids:
+            ji_domain.append(("account_id", "in", account_ids))
+            opening_balance_domain.append(("account_id", "in", account_ids))
 
         if analytic_ids:
             opening_balance_domain.append(("analytic_distribution", "in", analytic_ids))
@@ -59,10 +63,17 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             )
 
         where_statement = f"""
-            WHERE aml.account_id = {account_id}
+            WHERE aml.partner_id = {partner_id}
             AND
             aml.date < '{date_start}'
             AND am.state = 'posted'"""
+        if account_ids:
+            if len(account_ids) == 1:
+                where_statement += f"""
+            AND aml.account_id = {account_ids[0]}"""
+            else:
+                where_statement += f"""
+            AND aml.account_id in {tuple(account_ids)}"""
 
         if analytic_ids:
             if "WHERE" in where_statement:
@@ -80,7 +91,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             JOIN
                 account_move am ON aml.move_id = am.id
             {where_statement}
-            GROUP BY aml.account_id
+            GROUP BY aml.partner_id
         """
         self.env.cr.execute(sql)
         result = self.env.cr.fetchone()
@@ -151,10 +162,12 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         return docs, totals
 
     def generate_xlsx_report(self, workbook, data, wizard_id):
+        account_ids = wizard_id._get_report_account_ids()
         report_data = {
             "date_start": wizard_id.date_start,
             "date_end": wizard_id.date_end,
-            "account": wizard_id._get_report_account_ids(),
+            "account": account_ids,
+            "partner": wizard_id._get_report_partner_ids(account_ids=account_ids),
             "company": wizard_id.company_id.id,
             "main_head": wizard_id.main_head,
             "sort_by": wizard_id.sort_by,
@@ -202,17 +215,17 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
 
         accounts_summary = []
         account_docs = {}
-        for account in self.env["account.account"].browse(report_data["account"]):
-            docs, totals = self._build_account_docs(account.id, report_data, analytic_ids, str_analytic_ids)
+        for partner in self.env["res.partner"].browse(report_data["partner"]):
+            docs, totals = self._build_partner_docs(partner.id, report_data, analytic_ids, str_analytic_ids)
             accounts_summary.append(
                 {
-                    "account_name": account.display_name,
+                    "account_name": partner.display_name,
                     "debit": totals["debit"],
                     "credit": totals["credit"],
                     "balance": totals["balance"],
                 }
             )
-            account_docs[account.id] = docs
+            account_docs[partner.id] = docs
 
         sort_by = report_data.get("sort_by")
         sort_order = report_data.get("sort_order", "desc")
@@ -225,22 +238,22 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             else:
                 sort_key = lambda item: item["balance"]
             accounts_summary.sort(key=sort_key, reverse=reverse)
-            ordered_account_ids = [account.id for account in self.env["account.account"].browse(report_data["account"])]
+            ordered_account_ids = [partner.id for partner in self.env["res.partner"].browse(report_data["partner"])]
             summary_by_name = {item["account_name"]: item for item in accounts_summary}
             ordered_account_ids.sort(
                 key=lambda account_id: sort_key(
-                    summary_by_name[self.env["account.account"].browse(account_id).display_name]
+                    summary_by_name[self.env["res.partner"].browse(account_id).display_name]
                 ),
                 reverse=reverse,
             )
         else:
-            ordered_account_ids = report_data["account"]
+            ordered_account_ids = report_data["partner"]
 
         row = 0
-        for account in self.env["account.account"].browse(ordered_account_ids):
-            docs = account_docs.get(account.id, [])
+        for partner in self.env["res.partner"].browse(ordered_account_ids):
+            docs = account_docs.get(partner.id, [])
             worksheet.merge_range(row, 0, row, 6, "Petroraq Engineering & Construction - VAT Number 311428741500003", title_format)
-            worksheet.merge_range(row + 1, 0, row + 1, 6, f"{account.display_name}", title_format)
+            worksheet.merge_range(row + 1, 0, row + 1, 6, f"{partner.display_name}", title_format)
             worksheet.merge_range(
                 row + 2,
                 0,
@@ -272,7 +285,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
 
         worksheet.merge_range(row, 0, row, 3, "Summary", title_format)
         row += 1
-        summary_headers = ["Account", "Debit", "Credit", "Balance"]
+        summary_headers = ["Customer/Vendor", "Debit", "Credit", "Balance"]
         worksheet.write_row(row, 0, summary_headers, header_format)
         row += 1
         for summary in accounts_summary:

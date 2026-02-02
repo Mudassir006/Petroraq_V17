@@ -45,7 +45,7 @@
                         <table style="width:100%; border-collapse:collapse; margin-bottom: 12px;">
                             <tr>
                                 <td style="background:#173b76; color:#ffffff; font-size:16px; font-weight:bold; text-align:left; padding:4px; border:1px solid #000;">
-                                    Account:
+                                    Customer/Vendor:
                                     <span t-esc="account_block['account_name']"/>
                                 </td>
                             </tr>
@@ -138,7 +138,7 @@
                         <thead>
                             <tr>
                                 <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
-                                    Account
+                                    Customer/Vendor
                                 </th>
                                 <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
                                     Debit

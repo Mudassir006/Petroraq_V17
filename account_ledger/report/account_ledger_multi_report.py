@@ -14,11 +14,12 @@ class AccountLedgerMultiReport(models.AbstractModel):
         date_end = datetime.strptime(end_date, DATE_FORMAT).date()
         return f"{date_start} To {date_end}"
 
-    def _build_account_docs(self, account_id, data, analytic_ids, str_analytic_ids):
+    def _build_partner_docs(self, partner_id, data, analytic_ids, str_analytic_ids):
         date_start = data["form"]["date_start"]
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
         main_head = data["form"].get("main_head")
+        account_ids = data["form"].get("account") or []
         department = data["form"].get("department")
         section = data["form"].get("section")
         project = data["form"].get("project")
@@ -30,15 +31,18 @@ class AccountLedgerMultiReport(models.AbstractModel):
             ("date", ">=", datetime.strptime(date_start, DATE_FORMAT).date()),
             ("date", "<=", datetime.strptime(date_end, DATE_FORMAT).date()),
             ("move_id.state", "=", "posted"),
-            ("account_id", "=", account_id),
+            ("partner_id", "=", partner_id),
         ]
         opening_balance_domain = [
             ("company_id", "=", company),
             ("date", ">=", datetime.strptime(date_start, DATE_FORMAT).date()),
             ("date", "<=", datetime.strptime(date_end, DATE_FORMAT).date()),
             ("move_id.state", "=", "posted"),
-            ("account_id", "=", account_id),
+            ("partner_id", "=", partner_id),
         ]
+        if account_ids:
+            ji_domain.append(("account_id", "in", account_ids))
+            opening_balance_domain.append(("account_id", "in", account_ids))
 
         if analytic_ids:
             opening_balance_domain.append(("analytic_distribution", "in", analytic_ids))
@@ -65,10 +69,17 @@ class AccountLedgerMultiReport(models.AbstractModel):
             )
 
         where_statement = f"""
-            WHERE aml.account_id = {account_id}
+            WHERE aml.partner_id = {partner_id}
             AND
             aml.date < '{date_start}'
             AND am.state = 'posted'"""
+        if account_ids:
+            if len(account_ids) == 1:
+                where_statement += f"""
+            AND aml.account_id = {account_ids[0]}"""
+            else:
+                where_statement += f"""
+            AND aml.account_id in {tuple(account_ids)}"""
 
         if analytic_ids:
             if "WHERE" in where_statement:
@@ -86,7 +97,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
             JOIN
                 account_move am ON aml.move_id = am.id
             {where_statement}
-            GROUP BY aml.account_id
+            GROUP BY aml.partner_id
         """
         self.env.cr.execute(sql)
         result = self.env.cr.fetchone()
@@ -161,6 +172,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
         account_ids = data["form"]["account"]
+        partner_ids = data["form"].get("partner") or []
         date_start = data["form"]["date_start"]
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
@@ -168,9 +180,13 @@ class AccountLedgerMultiReport(models.AbstractModel):
         sort_by = data["form"].get("sort_by")
         sort_order = data["form"].get("sort_order", "desc")
         wizard = self.env[data["model"]].browse(data["ids"]) if data.get("ids") else self.env[data["model"]]
-        if not account_ids and wizard:
-            account_ids = wizard._get_report_account_ids()
-            data["form"]["account"] = account_ids
+        if wizard:
+            if not account_ids:
+                account_ids = wizard._get_report_account_ids()
+                data["form"]["account"] = account_ids
+            if not partner_ids:
+                partner_ids = wizard._get_report_partner_ids(account_ids=account_ids)
+                data["form"]["partner"] = partner_ids
 
         analytic_ids = []
         str_analytic_ids = []
@@ -181,16 +197,16 @@ class AccountLedgerMultiReport(models.AbstractModel):
 
         report_date = datetime.today().strftime("%b-%d-%Y")
         company_name = self.env["res.company"].browse(company).name
-        account_names = ", ".join(self.env["account.account"].browse(account_ids).mapped("name"))
+        partner_names = ", ".join(self.env["res.partner"].browse(partner_ids).mapped("name"))
 
         accounts = []
         accounts_summary = []
-        for account_id in account_ids:
-            account = self.env["account.account"].browse(account_id)
-            docs, totals = self._build_account_docs(account_id, data, analytic_ids, str_analytic_ids)
+        for partner_id in partner_ids:
+            partner = self.env["res.partner"].browse(partner_id)
+            docs, totals = self._build_partner_docs(partner_id, data, analytic_ids, str_analytic_ids)
             accounts_summary.append(
                 {
-                    "account_name": account.display_name,
+                    "account_name": partner.display_name,
                     "debit": totals["debit"],
                     "credit": totals["credit"],
                     "balance": totals["balance"],
@@ -198,7 +214,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
             )
             accounts.append(
                 {
-                    "account_name": account.display_name,
+                    "account_name": partner.display_name,
                     "docs": docs,
                     "main_head": main_head,
                 }
@@ -220,7 +236,7 @@ class AccountLedgerMultiReport(models.AbstractModel):
             "doc_ids": data["ids"],
             "doc_model": data["model"],
             "valuation_date": self._get_valuation_dates(date_start, date_end),
-            "account": f"{company_name} - {account_names}" if account_names else company_name,
+            "account": f"{company_name} - {partner_names}" if partner_names else company_name,
             "report_date": report_date,
             "accounts": accounts,
             "accounts_summary": accounts_summary,

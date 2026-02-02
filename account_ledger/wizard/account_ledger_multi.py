@@ -82,14 +82,48 @@ class AccountLedgerMulti(models.TransientModel):
         self.ensure_one()
         if self.account_ids:
             return self.account_ids.ids
-        if self.main_head == "revenue":
-            return self.env["account.account"].search([("accounts_receivable_subcategory", "=", "customers")]).ids
-        if self.main_head == "expense":
-            return self.env["account.account"].search([("accounts_payable_subcategory", "=", "suppliers")]).ids
         return []
+
+    def _get_report_partner_ids(self, account_ids=None):
+        self.ensure_one()
+        account_ids = account_ids or []
+        partner_domain = []
+        if self.main_head == "revenue":
+            partner_domain = [("customer_rank", ">", 0)]
+        elif self.main_head == "expense":
+            partner_domain = [("supplier_rank", ">", 0)]
+
+        if not partner_domain:
+            return []
+
+        move_line_domain = [
+            ("company_id", "=", self.company_id.id),
+            ("date", ">=", self.date_start),
+            ("date", "<=", self.date_end),
+            ("move_id.state", "=", "posted"),
+        ]
+        if self.main_head == "revenue":
+            move_line_domain.append(("credit", ">", 0))
+        elif self.main_head == "expense":
+            move_line_domain.append(("debit", ">", 0))
+        if account_ids:
+            move_line_domain.append(("account_id", "in", account_ids))
+
+        partner_ids = (
+            self.env["account.move.line"]
+            .search(move_line_domain)
+            .mapped("partner_id")
+            .filtered_domain(partner_domain)
+            .ids
+        )
+        if partner_ids:
+            return partner_ids
+
+        return self.env["res.partner"].search(partner_domain).ids
 
     def get_report(self):
         account_ids = self._get_report_account_ids()
+        partner_ids = self._get_report_partner_ids(account_ids=account_ids)
         data = {
             "ids": self.ids,
             "model": self._name,
@@ -97,6 +131,7 @@ class AccountLedgerMulti(models.TransientModel):
                 "date_start": self.date_start.strftime("%Y-%m-%d"),
                 "date_end": self.date_end.strftime("%Y-%m-%d"),
                 "account": account_ids,
+                "partner": partner_ids,
                 "company": self.company_id.id,
                 "main_head": self.main_head,
                 "sort_by": self.sort_by,
