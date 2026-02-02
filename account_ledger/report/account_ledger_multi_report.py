@@ -159,6 +159,10 @@ class AccountLedgerMultiReport(models.AbstractModel):
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
         main_head = data["form"].get("main_head")
+        wizard = self.env[data["model"]].browse(data["ids"]) if data.get("ids") else self.env[data["model"]]
+        if not account_ids and wizard:
+            account_ids = wizard._get_report_account_ids()
+            data["form"]["account"] = account_ids
 
         analytic_ids = []
         str_analytic_ids = []

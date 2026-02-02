@@ -149,7 +149,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         report_data = {
             "date_start": wizard_id.date_start,
             "date_end": wizard_id.date_end,
-            "account": wizard_id.account_ids.ids,
+            "account": wizard_id._get_report_account_ids(),
             "company": wizard_id.company_id.id,
             "main_head": wizard_id.main_head,
             "department": wizard_id.department_id.id if wizard_id.department_id else False,
@@ -194,7 +194,7 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         date_format = workbook.add_format({"num_format": "yyyy-mm-dd", "border": 1})
 
         row = 0
-        for account in wizard_id.account_ids:
+        for account in self.env["account.account"].browse(report_data["account"]):
             docs = self._build_account_docs(account.id, report_data, analytic_ids, str_analytic_ids)
             worksheet.merge_range(row, 0, row, 6, "Petroraq Engineering & Construction - VAT Number 311428741500003", title_format)
             worksheet.merge_range(row + 1, 0, row + 1, 6, f"{account.display_name}", title_format)

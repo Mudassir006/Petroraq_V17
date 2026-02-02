@@ -17,7 +17,7 @@ class AccountLedgerMulti(models.TransientModel):
         default=_default_date_start,
     )
     date_end = fields.Date(string="End Date", required=True, default=fields.Date.today)
-    account_ids = fields.Many2many("account.account", string="Accounts", required=True)
+    account_ids = fields.Many2many("account.account", string="Accounts")
     account_domain = fields.Char(compute="_compute_account_domain")
     main_head = fields.Selection(
         [
@@ -63,14 +63,25 @@ class AccountLedgerMulti(models.TransientModel):
             else:
                 rec.account_domain = "[('deprecated','=',False), ('id', 'not in', [748, 749, 1132])]"
 
+    def _get_report_account_ids(self):
+        self.ensure_one()
+        if self.account_ids:
+            return self.account_ids.ids
+        if self.main_head == "revenue":
+            return self.env["account.account"].search([("accounts_receivable_subcategory", "=", "customers")]).ids
+        if self.main_head == "expense":
+            return self.env["account.account"].search([("accounts_payable_subcategory", "=", "suppliers")]).ids
+        return []
+
     def get_report(self):
+        account_ids = self._get_report_account_ids()
         data = {
             "ids": self.ids,
             "model": self._name,
             "form": {
                 "date_start": self.date_start.strftime("%Y-%m-%d"),
                 "date_end": self.date_end.strftime("%Y-%m-%d"),
-                "account": self.account_ids.ids,
+                "account": account_ids,
                 "company": self.company_id.id,
                 "main_head": self.main_head,
                 "department": self.department_id.id if self.department_id else False,
