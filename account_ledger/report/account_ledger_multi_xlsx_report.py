@@ -1,0 +1,233 @@
+from datetime import datetime
+
+from odoo import models
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as DATE_FORMAT
+
+
+class AccountLedgerMultiXlsxReport(models.AbstractModel):
+    _name = "report.account_ledger.account_ledger_multi_xlsx_report"
+    _inherit = "report.report_xlsx.abstract"
+
+    def _build_account_docs(self, account_id, report_data, analytic_ids, str_analytic_ids):
+        date_start = report_data["date_start"]
+        date_end = report_data["date_end"]
+        company = report_data["company"]
+        department = report_data.get("department")
+        section = report_data.get("section")
+        project = report_data.get("project")
+        employee = report_data.get("employee")
+        asset = report_data.get("asset")
+
+        ji_domain = [
+            ("company_id", "=", company),
+            ("date", ">=", datetime.strptime(str(date_start), DATE_FORMAT).date()),
+            ("date", "<=", datetime.strptime(str(date_end), DATE_FORMAT).date()),
+            ("move_id.state", "=", "posted"),
+            ("account_id", "=", account_id),
+        ]
+        opening_balance_domain = [
+            ("company_id", "=", company),
+            ("date", ">=", datetime.strptime(str(date_start), DATE_FORMAT).date()),
+            ("date", "<=", datetime.strptime(str(date_end), DATE_FORMAT).date()),
+            ("move_id.state", "=", "posted"),
+            ("account_id", "=", account_id),
+        ]
+
+        if analytic_ids:
+            opening_balance_domain.append(("analytic_distribution", "in", analytic_ids))
+        if department:
+            ji_domain.append(("analytic_distribution", "in", [int(department)]))
+
+        journal_items = self.env["account.move.line"].search(ji_domain, order="date asc")
+
+        if journal_items and section:
+            journal_items = self.env["account.move.line"].search(
+                [("id", "in", journal_items.ids), ("analytic_distribution", "in", [int(section)])], order="date asc"
+            )
+        if journal_items and project:
+            journal_items = self.env["account.move.line"].search(
+                [("id", "in", journal_items.ids), ("analytic_distribution", "in", [int(project)])], order="date asc"
+            )
+        if journal_items and employee:
+            journal_items = self.env["account.move.line"].search(
+                [("id", "in", journal_items.ids), ("analytic_distribution", "in", [int(employee)])], order="date asc"
+            )
+        if journal_items and asset:
+            journal_items = self.env["account.move.line"].search(
+                [("id", "in", journal_items.ids), ("analytic_distribution", "in", [int(asset)])], order="date asc"
+            )
+
+        where_statement = f"""
+            WHERE aml.account_id = {account_id}
+            AND
+            aml.date < '{date_start}'
+            AND am.state = 'posted'"""
+
+        if analytic_ids:
+            if "WHERE" in where_statement:
+                where_statement += f""" AND
+                    analytic_distribution ?& array{str_analytic_ids}"""
+            else:
+                where_statement += f""" WHERE
+                    analytic_distribution ?& array{str_analytic_ids}"""
+
+        sql = f"""
+            SELECT
+                SUM(aml.balance)
+            FROM
+                account_move_line aml
+            JOIN
+                account_move am ON aml.move_id = am.id
+            {where_statement}
+            GROUP BY aml.account_id
+        """
+        self.env.cr.execute(sql)
+        result = self.env.cr.fetchone()
+        initial_balance = result[0] if result and result[0] else 0
+
+        if initial_balance >= 0:
+            initial_debit = initial_balance
+            initial_credit = 0
+        else:
+            initial_debit = 0
+            initial_credit = abs(initial_balance)
+
+        t_debit = 0 + initial_debit
+        t_credit = 0 + initial_credit
+        init_balance = initial_balance
+
+        docs = [
+            {
+                "transaction_ref": " ",
+                "date": f"{str(date_start)}",
+                "initial_balance": "{:,.2f}".format(init_balance),
+                "description": "Opening Balance",
+                "reference": " ",
+                "journal": " ",
+                "debit": "{:,.2f}".format(initial_debit),
+                "credit": "{:,.2f}".format(initial_credit),
+                "balance": "{:,.2f}".format(init_balance),
+            }
+        ]
+
+        for item in journal_items:
+            balance = initial_balance + (item.debit - item.credit)
+            t_debit += item.debit
+            t_credit += item.credit
+            docs.append(
+                {
+                    "transaction_ref": item.move_id.name,
+                    "date": item.date,
+                    "initial_balance": "{:,.2f}".format(initial_balance),
+                    "description": item.name,
+                    "reference": item.ref,
+                    "journal": item.journal_id.name,
+                    "debit": "{:,.2f}".format(item.debit),
+                    "credit": "{:,.2f}".format(item.credit),
+                    "balance": "{:,.2f}".format(balance),
+                }
+            )
+            initial_balance = balance
+
+        docs.append(
+            {
+                "transaction_ref": " ",
+                "date": f"{str(datetime.now().date())}",
+                "initial_balance": " ",
+                "description": "Totals",
+                "reference": " ",
+                "journal": " ",
+                "debit": "{:,.2f}".format(t_debit),
+                "credit": "{:,.2f}".format(t_credit),
+                "balance": "{:,.2f}".format(t_debit - t_credit),
+            }
+        )
+        return docs
+
+    def generate_xlsx_report(self, workbook, data, wizard_id):
+        report_data = {
+            "date_start": wizard_id.date_start,
+            "date_end": wizard_id.date_end,
+            "account": wizard_id.account_ids.ids,
+            "company": wizard_id.company_id.id,
+            "department": wizard_id.department_id.id if wizard_id.department_id else False,
+            "section": wizard_id.section_id.id if wizard_id.section_id else False,
+            "project": wizard_id.project_id.id if wizard_id.project_id else False,
+            "employee": wizard_id.employee_id.id if wizard_id.employee_id else False,
+            "asset": wizard_id.asset_id.id if wizard_id.asset_id else False,
+        }
+
+        analytic_ids = []
+        str_analytic_ids = []
+        for key in ("department", "section", "project", "employee", "asset"):
+            if report_data.get(key):
+                analytic_ids.append(int(report_data[key]))
+                str_analytic_ids.append(str(report_data[key]))
+
+        worksheet = workbook.add_worksheet("Account Ledger")
+
+        title_format = workbook.add_format(
+            {
+                "bold": True,
+                "font_size": 14,
+                "bg_color": "#173b76",
+                "color": "#ffffff",
+                "border": 1,
+                "align": "center",
+                "valign": "vcenter",
+            }
+        )
+        header_format = workbook.add_format(
+            {
+                "bold": True,
+                "bg_color": "#173b76",
+                "color": "#ffffff",
+                "border": 1,
+                "align": "center",
+                "valign": "vcenter",
+            }
+        )
+        money_format = workbook.add_format({"num_format": "#,##0.00", "border": 1})
+        text_format = workbook.add_format({"border": 1})
+        date_format = workbook.add_format({"num_format": "yyyy-mm-dd", "border": 1})
+
+        row = 0
+        for account in wizard_id.account_ids:
+            docs = self._build_account_docs(account.id, report_data, analytic_ids, str_analytic_ids)
+            worksheet.merge_range(row, 0, row, 6, "Petroraq Engineering & Construction - VAT Number 311428741500003", title_format)
+            worksheet.merge_range(row + 1, 0, row + 1, 6, f"{account.display_name}", title_format)
+            worksheet.merge_range(
+                row + 2,
+                0,
+                row + 2,
+                6,
+                f"Period: {wizard_id.date_start.strftime('%d-%b-%Y')} to {wizard_id.date_end.strftime('%d-%b-%Y')}",
+                title_format,
+            )
+
+            headers = ["Transaction Ref", "Date", "Reference", "Description", "Debit", "Credit", "Balance"]
+            worksheet.write_row(row + 3, 0, headers, header_format)
+
+            data_row = row + 4
+            for entry in docs:
+                is_total = entry["description"] == "Totals"
+                row_format = header_format if is_total else text_format
+                money_row_format = header_format if is_total else money_format
+                date_row_format = header_format if is_total else date_format
+                worksheet.write(data_row, 0, entry["transaction_ref"], row_format)
+                worksheet.write(data_row, 1, entry["date"], date_row_format)
+                worksheet.write(data_row, 2, entry["reference"], row_format)
+                worksheet.write(data_row, 3, entry["description"], row_format)
+                worksheet.write_number(data_row, 4, float(entry["debit"].replace(",", "")), money_row_format)
+                worksheet.write_number(data_row, 5, float(entry["credit"].replace(",", "")), money_row_format)
+                worksheet.write_number(data_row, 6, float(entry["balance"].replace(",", "")), money_row_format)
+                data_row += 1
+
+            row = data_row + 2
+
+        worksheet.set_column("A:A", 18)
+        worksheet.set_column("B:B", 12)
+        worksheet.set_column("C:C", 30)
+        worksheet.set_column("D:D", 15)
+        worksheet.set_column("E:E", 15)
+        worksheet.set_column("F:G", 15)
