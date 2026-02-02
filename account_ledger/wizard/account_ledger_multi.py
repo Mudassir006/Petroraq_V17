@@ -26,6 +26,21 @@ class AccountLedgerMulti(models.TransientModel):
         ],
         string="Main Head",
     )
+    sort_by = fields.Selection(
+        [
+            ("amount", "Amount"),
+        ],
+        string="Sort By",
+        default="amount",
+    )
+    sort_order = fields.Selection(
+        [
+            ("desc", "Highest First"),
+            ("asc", "Lowest First"),
+        ],
+        string="Sort Order",
+        default="desc",
+    )
     company_id = fields.Many2one("res.company", required=True, string="Company", default=lambda self: self.env.company)
     department_id = fields.Many2one(
         "account.analytic.account",
@@ -84,6 +99,8 @@ class AccountLedgerMulti(models.TransientModel):
                 "account": account_ids,
                 "company": self.company_id.id,
                 "main_head": self.main_head,
+                "sort_by": self.sort_by,
+                "sort_order": self.sort_order,
                 "department": self.department_id.id if self.department_id else False,
                 "section": self.section_id.id if self.section_id else False,
                 "project": self.project_id.id if self.project_id else False,

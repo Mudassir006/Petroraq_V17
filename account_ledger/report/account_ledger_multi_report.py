@@ -150,7 +150,13 @@ class AccountLedgerMultiReport(models.AbstractModel):
             }
         )
 
-        return docs
+        totals = {
+            "debit": t_debit,
+            "credit": t_credit,
+            "balance": running_balance,
+        }
+
+        return docs, totals
 
     @api.model
     def _get_report_values(self, docids, data=None):
@@ -159,6 +165,8 @@ class AccountLedgerMultiReport(models.AbstractModel):
         date_end = data["form"]["date_end"]
         company = data["form"]["company"]
         main_head = data["form"].get("main_head")
+        sort_by = data["form"].get("sort_by")
+        sort_order = data["form"].get("sort_order", "desc")
         wizard = self.env[data["model"]].browse(data["ids"]) if data.get("ids") else self.env[data["model"]]
         if not account_ids and wizard:
             account_ids = wizard._get_report_account_ids()
@@ -176,15 +184,37 @@ class AccountLedgerMultiReport(models.AbstractModel):
         account_names = ", ".join(self.env["account.account"].browse(account_ids).mapped("name"))
 
         accounts = []
+        accounts_summary = []
         for account_id in account_ids:
             account = self.env["account.account"].browse(account_id)
+            docs, totals = self._build_account_docs(account_id, data, analytic_ids, str_analytic_ids)
+            accounts_summary.append(
+                {
+                    "account_name": account.display_name,
+                    "debit": totals["debit"],
+                    "credit": totals["credit"],
+                    "balance": totals["balance"],
+                }
+            )
             accounts.append(
                 {
                     "account_name": account.display_name,
-                    "docs": self._build_account_docs(account_id, data, analytic_ids, str_analytic_ids),
+                    "docs": docs,
                     "main_head": main_head,
                 }
             )
+
+        if sort_by == "amount":
+            reverse = sort_order != "asc"
+            if main_head == "expense":
+                sort_key = lambda item: item["debit"]
+            elif main_head == "revenue":
+                sort_key = lambda item: item["credit"]
+            else:
+                sort_key = lambda item: item["balance"]
+            accounts_summary.sort(key=sort_key, reverse=reverse)
+            summary_by_name = {item["account_name"]: item for item in accounts_summary}
+            accounts.sort(key=lambda item: sort_key(summary_by_name[item["account_name"]]), reverse=reverse)
 
         return {
             "doc_ids": data["ids"],
@@ -193,4 +223,5 @@ class AccountLedgerMultiReport(models.AbstractModel):
             "account": f"{company_name} - {account_names}" if account_names else company_name,
             "report_date": report_date,
             "accounts": accounts,
+            "accounts_summary": accounts_summary,
         }

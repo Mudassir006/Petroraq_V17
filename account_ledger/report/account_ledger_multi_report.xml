@@ -126,6 +126,50 @@
                             </tbody>
                         </table>
                     </t>
+
+                    <table style="width:100%; border-collapse:collapse; margin-top: 10px;">
+                        <tr>
+                            <td style="background:#173b76; color:#ffffff; font-size:16px; font-weight:bold; text-align:left; padding:4px; border:1px solid #000;">
+                                Summary
+                            </td>
+                        </tr>
+                    </table>
+                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; margin-bottom: 18px;">
+                        <thead>
+                            <tr>
+                                <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
+                                    Account
+                                </th>
+                                <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
+                                    Debit
+                                </th>
+                                <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
+                                    Credit
+                                </th>
+                                <th style="background:#173b76; color:#ffffff; font-size:16px; padding:4px; text-align:center; border:1px solid #000;">
+                                    Balance
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="accounts_summary" t-as="summary">
+                                <tr>
+                                    <td style="text-align:left; border-bottom:1px solid #ddd;">
+                                        <span t-esc="summary['account_name']"/>
+                                    </td>
+                                    <td style="text-align:center; border-bottom:1px solid #ddd;">
+                                        <span t-esc="'{:,.2f}'.format(summary['debit'])"/>
+                                    </td>
+                                    <td style="text-align:center; border-bottom:1px solid #ddd;">
+                                        <span t-esc="'{:,.2f}'.format(summary['credit'])"/>
+                                    </td>
+                                    <td style="text-align:center; border-bottom:1px solid #ddd;">
+                                        <span t-esc="'{:,.2f}'.format(summary['balance'])"/>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
                 </div>
             </page>
 

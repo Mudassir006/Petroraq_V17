@@ -143,7 +143,12 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
                 "balance": "{:,.2f}".format(running_balance),
             }
         )
-        return docs
+        totals = {
+            "debit": t_debit,
+            "credit": t_credit,
+            "balance": running_balance,
+        }
+        return docs, totals
 
     def generate_xlsx_report(self, workbook, data, wizard_id):
         report_data = {
@@ -152,6 +157,8 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
             "account": wizard_id._get_report_account_ids(),
             "company": wizard_id.company_id.id,
             "main_head": wizard_id.main_head,
+            "sort_by": wizard_id.sort_by,
+            "sort_order": wizard_id.sort_order,
             "department": wizard_id.department_id.id if wizard_id.department_id else False,
             "section": wizard_id.section_id.id if wizard_id.section_id else False,
             "project": wizard_id.project_id.id if wizard_id.project_id else False,
@@ -193,9 +200,45 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
         text_format = workbook.add_format({"border": 1})
         date_format = workbook.add_format({"num_format": "yyyy-mm-dd", "border": 1})
 
-        row = 0
+        accounts_summary = []
+        account_docs = {}
         for account in self.env["account.account"].browse(report_data["account"]):
-            docs = self._build_account_docs(account.id, report_data, analytic_ids, str_analytic_ids)
+            docs, totals = self._build_account_docs(account.id, report_data, analytic_ids, str_analytic_ids)
+            accounts_summary.append(
+                {
+                    "account_name": account.display_name,
+                    "debit": totals["debit"],
+                    "credit": totals["credit"],
+                    "balance": totals["balance"],
+                }
+            )
+            account_docs[account.id] = docs
+
+        sort_by = report_data.get("sort_by")
+        sort_order = report_data.get("sort_order", "desc")
+        if sort_by == "amount":
+            reverse = sort_order != "asc"
+            if report_data.get("main_head") == "expense":
+                sort_key = lambda item: item["debit"]
+            elif report_data.get("main_head") == "revenue":
+                sort_key = lambda item: item["credit"]
+            else:
+                sort_key = lambda item: item["balance"]
+            accounts_summary.sort(key=sort_key, reverse=reverse)
+            ordered_account_ids = [account.id for account in self.env["account.account"].browse(report_data["account"])]
+            summary_by_name = {item["account_name"]: item for item in accounts_summary}
+            ordered_account_ids.sort(
+                key=lambda account_id: sort_key(
+                    summary_by_name[self.env["account.account"].browse(account_id).display_name]
+                ),
+                reverse=reverse,
+            )
+        else:
+            ordered_account_ids = report_data["account"]
+
+        row = 0
+        for account in self.env["account.account"].browse(ordered_account_ids):
+            docs = account_docs.get(account.id, [])
             worksheet.merge_range(row, 0, row, 6, "Petroraq Engineering & Construction - VAT Number 311428741500003", title_format)
             worksheet.merge_range(row + 1, 0, row + 1, 6, f"{account.display_name}", title_format)
             worksheet.merge_range(
@@ -226,6 +269,18 @@ class AccountLedgerMultiXlsxReport(models.AbstractModel):
                 data_row += 1
 
             row = data_row + 2
+
+        worksheet.merge_range(row, 0, row, 3, "Summary", title_format)
+        row += 1
+        summary_headers = ["Account", "Debit", "Credit", "Balance"]
+        worksheet.write_row(row, 0, summary_headers, header_format)
+        row += 1
+        for summary in accounts_summary:
+            worksheet.write(row, 0, summary["account_name"], text_format)
+            worksheet.write_number(row, 1, summary["debit"], money_format)
+            worksheet.write_number(row, 2, summary["credit"], money_format)
+            worksheet.write_number(row, 3, summary["balance"], money_format)
+            row += 1
 
         worksheet.set_column("A:A", 18)
         worksheet.set_column("B:B", 12)
