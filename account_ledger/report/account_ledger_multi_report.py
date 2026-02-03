@@ -25,17 +25,19 @@ class AccountLedgerMultiReport(models.AbstractModel):
         employee = data["form"].get("employee")
         asset = data["form"].get("asset")
 
+        date_start_value = datetime.strptime(date_start, DATE_FORMAT).date()
+        date_end_value = datetime.strptime(date_end, DATE_FORMAT).date()
         ji_domain = [
             ("company_id", "=", company),
-            ("date", ">=", datetime.strptime(date_start, DATE_FORMAT).date()),
-            ("date", "<=", datetime.strptime(date_end, DATE_FORMAT).date()),
+            ("date", ">=", date_start_value),
+            ("date", "<=", date_end_value),
             ("move_id.state", "=", "posted"),
             ("account_id", "=", account_id),
         ]
         opening_balance_domain = [
             ("company_id", "=", company),
-            ("date", ">=", datetime.strptime(date_start, DATE_FORMAT).date()),
-            ("date", "<=", datetime.strptime(date_end, DATE_FORMAT).date()),
+            ("date", ">=", date_start_value),
+            ("date", "<=", date_end_value),
             ("move_id.state", "=", "posted"),
             ("account_id", "=", account_id),
         ]
@@ -64,39 +66,53 @@ class AccountLedgerMultiReport(models.AbstractModel):
                 [("id", "in", journal_items.ids), ("analytic_distribution", "in", [int(asset)])], order="date asc"
             )
 
-        where_statement = f"""
-            WHERE aml.account_id = {account_id}
-            AND
-            aml.date < '{date_start}'
-            AND am.state = 'posted'"""
+        initial_balance = 0
+        if main_head not in ("revenue", "expense"):
+            where_statement = f"""
+                WHERE aml.account_id = {account_id}
+                AND
+                aml.date < '{date_start}'
+                AND am.state = 'posted'"""
 
-        if analytic_ids:
-            if "WHERE" in where_statement:
-                where_statement += f""" AND
-                    analytic_distribution ?& array{str_analytic_ids}"""
-            else:
-                where_statement += f""" WHERE
-                    analytic_distribution ?& array{str_analytic_ids}"""
+            if analytic_ids:
+                if "WHERE" in where_statement:
+                    where_statement += f""" AND
+                        analytic_distribution ?& array{str_analytic_ids}"""
+                else:
+                    where_statement += f""" WHERE
+                        analytic_distribution ?& array{str_analytic_ids}"""
 
-        sql = f"""
-            SELECT
-                SUM(aml.balance)
-            FROM
-                account_move_line aml
-            JOIN
-                account_move am ON aml.move_id = am.id
-            {where_statement}
-            GROUP BY aml.account_id
-        """
-        self.env.cr.execute(sql)
-        result = self.env.cr.fetchone()
-        initial_balance = result[0] if result and result[0] else 0
+            sql = f"""
+                SELECT
+                    SUM(aml.balance)
+                FROM
+                    account_move_line aml
+                JOIN
+                    account_move am ON aml.move_id = am.id
+                {where_statement}
+                GROUP BY aml.account_id
+            """
+            self.env.cr.execute(sql)
+            result = self.env.cr.fetchone()
+            initial_balance = result[0] if result and result[0] else 0
 
         filtered_items = journal_items
-        if main_head == "revenue":
-            filtered_items = journal_items.filtered(lambda line: line.credit > 0)
-        elif main_head == "expense":
-            filtered_items = journal_items.filtered(lambda line: line.debit > 0)
+        if main_head in ("revenue", "expense"):
+            move_ids = journal_items.mapped("move_id").ids
+            account_types = (
+                ("income", "other_income") if main_head == "revenue" else ("expense", "cost_of_revenue")
+            )
+            filtered_items = self.env["account.move.line"].search(
+                [
+                    ("move_id", "in", move_ids),
+                    ("account_id.account_type", "in", account_types),
+                    ("company_id", "=", company),
+                    ("date", ">=", date_start_value),
+                    ("date", "<=", date_end_value),
+                    ("move_id.state", "=", "posted"),
+                ],
+                order="date asc",
+            )
 
         t_debit = 0
         t_credit = 0

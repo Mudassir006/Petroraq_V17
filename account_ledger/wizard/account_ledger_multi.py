@@ -83,9 +83,11 @@ class AccountLedgerMulti(models.TransientModel):
         if self.account_ids:
             return self.account_ids.ids
         if self.main_head == "revenue":
-            return self.env["account.account"].search([("accounts_receivable_subcategory", "=", "customers")]).ids
+            return self.env["account.account"].search([("account_type", "in", ["income", "other_income"])]).ids
         if self.main_head == "expense":
-            return self.env["account.account"].search([("accounts_payable_subcategory", "=", "suppliers")]).ids
+            return self.env["account.account"].search(
+                [("account_type", "in", ["expense", "cost_of_revenue"])]
+            ).ids
         return []
 
     def get_report(self):
