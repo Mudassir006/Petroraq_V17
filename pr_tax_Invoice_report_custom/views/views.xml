@@ -7,6 +7,10 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
 
+            <xpath expr="//field[@name='tax_totals']" position="after">
+                <field name="downpayment_no_tax_subtotal" readonly="1"
+                       modifiers="{'invisible': [['has_downpayment_no_tax_deduct', '=', False]]}"/>
+            </xpath>
             <field name="payment_reference" position="after">
                 <field name="amount_tax" invisible="1" force_save="1"/>
                 <field name="custom_qr_image" widget="image" style="width:100px;height:100px;" invisible="1"/>

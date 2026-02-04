@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import date
+from copy import deepcopy
 from odoo.tools.misc import formatLang
 from collections import defaultdict
 from contextlib import ExitStack, contextmanager
@@ -49,12 +50,78 @@ class AccountMove(models.Model):
         compute="_compute_untaxed_before_downpayment",
         store=True,
     )
+    downpayment_no_tax_subtotal = fields.Monetary(
+        string="Downpayment (No Tax)",
+        currency_field="currency_id",
+        compute="_compute_downpayment_no_tax_subtotal",
+        store=True,
+    )
+    has_downpayment_no_tax_deduct = fields.Boolean(
+        string="Has No-Tax Downpayment Deduction",
+        compute="_compute_downpayment_no_tax_subtotal",
+        store=True,
+    )
+    amount_total_before_downpayment = fields.Monetary(
+        string="Total Before Downpayment",
+        currency_field="currency_id",
+        compute="_compute_amount_total_before_downpayment",
+        store=True,
+    )
 
     @api.depends("invoice_line_ids.price_subtotal", "invoice_line_ids.is_downpayment")
     def _compute_untaxed_before_downpayment(self):
         for move in self:
             regular_lines = move.invoice_line_ids.filtered(lambda line: not line.is_downpayment)
             move.untaxed_before_downpayment = sum(regular_lines.mapped("price_subtotal"))
+
+    @api.depends("invoice_line_ids.price_subtotal", "invoice_line_ids.is_downpayment", "invoice_line_ids.tax_ids")
+    def _compute_downpayment_no_tax_subtotal(self):
+        for move in self:
+            downpayment_lines = move.invoice_line_ids.filtered(
+                lambda line: line.is_downpayment and not line.tax_ids
+            )
+            subtotal = sum(downpayment_lines.mapped("price_subtotal"))
+            move.downpayment_no_tax_subtotal = subtotal
+            move.has_downpayment_no_tax_deduct = subtotal < 0
+
+    @api.depends("untaxed_before_downpayment", "amount_tax")
+    def _compute_amount_total_before_downpayment(self):
+        for move in self:
+            move.amount_total_before_downpayment = move.untaxed_before_downpayment + move.amount_tax
+
+    @api.depends_context("lang")
+    @api.depends(
+        "amount_untaxed",
+        "amount_total",
+        "amount_tax",
+        "currency_id",
+        "untaxed_before_downpayment",
+        "amount_total_before_downpayment",
+        "has_downpayment_no_tax_deduct",
+    )
+    def _compute_tax_totals(self):
+        super()._compute_tax_totals()
+        for move in self:
+            if not move.tax_totals or not move.has_downpayment_no_tax_deduct:
+                continue
+            tax_totals = deepcopy(move.tax_totals)
+            currency = move.currency_id
+            tax_totals["amount_untaxed"] = move.untaxed_before_downpayment
+            tax_totals["amount_total"] = move.amount_total_before_downpayment
+            tax_totals["formatted_amount_untaxed"] = formatLang(
+                move.env, move.untaxed_before_downpayment, currency_obj=currency
+            )
+            tax_totals["formatted_amount_total"] = formatLang(
+                move.env, move.amount_total_before_downpayment, currency_obj=currency
+            )
+            untaxed_label = _("Untaxed Amount")
+            for subtotal in tax_totals.get("subtotals", []):
+                if subtotal.get("name") == untaxed_label:
+                    subtotal["amount"] = move.untaxed_before_downpayment
+                    subtotal["formatted_amount"] = formatLang(
+                        move.env, move.untaxed_before_downpayment, currency_obj=currency
+                    )
+            move.tax_totals = tax_totals
 
     @api.model
     def translate_to_arabic(self, text, _logger=None):
