@@ -8,9 +8,9 @@
             <form>
                 <header>
                     <button name="button_confirm" type="object" string="Submit" class="btn-primary"
-                            invisible="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                            invisible="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                     <button name="button_cancel" type="object" string="Cancel" class="btn-secondary"
-                            invisible="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                            invisible="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                     <button name="action_create_quotation" type="object" string="Create Quotation"
                             class="btn-info"
                             invisible="state != 'accept' or sale_order_id or inquiry_type != 'trading'"
@@ -20,10 +20,10 @@
                             invisible="state != 'accept' or estimation_id or inquiry_type != 'construction'"
                             groups="pr_work_order.custom_group_work_order_user"/>
                     <button name="action_accept" type="object" string="Accept" class="btn-success"
-                            invisible="state == 'pending' or sale_order_id or state == 'cancel' or state == 'reject' or state == 'expire' or state == 'accept'"
+                            invisible="state == 'pending' or sale_order_id or state == 'cancel' or state == 'reject' or state == 'expire' or state == 'accept' or state in ('estimation_created', 'quotation_created', 'closed')"
                             groups="pr_work_order.custom_group_work_order_user"/>
                     <button name="action_open_reject_wizard" type="object" string="Reject" class="btn-danger"
-                            invisible="state == 'pending' or sale_order_id or state == 'cancel' or state == 'reject' or state == 'expire' or state == 'accept'"
+                            invisible="state == 'pending' or sale_order_id or state == 'cancel' or state == 'reject' or state == 'expire' or state == 'accept' or state in ('estimation_created', 'quotation_created', 'closed')"
                             groups="pr_work_order.custom_group_work_order_user"/>
 
                     <button name="action_extend_deadline"
@@ -31,17 +31,17 @@
                             type="object"
                             class="btn-warning"
                             groups="petroraq_sale_workflow.group_sale_approval_manager"
-                            invisible="state in ('pending', 'cancel', 'confirm', 'accept')"/>
+                            invisible="state in ('pending', 'cancel', 'confirm', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
 
                     <button name="action_reset_to_draft"
                             string="Reset Draft"
                             type="object"
                             class="btn-secondary"
                             groups="petroraq_sale_workflow.group_sale_approval_manager"
-                            invisible="state in ('pending', 'confirm', 'accept')"/>
+                            invisible="state in ('pending', 'confirm', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
 
                     <field name="state" widget="statusbar"
-                           statusbar_visible="pending,confirm,accept,cancel,reject,expire"/>
+                           statusbar_visible="pending,confirm,accept,estimation_created,quotation_created,closed,cancel,reject,expire"/>
 
 
                 </header>
@@ -61,6 +61,11 @@
                     <widget name="web_ribbon" title="Submitted" bg_color="bg-success" invisible="state != 'confirm'"/>
                     <widget name="web_ribbon" title="Pending" bg_color="bg-info" invisible="state != 'pending'"/>
                     <widget name="web_ribbon" title="Accepted" bg_color="bg-info" invisible="state != 'accept'"/>
+                    <widget name="web_ribbon" title="Estimation Created" bg_color="bg-info"
+                            invisible="state != 'estimation_created'"/>
+                    <widget name="web_ribbon" title="Quotation Created" bg_color="bg-info"
+                            invisible="state != 'quotation_created'"/>
+                    <widget name="web_ribbon" title="Closed" bg_color="bg-success" invisible="state != 'closed'"/>
                     <widget name="web_ribbon" title="Cancelled" bg_color="bg-danger" invisible="state != 'cancel'"/>
                     <widget name="web_ribbon" title="Rejected" bg_color="bg-danger" invisible="state != 'reject'"/>
                     <widget name="web_ribbon" title="Expired" bg_color="bg-danger" invisible="state != 'expire'"/>
@@ -73,16 +78,16 @@
                     <group col="2">
                         <group>
                             <field name="inquiry_type" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="description" required="1"
 
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="partner_id" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <!--                            <field name="company_id" readonly="1"/>-->
                             <field name="email" readonly="1"/>
                             <field name="user_id"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="date_order" readonly="1"/>
                             <field name="state" invisible="1"/>
 
@@ -90,17 +95,17 @@
                         </group>
                         <group>
                             <field name="contact_person" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="contact_person_email" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="contact_person_phone" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="designation"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="deadline_submission" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
                             <field name="required_attachment_ids" widget="many2many_binary" required="1"
-                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept')"/>
+                                   readonly="state in ('confirm', 'cancel', 'reject', 'expire', 'accept', 'estimation_created', 'quotation_created', 'closed')"/>
 
                             <!--                            <field name="sale_order_ids" nolable="1" widget="many2many_tags"  invisible="not multi_order" />-->
 

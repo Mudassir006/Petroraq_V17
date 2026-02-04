@@ -23,9 +23,17 @@ class OrderInquiry(models.Model):
     contact_person_email = fields.Char(string="Contact Person Email", required=True)
     contact_person_phone = fields.Char(string="Contact Person Phone", required=True)
     state = fields.Selection(
-        [('pending', 'Pending'), ('confirm', 'Submitted'), ('accept', 'Accepted'), ('cancel', 'Cancelled'),
-         ('reject', 'Rejected'),
-         ('expire', 'Expired')],
+        [
+            ('pending', 'Pending'),
+            ('confirm', 'Submitted'),
+            ('accept', 'Accepted'),
+            ('estimation_created', 'Estimation Created'),
+            ('quotation_created', 'Quotation Created'),
+            ('closed', 'Closed'),
+            ('cancel', 'Cancelled'),
+            ('reject', 'Rejected'),
+            ('expire', 'Expired'),
+        ],
         default='pending', string='State', tracking=True)
     deadline_submission = fields.Date(string="Deadline", required=True, tracking=True)
     sale_order_id = fields.Many2one('sale.order', string='Sale Order')
@@ -298,6 +306,8 @@ class OrderInquiry(models.Model):
         self.ensure_one()
         if self.inquiry_type == "construction":
             if self.estimation_id:
+                if self.state != "estimation_created":
+                    self.state = "estimation_created"
                 return {
                     "type": "ir.actions.act_window",
                     "name": "Estimation",
@@ -311,6 +321,7 @@ class OrderInquiry(models.Model):
                 "company_id": self.company_id.id,
             })
             self.estimation_id = estimation.id
+            self.state = "estimation_created"
             return {
                 "type": "ir.actions.act_window",
                 "name": "Estimation Created",
@@ -335,6 +346,7 @@ class OrderInquiry(models.Model):
 
         self.sale_order_id = sale_order.id
         self.sale_order_ids = [(4, sale_order.id)]
+        self.state = "quotation_created"
 
         return {
             'type': 'ir.actions.act_window',
@@ -383,6 +395,13 @@ class SaleOrderInherit(models.Model):
     inquiry_contact_person_phone = fields.Char(related='order_inquiry_id.contact_person_phone', store=True)
     inquiry_contact_person_email = fields.Char(related='order_inquiry_id.contact_person_email', store=True)
     inquiry_contact_person_designation = fields.Char(related='order_inquiry_id.designation', store=True)
+
+    def action_confirm(self):
+        res = super().action_confirm()
+        for order in self:
+            if order.order_inquiry_id:
+                order.order_inquiry_id.state = "closed"
+        return res
 
     def _so_renumber_lines_with_gaps(self):
         self.ensure_one()
