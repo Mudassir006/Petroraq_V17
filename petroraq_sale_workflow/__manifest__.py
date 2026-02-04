@@ -6,7 +6,15 @@
     "website": "https://petroraq.com",
     "category": "Sales",
     "license": "OEEL-1",
-    "depends": ["sale", "mail", "account", "stock", "pr_work_order"],
+    "depends": [
+        "sale",
+        "mail",
+        "account",
+        "stock",
+        "pr_work_order",
+        "base_revision",
+        "sale_order_revision",
+    ],
     "data": [
         "security/security.xml",
         "security/ir.model.access.csv",

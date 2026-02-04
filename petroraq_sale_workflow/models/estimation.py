@@ -13,7 +13,30 @@ SECTION_TYPES = [
 class PetroraqEstimation(models.Model):
     _name = "petroraq.estimation"
     _description = "Estimation"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "base.revision"]
+
+    current_revision_id = fields.Many2one(
+        comodel_name="petroraq.estimation",
+        string="Current revision",
+        readonly=True,
+        copy=True,
+    )
+    old_revision_ids = fields.One2many(
+        comodel_name="petroraq.estimation",
+        inverse_name="current_revision_id",
+        string="Old revisions",
+        readonly=True,
+        domain=["|", ("active", "=", False), ("active", "=", True)],
+        context={"active_test": False},
+    )
+
+    _sql_constraints = [
+        (
+            "revision_unique",
+            "unique(unrevisioned_name, revision_number, company_id)",
+            "Estimation Reference and revision must be unique per Company.",
+        )
+    ]
 
     approval_state = fields.Selection(
         [
@@ -277,6 +300,22 @@ class PetroraqEstimation(models.Model):
             "target": "current",
         }
 
+    def action_view_revisions(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Estimations"),
+            "res_model": "petroraq.estimation",
+            "view_mode": "tree,form",
+            "domain": ["|", ("active", "=", False), ("active", "=", True)],
+            "context": {
+                "active_test": 0,
+                "search_default_current_revision_id": self.id,
+                "default_current_revision_id": self.id,
+            },
+            "target": "current",
+        }
+
     def _ensure_sale_order(self):
         self.ensure_one()
         if not self.partner_id:
@@ -290,6 +329,18 @@ class PetroraqEstimation(models.Model):
             company = self.partner_id.company_id
         partner = self.partner_id.with_company(company)
         addresses = partner.address_get(["invoice", "delivery"])
+        order_vals = self._prepare_sale_order_vals(company, addresses, term)
+        previous_order = self._get_previous_revision_sale_order()
+        if previous_order:
+            order = previous_order.with_company(company).copy_revision_with_context()
+            order.write(order_vals)
+        else:
+            order = self.env["sale.order"].with_company(company).create(order_vals)
+
+        self.with_context(allow_estimation_write=True).sale_order_id = order.id
+        return order
+
+    def _prepare_sale_order_vals(self, company, addresses, term):
         order_vals = {
             "partner_id": self.partner_id.id,
             "company_id": company.id,
@@ -302,10 +353,17 @@ class PetroraqEstimation(models.Model):
         }
         if self.order_inquiry_id:
             order_vals["order_inquiry_id"] = self.order_inquiry_id.id
-        order = self.env["sale.order"].with_company(company).create(order_vals)
+        return order_vals
 
-        self.with_context(allow_estimation_write=True).sale_order_id = order.id
-        return order
+    def _get_previous_revision_sale_order(self):
+        self.ensure_one()
+        revisions = self.with_context(active_test=False).old_revision_ids.filtered("sale_order_id")
+        if not revisions:
+            return False
+        previous_revision = revisions.sorted(
+            key=lambda r: (r.revision_number or 0, r.id)
+        )[-1]
+        return previous_revision.sale_order_id
 
     def _prepare_work_order_boq_lines(self, work_order):
         section_map = {

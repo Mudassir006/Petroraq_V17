@@ -22,6 +22,20 @@
             <form>
                 <header>
                     <field name="sale_order_state" invisible="1"/>
+                    <field name="current_revision_id" invisible="1"/>
+                    <field name="has_old_revisions" invisible="1"/>
+                    <button name="create_revision"
+                            type="object"
+                            string="New Revision"
+                            class="btn-secondary"
+                            invisible="not sale_order_id"/>
+                    <button name="action_view_revisions"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-history"
+                            invisible="not has_old_revisions or revision_count == 0">
+                        <field name="revision_count" widget="statinfo" string="Prev. revisions"/>
+                    </button>
                     <button name="action_create_sale_order"
                             type="object"
                             string="Create Quotation"
