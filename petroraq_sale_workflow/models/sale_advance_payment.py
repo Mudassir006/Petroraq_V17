@@ -1,4 +1,5 @@
-from odoo import models
+from odoo import models, _
+from odoo.exceptions import UserError
 from odoo.tools import frozendict
 
 
@@ -128,8 +129,22 @@ class SaleAdvancePaymentInv(models.TransientModel):
         return lines
 
     def create_invoices(self):
-        res = super().create_invoices()
         orders = self.env["sale.order"].browse(self._context.get("active_ids", []))
+        if self.advance_payment_method in ("percentage", "fixed"):
+            orders_with_downpayment = orders.filtered(
+                lambda order: order.order_line.filtered(
+                    lambda line: not line.display_type and line.is_downpayment
+                )
+            )
+            if orders_with_downpayment:
+                raise UserError(
+                    _(
+                        "Only one down payment is allowed per sales order. "
+                        "Remove the existing down payment before creating another."
+                    )
+                )
+
+        res = super().create_invoices()
 
         if self.advance_payment_method == "percentage":
             for order in orders:
