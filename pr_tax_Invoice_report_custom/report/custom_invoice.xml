@@ -604,6 +604,11 @@
                                 </td>
                                 <td width="42%" style="text-align:right;border:1px solid #000000">
                                     خصم الدفعة المقدمة
+                                    <span t-if="o.downpayment_percent">
+                                        (
+                                        <t t-esc="('%g' % (o.downpayment_percent or 0.0)).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))"/>٪
+                                        )
+                                    </span>
                                 </td>
                             </tr>
 
@@ -639,6 +644,11 @@
                                 </td>
                                 <td width="42%" style="text-align:right;border:1px solid #000000">
                                     خصم الاستبقاء
+                                    <span t-if="o.retention_percent">
+                                        (
+                                        <t t-esc="('%g' % (o.retention_percent or 0.0)).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))"/>٪
+                                        )
+                                    </span>
                                 </td>
                             </tr>
                             <tr>
@@ -653,7 +663,7 @@
                                           t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                 </td>
                                 <td width="42%" style="text-align:right;border:1px solid #000000">
-                                    خصم الاستبقاء
+                                    إجمالي المبلغ المستحق
                                 </td>
                             </tr>
                         </table>
