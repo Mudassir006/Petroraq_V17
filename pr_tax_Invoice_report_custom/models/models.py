@@ -67,6 +67,14 @@ class AccountMove(models.Model):
         compute="_compute_amount_total_before_downpayment",
         store=True,
     )
+    downpayment_percent = fields.Float(
+        string="Down Payment (%)",
+        compute="_compute_downpayment_percent",
+    )
+    retention_percent = fields.Float(
+        string="Retention (%)",
+        compute="_compute_retention_percent",
+    )
 
     @api.depends("invoice_line_ids.price_subtotal", "invoice_line_ids.is_downpayment")
     def _compute_untaxed_before_downpayment(self):
@@ -88,6 +96,18 @@ class AccountMove(models.Model):
     def _compute_amount_total_before_downpayment(self):
         for move in self:
             move.amount_total_before_downpayment = move.untaxed_before_downpayment + move.amount_tax
+
+    @api.depends("invoice_line_ids.sale_line_ids.order_id.dp_percent")
+    def _compute_downpayment_percent(self):
+        for move in self:
+            sale_orders = move.invoice_line_ids.sale_line_ids.order_id
+            move.downpayment_percent = sale_orders[:1].dp_percent if sale_orders else 0.0
+
+    @api.depends("invoice_line_ids.sale_line_ids.order_id.retention_percent")
+    def _compute_retention_percent(self):
+        for move in self:
+            sale_orders = move.invoice_line_ids.sale_line_ids.order_id
+            move.retention_percent = sale_orders[:1].retention_percent if sale_orders else 0.0
 
     @api.depends_context("lang")
     @api.depends(

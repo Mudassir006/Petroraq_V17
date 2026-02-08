@@ -592,6 +592,9 @@
                             <tr t-if="is_dp_deduct">
                                 <td width="35%" style="border:1px solid #000000;">
                                     Down Payment Deduction
+                                    <span t-if="o.downpayment_percent">
+                                        (<span t-esc="'{0:.2f}'.format(o.downpayment_percent)"/>%)
+                                    </span>
                                 </td>
                                 <td width="23%" style="text-align:center;border:1px solid #000000">
                                     <span t-esc="downpayment_subtotal"
@@ -619,6 +622,9 @@
                             <tr t-if="o.retention_deduct_amount">
                                 <td width="35%" style="border:1px solid #000000;">
                                     Retention
+                                    <span t-if="o.retention_percent">
+                                        (<span t-esc="'{0:.2f}'.format(o.retention_percent)"/>%)
+                                    </span>
                                 </td>
                                 <td width="23%" style="text-align:center;border:1px solid #000000">
                                     <span t-esc="o.retention_deduct_amount"
