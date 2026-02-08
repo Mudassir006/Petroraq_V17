@@ -386,7 +386,7 @@
                                         # SL
                                     </b>
                                 </td>
-                                <td width="30%">
+                                <td width="28%">
                                     <b>البند أو الوصف
                                         <br/>
                                         Description
@@ -400,13 +400,19 @@
                                     </b>
 
                                 </td>
+                                <td width="7%">
+                                    <b>الوحدة
+                                        <br/>
+                                        Unit
+                                    </b>
+                                </td>
                                 <td width="10%">
                                     <b>وحدة السعر
                                         <br/>
                                         UNIT PRICE
                                     </b>
                                 </td>
-                                <td width="12%">
+                                <td width="10%">
                                     <b>الخصمالسعر<br/>Discount Price
                                     </b>
                                 </td>
@@ -466,6 +472,9 @@
                                     <span t-esc="l.quantity"/>
                                 </td>
                                 <td>
+                                    <span t-esc="l.product_uom_id.name"/>
+                                </td>
+                                <td>
                                     <!--                                                <span t-esc="'{0:,.2f}'.format(l.price_unit)"-->
                                     <span t-esc="l.price_unit"
                                           t-options='{"widget": "monetary", "display_currency": l.currency_id}'/>
@@ -495,7 +504,7 @@
                                 </td>
                             </tr>
                             <tr t-if="downpayment_lines">
-                                <td colspan="8" style="text-align:left;background-color:#f2f2f2;font-weight:bold;">
+                                <td colspan="9" style="text-align:left;background-color:#f2f2f2;font-weight:bold;">
                                     Down Payments / دفعات مقدمة
                                 </td>
                             </tr>
@@ -512,6 +521,9 @@
                                 </td>
                                 <td>
                                     <span t-esc="l.quantity"/>
+                                </td>
+                                <td>
+                                    <span t-esc="l.product_uom_id.name"/>
                                 </td>
                                 <td>
                                     <span t-esc="l.price_unit"
