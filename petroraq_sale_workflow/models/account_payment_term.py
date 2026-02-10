@@ -144,11 +144,14 @@ class SaleOrder(models.Model):
         if not dp_line:
             return 0.0
 
-        amls = dp_line.invoice_lines.filtered(
-            lambda l: l.move_id.state == "posted"
-                      and l.move_id.move_type == "out_invoice"
-                      and (getattr(l, "price_subtotal_signed", l.price_subtotal) or 0.0) < 0.0
-        )
+        amls = self.env["account.move.line"].search([
+            ("move_id.state", "=", "posted"),
+            ("move_id.move_type", "=", "out_invoice"),
+            "|",
+            ("sale_line_ids", "in", dp_line.ids),
+            ("dp_source_sale_line_id", "=", dp_line.id),
+        ])
+        amls = amls.filtered(lambda l: (getattr(l, "price_subtotal_signed", l.price_subtotal) or 0.0) < 0.0)
         return sum(abs(getattr(l, "price_subtotal_signed", l.price_subtotal) or 0.0) for l in amls) or 0.0
 
     def _is_fully_delivered(self):
@@ -237,8 +240,11 @@ class SaleOrder(models.Model):
         if not dp_line:
             return 0.0
 
-        amls = dp_line.invoice_lines.filtered(
-            lambda l: l.move_id.state == "posted"
-                      and l.move_id.move_type == "out_refund"
-        )
+        amls = self.env["account.move.line"].search([
+            ("move_id.state", "=", "posted"),
+            ("move_id.move_type", "=", "out_refund"),
+            "|",
+            ("sale_line_ids", "in", dp_line.ids),
+            ("dp_source_sale_line_id", "=", dp_line.id),
+        ])
         return sum(abs(getattr(l, "price_subtotal_signed", l.price_subtotal) or 0.0) for l in amls) or 0.0

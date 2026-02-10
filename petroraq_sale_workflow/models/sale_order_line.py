@@ -130,6 +130,13 @@ class SaleOrderLine(models.Model):
                     vals["price_unit"] = target_amount
                     vals["discount"] = 0.0
 
+                    # Create deduction as a regular invoice line (same as manual add):
+                    # keep taxes, but remove sale_line_ids linkage that forces
+                    # account.move.line.is_downpayment=True.
+                    vals["sale_line_ids"] = [(5, 0, 0)]
+                    vals["is_downpayment"] = False
+                    vals["dp_source_sale_line_id"] = self.id
+
         return vals
 
     # =========================
