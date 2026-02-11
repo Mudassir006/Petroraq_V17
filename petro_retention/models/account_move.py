@@ -15,8 +15,8 @@ class AccountMove(models.Model):
 
     @api.depends(
         'invoice_line_ids.price_subtotal',
+        'invoice_line_ids.is_downpayment',
         'invoice_line_ids.sale_line_ids.order_id.retention_percent',
-        'invoice_line_ids.sale_line_ids.is_downpayment',
     )
     def _compute_retention_deduct_amount(self):
         for move in self:
@@ -32,9 +32,9 @@ class AccountMove(models.Model):
 
             so = sale_orders[0]
 
-            # ✅ EXCLUDE down payment lines
+            # Exclude down payment lines from the retention base.
             valid_lines = move.invoice_line_ids.filtered(
-                lambda l: not l.sale_line_ids.is_downpayment
+                lambda l: not l.display_type and not l.is_downpayment
             )
 
             base = sum(valid_lines.mapped('price_subtotal'))
