@@ -8,11 +8,6 @@
         <field name="arch" type="xml">
 
 
-            <xpath expr="//field[@name='tax_totals']" position="after">
-                <field name="has_downpayment_no_tax_deduct" invisible="1"/>
-                <field name="downpayment_no_tax_subtotal" readonly="1"
-                       invisible="not has_downpayment_no_tax_deduct"/>
-            </xpath>
             <field name="payment_reference" position="after">
                 <field name="amount_tax" invisible="1" force_save="1"/>
                 <field name="custom_qr_image" widget="image" style="width:100px;height:100px;" invisible="1"/>

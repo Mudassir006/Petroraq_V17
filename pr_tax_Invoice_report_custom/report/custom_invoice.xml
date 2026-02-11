@@ -448,7 +448,6 @@
                             <t t-set="downpayment_lines" t-value="invoice_lines.filtered(lambda l: l.is_downpayment)"/>
                             <t t-set="downpayment_subtotal" t-value="sum(downpayment_lines.mapped('price_subtotal'))"/>
                             <t t-set="dp_subtotal" t-value="sum(downpayment_lines.mapped('price_subtotal'))"/>
-                            <t t-set="is_dp_take" t-value="dp_subtotal &gt; 0"/>
                             <t t-set="is_dp_deduct" t-value="dp_subtotal &lt; 0"/>
 
 
@@ -549,29 +548,16 @@
                         </table>
                         <table class="table table-border"
                                style="border:1px solid #000000;margin-top:-10px;font-family: 'DroidArabicNaskh';font-size: 17px !important;">
-                            <tr t-if="is_dp_deduct">
+                            <tr>
                                 <td width="35%" style="border:1px solid #000000;">
-                                    Total (Excluding Vat)
+                                    Taxable Amount
                                 </td>
                                 <td width="23%" style="text-align:center;border:1px solid #000000">
-                                    <span t-esc="o.untaxed_before_downpayment"
-                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                </td>
-                                <td width="42%" style="text-align:right;border:1px solid #000000">
-                                    الإجمالي (باستثناء ضريبة القيمة المضافة)
-                                </td>
-                            </tr>
-                            <tr t-if="not is_dp_deduct">
-                                <td width="35%" style="border:1px solid #000000;">
-                                    Untaxed Total
-                                </td>
-                                <td width="23%" style="text-align:center;border:1px solid #000000">
-                                    <!--                                                <span t-esc="'{0:,.2f}'.format(o.amount_untaxed)"-->
                                     <span t-esc="o.amount_untaxed"
                                           t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                 </td>
                                 <td width="42%" style="text-align:right;border:1px solid #000000">
-                                    الإجمالي بدون الضريبة
+                                    المبلغ الخاضع للضريبة
                                 </td>
                             </tr>
                             <tr>
@@ -593,7 +579,7 @@
                                 </td>
                                 <td width="23%" style="text-align:center;border:1px solid #000000">
                                     <!--                                                <span t-esc="'{0:,.2f}'.format(o.amount_untaxed)"-->
-                                    <span t-esc="o.untaxed_before_downpayment + o.amount_tax or o.amount_untaxed"
+                                    <span t-esc="o.amount_total"
                                           t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                 </td>
                                 <td width="42%" style="text-align:right;border:1px solid #000000">
@@ -601,44 +587,6 @@
                                 </td>
                             </tr>
 
-                            <tr t-if="is_dp_deduct">
-                                <td width="35%" style="border:1px solid #000000;">
-                                    Advance Deduction
-                                    <span t-if="o.downpayment_percent">
-                                        (
-                                        <t t-esc="('%g' % (o.downpayment_percent or 0.0))"/>%
-                                        )
-                                    </span>
-                                </td>
-                                <td width="23%" style="text-align:center;border:1px solid #000000">
-                                    <span t-esc="downpayment_subtotal"
-                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                </td>
-                                <td width="42%" style="text-align:right;border:1px solid #000000">
-                                    خصم الدفعة المقدمة
-                                    <span t-if="o.downpayment_percent">
-                                        (
-                                        <t t-esc="('%g' % (o.downpayment_percent or 0.0)).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))"/>
-                                        ٪
-                                        )
-                                    </span>
-                                </td>
-                            </tr>
-
-
-                            <!--                            <tr>-->
-                            <!--                                <td width="35%" style="border:1px solid #000000;">-->
-                            <!--                                    Total Due Amount:-->
-                            <!--                                </td>-->
-                            <!--                                <td width="23%" style="text-align:center;border:1px solid #000000">-->
-                            <!--                                    &lt;!&ndash;                                                <span t-esc="'{0:,.2f}'.format(o.amount_residual)"&ndash;&gt;-->
-                            <!--                                    <span t-esc="o.amount_residual"-->
-                            <!--                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>-->
-                            <!--                                </td>-->
-                            <!--                                <td width="42%" style="text-align:right;border:1px solid #000000">-->
-                            <!--                                    : إجمالي المبلغ المستحق-->
-                            <!--                                </td>-->
-                            <!--                            </tr>-->
                             <tr t-if="o.retention_deduct_amount">
                                 <td width="35%" style="border:1px solid #000000;">
                                     Retention
@@ -660,6 +608,29 @@
                                     <span t-if="o.retention_percent">
                                         (
                                         <t t-esc="('%g' % (o.retention_percent or 0.0)).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))"/>
+                                        ٪
+                                        )
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr t-if="is_dp_deduct">
+                                <td width="35%" style="border:1px solid #000000;">
+                                    Advance Deduction
+                                    <span t-if="o.downpayment_percent">
+                                        (
+                                        <t t-esc="('%g' % (o.downpayment_percent or 0.0))"/>%
+                                        )
+                                    </span>
+                                </td>
+                                <td width="23%" style="text-align:center;border:1px solid #000000">
+                                    <span t-esc="downpayment_subtotal"
+                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                </td>
+                                <td width="42%" style="text-align:right;border:1px solid #000000">
+                                    خصم الدفعة المقدمة
+                                    <span t-if="o.downpayment_percent">
+                                        (
+                                        <t t-esc="('%g' % (o.downpayment_percent or 0.0)).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))"/>
                                         ٪
                                         )
                                     </span>
