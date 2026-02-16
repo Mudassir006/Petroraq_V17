@@ -456,18 +456,21 @@ class AttendanceSheet(models.Model):
                 else:
                     sheet.tot_overtime_amount = 0
             else:
-                worked_hours = sum(sheet.line_ids.filtered(lambda l: l.worked_hours > 0).mapped("worked_hours"))
                 overtime_lines = sheet.line_ids.filtered(
                     lambda l: l.worked_hours > 9 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
                 )
 
-                monthly_working_hours = 260 if sheet.employee_id.resource_calendar_id.id == 6 else 208
-                if worked_hours >= monthly_working_hours:
-                    tot_overtime_custom = worked_hours - monthly_working_hours
-                else:
-                    tot_overtime_custom = 0.0
+                # Calculate overtime per-day (sum daily extra hours),
+                # instead of applying a monthly threshold.
+                tot_overtime_hours_from_calc_def = 0
+                for overtime_line in overtime_lines:
+                    tot_overtime_hours_from_calc_def += self.calculate_overtime_from_method(
+                        overtime_line,
+                        sheet.employee_id.resource_calendar_id.hours_per_day,
+                        sheet.employee_id.add_overtime
+                    )
 
-                sheet.tot_overtime = tot_overtime_custom if sheet.employee_id.add_overtime else 0.0
+                sheet.tot_overtime = tot_overtime_hours_from_calc_def if sheet.employee_id.add_overtime else 0.0
 
                 if sheet.employee_id.add_overtime and sheet.tot_overtime:
                     wage = sheet.employee_id.contract_id.wage or 0.0
