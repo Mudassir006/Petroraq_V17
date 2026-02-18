@@ -1,5 +1,7 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+from dateutil.relativedelta import relativedelta
+
 
 class CustomPR(models.Model):
     _name = 'custom.pr'
@@ -19,10 +21,12 @@ class CustomPR(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    required_date = fields.Date(string="Required Date", required=True)
+    required_date = fields.Date(string="Required Date", required=True, readonly=True)
     priority = fields.Selection(
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
+        required=True,
+        default="medium",
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type", required=True
@@ -66,12 +70,28 @@ class CustomPR(models.Model):
             ('rfq_sent', 'RFQ Sent'),
             ('pending', 'Pending'),
             ('purchase', 'Purchase Order'),
-            ('cancel', 'Cancelled' ),
+            ('cancel', 'Cancelled'),
         ],
         string="Status",
         default='draft',
         tracking=True,
     )
+
+    def _required_date_from_priority(self, priority):
+        today = fields.Date.context_today(self)
+        offsets = {
+            'low': 30,
+            'medium': 10,
+            'high': 3,
+            'urgent': 0,
+        }
+        return today + relativedelta(days=offsets.get(priority, 0))
+
+    @api.onchange('priority')
+    def _onchange_priority_set_required_date(self):
+        for rec in self:
+            if rec.priority:
+                rec.required_date = rec._required_date_from_priority(rec.priority)
 
     @api.depends('line_ids.total_price')
     def _compute_totals(self):
@@ -83,12 +103,14 @@ class CustomPR(models.Model):
 
     @api.model
     def create(self, vals):
+        if vals.get('priority'):
+            vals['required_date'] = self._required_date_from_priority(vals['priority'])
         if vals.get('pr_type') == 'cash':
             vals['name'] = self.env['ir.sequence'].next_by_code('custom.cash.pr') or '/'
         else:
             vals['name'] = self.env['ir.sequence'].next_by_code('custom.pr') or '/'
         return super(CustomPR, self).create(vals)
-    
+
     @api.model
     def default_get(self, fields_list):
         res = super(CustomPR, self).default_get(fields_list)
@@ -113,13 +135,21 @@ class CustomPR(models.Model):
 
         return res
 
+    def _get_pr_approver_users(self):
+        group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+        if not group:
+            return self.env["res.users"]
+        return self.env["res.users"].sudo().search([("groups_id", "in", group.id)])
+
     def action_create_pr(self):
         self.ensure_one()
         rec = self
 
+        approver_users = rec._get_pr_approver_users()
+
         # Check required fields
-        if not rec.supervisor or not rec.department:
-            raise ValidationError("Supervisor and Department must be filled before creating PR.")
+        if not approver_users:
+            raise ValidationError("Please assign at least one user to the PR Approver group.")
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
@@ -127,7 +157,7 @@ class CustomPR(models.Model):
         project = self.env['project.project'].search([('budget_code', '=', rec.budget_details)], limit=1)
         if not project:
             raise ValidationError("No project found for the selected cost center / budget details.")
-        
+
         # Budget validation
         if rec.total_excl_vat > project.budget_left:
             raise ValidationError(
@@ -146,13 +176,18 @@ class CustomPR(models.Model):
             existing_pr.sudo().unlink()
 
         # Create new Purchase Requisition
+        fallback_approver = approver_users[:1]
+        supervisor_name = rec.supervisor or (fallback_approver.partner_id.name if fallback_approver else False)
+        supervisor_partner_id = rec.supervisor_partner_id or (
+            fallback_approver.partner_id.id if fallback_approver else False)
+
         requisition = self.env['purchase.requisition'].sudo().create({
             'name': rec.name,
             'date_request': rec.date_request,
             'requested_by': rec.requested_by,
             'department': rec.department,
-            'supervisor': rec.supervisor,
-            'supervisor_partner_id': rec.supervisor_partner_id,
+            'supervisor': supervisor_name,
+            'supervisor_partner_id': supervisor_partner_id,
             'required_date': rec.required_date,
             'priority': rec.priority,
             'budget_type': rec.budget_type,
@@ -185,6 +220,11 @@ class CustomPR(models.Model):
             }
         }
 
+    def write(self, vals):
+        if vals.get('priority'):
+            vals['required_date'] = self._required_date_from_priority(vals['priority'])
+        return super(CustomPR, self).write(vals)
+
     @api.depends('budget_type', 'budget_details')
     def _compute_has_valid_project(self):
         for rec in self:
@@ -197,6 +237,7 @@ class CustomPR(models.Model):
                 # must exist and budget_left must be greater than 0
                 if project and project.budget_left > 0:
                     rec.has_valid_project = True
+
 
 class CustomPRLine(models.Model):
     _name = 'custom.pr.line'
@@ -234,10 +275,10 @@ class CustomPRLine(models.Model):
     #     required=True,
     # )
     unit = fields.Many2one(
-    'uom.uom',
-    string="Unit of Measure"
+        'uom.uom',
+        string="Unit of Measure"
     )
-    
+
     unit_price = fields.Float(string="Unit Price")
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)
 
@@ -245,12 +286,22 @@ class CustomPRLine(models.Model):
     def _compute_total(self):
         for line in self:
             line.total_price = line.quantity * line.unit_price
-    
+
     @api.onchange('description')
     def _onchange_description(self):
         for rec in self:
             if rec.description:
                 rec.unit = rec.description.uom_id
+
+    @api.constrains('quantity', 'unit_price')
+    def _check_non_negative_values(self):
+        for rec in self:
+            if rec.quantity < 0:
+                raise ValidationError('Quantity cannot be negative.')
+            if rec.unit_price < 0:
+                raise ValidationError('Unit Price cannot be negative.')
+
+
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
@@ -263,7 +314,7 @@ class PurchaseOrder(models.Model):
                 pr = self.env['custom.pr'].sudo().search([('name', '=', order.pr_name)], limit=1)
                 if pr:
                     all_pos = self.env['purchase.order'].sudo().search([('pr_name', '=', order.pr_name)])
-                    priority = {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'cancel': 5 }
+                    priority = {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'cancel': 5}
                     best_po = max(all_pos, key=lambda po: priority.get(po.state, 0))
 
                     # Update PR state
@@ -272,7 +323,7 @@ class PurchaseOrder(models.Model):
                         'sent': 'rfq_sent',
                         'pending': 'pending',
                         'purchase': 'purchase',
-                        'cancel': 'cancel', 
+                        'cancel': 'cancel',
                     }
                     pr.state = mapping.get(best_po.state, pr.state)
 
@@ -291,8 +342,7 @@ class PurchaseOrder(models.Model):
         if 'state' in vals:
             self._update_pr_state()
         return res
-    
+
     def print_quotation(self):
         """Override Print RFQ to use custom PetroRaq Draft Invoice report"""
         return self.env.ref('custom_pr_system.action_report_petroraq_draft_invoice').report_action(self)
-

@@ -13,9 +13,13 @@
             <field name="name">Inventory QC</field>
             <field name="category_id" ref="base.module_category_hidden"/> 
         </record>
+        <record id="group_pr_approver" model="res.groups">
+            <field name="name">PR Approver</field>
+            <field name="category_id" ref="base.module_category_hidden"/>
+        </record>
         <!-- <record id="inventory_approver" model="res.groups">
             <field name="name">Inventory Approver</field>
-            <field name="category_id" ref="base.module_category_hidden"/> 
+            <field name="category_id" ref="base.module_category_hidden"/>
         </record> -->
     </data>
 </odoo>

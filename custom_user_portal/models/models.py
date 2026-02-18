@@ -2,6 +2,7 @@ import logging
 from odoo import _, models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.exceptions import UserError
+from dateutil.relativedelta import relativedelta
 
 _logger = logging.getLogger(__name__)
 
@@ -22,10 +23,12 @@ class PurchaseRequisition(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    required_date = fields.Date(string="Required Date")
+    required_date = fields.Date(string="Required Date", readonly=True)
     priority = fields.Selection(
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
+        required=True,
+        default="medium",
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type"
@@ -66,7 +69,7 @@ class PurchaseRequisition(models.Model):
         default="pr",
     )
     is_supervisor = fields.Boolean(
-        string="Is Supervisor",
+        string="Can Approve",
         compute="_compute_is_supervisor",
     )
     status = fields.Selection(
@@ -86,8 +89,26 @@ class PurchaseRequisition(models.Model):
         compute="_compute_button_visibility", store=False
     )
 
+    def _required_date_from_priority(self, priority):
+        today = fields.Date.context_today(self)
+        offsets = {
+            "low": 30,
+            "medium": 10,
+            "high": 3,
+            "urgent": 0,
+        }
+        return today + relativedelta(days=offsets.get(priority, 0))
+
+    @api.onchange("priority")
+    def _onchange_priority_set_required_date(self):
+        for rec in self:
+            if rec.priority:
+                rec.required_date = rec._required_date_from_priority(rec.priority)
+
     @api.model
     def create(self, vals):
+        if vals.get("priority"):
+            vals["required_date"] = self._required_date_from_priority(vals["priority"])
         record = super().create(vals)
         if record.name == "New":
             if record.pr_type == "cash":
@@ -107,6 +128,9 @@ class PurchaseRequisition(models.Model):
 
     # Checking when PR is approved
     def write(self, vals):
+        if vals.get("priority"):
+            vals["required_date"] = self._required_date_from_priority(vals["priority"])
+
         approval_changed = "approval" in vals
         res = super().write(vals)
 
@@ -166,34 +190,38 @@ class PurchaseRequisition(models.Model):
     # sending activity to specific manager when PR is created
     def _notify_supervisor(self):
         try:
-            if self.supervisor_partner_id and self.supervisor_partner_id.isdigit():
-                partner_id = int(self.supervisor_partner_id)
+            approver_users = self.env["res.users"]
+            group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+            if group:
+                approver_users = self.env["res.users"].sudo().search(
+                    [("groups_id", "in", group.id)]
+                )
 
+            if self.supervisor_partner_id and str(self.supervisor_partner_id).isdigit():
+                partner_id = int(self.supervisor_partner_id)
                 supervisor_user = (
                     self.env["res.users"]
                     .sudo()
                     .search([("partner_id", "=", partner_id)], limit=1)
                 )
+                if supervisor_user:
+                    approver_users |= supervisor_user
 
-                if not supervisor_user:
-                    _logger.warning(
-                        "Supervisor user not found for partner_id=%s", partner_id
-                    )
-                    return
+            approver_users = approver_users.filtered(lambda u: u.active)
+            if not approver_users:
+                _logger.warning("No PR approver users found for PR=%s", self.name)
+                return
 
+            for approver in approver_users:
                 self.activity_schedule(
                     activity_type_id=self.env.ref("mail.mail_activity_data_todo").id,
-                    user_id=supervisor_user.id,
+                    user_id=approver.id,
                     summary="Review New PR",
                     note=_("Please review the new Purchase Requisition: <b>%s</b>.")
                     % self.name,
                 )
 
-                _logger.info(
-                    "Activity created for supervisor user_id=%s on PR=%s",
-                    supervisor_user.id,
-                    self.name,
-                )
+            _logger.info("Activity created for %s approver(s) on PR=%s", len(approver_users), self.name)
 
         except Exception as e:
             _logger.error("Error creating activity for PR=%s: %s", self.name, str(e))
@@ -492,14 +520,16 @@ class PurchaseRequisition(models.Model):
                 supervisor_partner_id = (
                     int(rec.supervisor_partner_id) if rec.supervisor_partner_id else 0
                 )
-            except ValueError:
+            except (ValueError, TypeError):
                 supervisor_partner_id = 0
 
-            current_partner_id = (
-                self.env.user.partner_id.id if self.env.user.partner_id else 0
-            )
+            current_user = rec.env.user
+            current_partner_id = current_user.partner_id.id if current_user.partner_id else 0
+            has_approver_group = current_user.has_group("custom_pr_system.group_pr_approver")
 
-            rec.is_supervisor = supervisor_partner_id == current_partner_id
+            rec.is_supervisor = has_approver_group or (
+                supervisor_partner_id == current_partner_id
+            )
 
 
 class PurchaseRequisitionLine(models.Model):
@@ -527,6 +557,14 @@ class PurchaseRequisitionLine(models.Model):
     def _compute_total(self):
         for rec in self:
             rec.total_price = rec.quantity * rec.unit_price
+
+    @api.constrains("quantity", "unit_price")
+    def _check_non_negative_values(self):
+        for rec in self:
+            if rec.quantity < 0:
+                raise ValidationError("Quantity cannot be negative.")
+            if rec.unit_price < 0:
+                raise ValidationError("Unit Price cannot be negative.")
 
 
 class PurchaseQuotation(models.Model):
@@ -567,3 +605,11 @@ class PurchaseOrderCustomLine(models.Model):
     def _compute_subtotal(self):
         for line in self:
             line.subtotal = line.quantity * line.price_unit
+
+    @api.constrains("quantity", "price_unit")
+    def _check_non_negative_subtotal_inputs(self):
+        for line in self:
+            if line.quantity < 0:
+                raise ValidationError("Quantity cannot be negative.")
+            if line.price_unit < 0:
+                raise ValidationError("Unit Price cannot be negative.")

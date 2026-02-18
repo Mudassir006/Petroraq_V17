@@ -2,7 +2,7 @@
     <record id="purchase_requisition_supervisor_rule" model="ir.rule">
         <field name="name">PRs visible to assigned Supervisor</field>
         <field name="model_id" ref="model_purchase_requisition"/>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('custom_pr_system.group_pr_approver'))]"/>
         <field name="domain_force">[('supervisor_partner_id', '=', str(user.partner_id.id))]</field>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="1"/>
