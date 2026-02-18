@@ -90,8 +90,37 @@ class CustomPR(models.Model):
         return super(CustomPR, self).create(vals)
     
     @api.model
+    def _get_default_org_fallbacks(self):
+        """Fallback values used when employee profile has no org hierarchy."""
+        icp = self.env['ir.config_parameter'].sudo()
+        department_name = 'General'
+        supervisor_name = 'Unassigned Supervisor'
+        supervisor_partner_id = False
+
+        department_id = icp.get_param('custom_user_portal.pr_default_department_id')
+        if department_id and str(department_id).isdigit() and 'hr.department' in self.env:
+            department = self.env['hr.department'].sudo().browse(int(department_id))
+            if department.exists() and department.name:
+                department_name = department.name
+
+        supervisor_id = icp.get_param('custom_user_portal.pr_default_supervisor_id')
+        if supervisor_id and str(supervisor_id).isdigit() and 'hr.employee' in self.env:
+            supervisor = self.env['hr.employee'].sudo().browse(int(supervisor_id))
+            if supervisor.exists():
+                supervisor_name = supervisor.name or supervisor_name
+                if supervisor.user_id and supervisor.user_id.partner_id:
+                    supervisor_partner_id = supervisor.user_id.partner_id.id
+
+        return {
+            'department': department_name,
+            'supervisor': supervisor_name,
+            'supervisor_partner_id': supervisor_partner_id,
+        }
+
+    @api.model
     def default_get(self, fields_list):
         res = super(CustomPR, self).default_get(fields_list)
+        fallback_values = self._get_default_org_fallbacks()
 
         # Get current user
         user = self.env.user
@@ -101,14 +130,17 @@ class CustomPR(models.Model):
             res.update({
                 'requested_by': employee.name,
                 'requested_user_id': user.id,
-                'department': employee.department_id.name if employee.department_id else False,
-                'supervisor': employee.parent_id.name if employee.parent_id else False,
-                'supervisor_partner_id': employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else False,
+                'department': employee.department_id.name if employee.department_id else fallback_values['department'],
+                'supervisor': employee.parent_id.name if employee.parent_id else fallback_values['supervisor'],
+                'supervisor_partner_id': employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else fallback_values['supervisor_partner_id'],
             })
         else:
             res.update({
                 'requested_by': user.name,
                 'requested_user_id': user.id,
+                'department': fallback_values['department'],
+                'supervisor': fallback_values['supervisor'],
+                'supervisor_partner_id': fallback_values['supervisor_partner_id'],
             })
 
         return res
@@ -117,9 +149,13 @@ class CustomPR(models.Model):
         self.ensure_one()
         rec = self
 
-        # Check required fields
-        if not rec.supervisor or not rec.department:
-            raise ValidationError("Supervisor and Department must be filled before creating PR.")
+        fallback_values = self._get_default_org_fallbacks()
+        if not rec.department or not rec.supervisor:
+            rec.write({
+                'department': rec.department or fallback_values['department'],
+                'supervisor': rec.supervisor or fallback_values['supervisor'],
+                'supervisor_partner_id': rec.supervisor_partner_id or fallback_values['supervisor_partner_id'],
+            })
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
@@ -295,4 +331,3 @@ class PurchaseOrder(models.Model):
     def print_quotation(self):
         """Override Print RFQ to use custom PetroRaq Draft Invoice report"""
         return self.env.ref('custom_pr_system.action_report_petroraq_draft_invoice').report_action(self)
-

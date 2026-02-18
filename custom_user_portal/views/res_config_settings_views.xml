@@ -1,0 +1,40 @@
+<odoo>
+    <record id="action_pr_fallback_settings" model="ir.actions.act_window">
+        <field name="name">PR Fallback Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'custom_user_portal'}</field>
+    </record>
+
+    <menuitem id="menu_pr_fallback_settings"
+              name="PR Fallback Settings"
+              parent="custom_pr_system.menu_purchase_requisition"
+              action="action_pr_fallback_settings"
+              sequence="90"
+              groups="base.group_system"/>
+
+    <record id="res_config_settings_view_form_inherit_pr_defaults" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.pr.defaults</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Purchase Requisition" name="custom_pr_requisition_settings">
+                    <block title="Requisition Fallback Defaults">
+                        <setting id="pr_default_department_setting"
+                                 string="Default Department"
+                                 help="Used when an employee has no department configured.">
+                            <field name="pr_default_department_id" options="{'no_open': False}"/>
+                        </setting>
+                        <setting id="pr_default_supervisor_setting"
+                                 string="Default Supervisor"
+                                 help="Used when an employee has no manager configured.">
+                            <field name="pr_default_supervisor_id" options="{'no_open': False}"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

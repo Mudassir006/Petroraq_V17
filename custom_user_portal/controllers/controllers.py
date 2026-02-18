@@ -9,10 +9,39 @@ _logger = logging.getLogger(__name__)
 
 class PortalPR(http.Controller):
 
+    @staticmethod
+    def _get_default_org_fallbacks():
+        icp = request.env["ir.config_parameter"].sudo()
+
+        department_name = "General"
+        supervisor_name = "Unassigned Supervisor"
+        supervisor_partner_id = ""
+
+        department_id = icp.get_param("custom_user_portal.pr_default_department_id")
+        if department_id and str(department_id).isdigit():
+            department = request.env["hr.department"].sudo().browse(int(department_id))
+            if department.exists() and department.name:
+                department_name = department.name
+
+        supervisor_id = icp.get_param("custom_user_portal.pr_default_supervisor_id")
+        if supervisor_id and str(supervisor_id).isdigit():
+            supervisor = request.env["hr.employee"].sudo().browse(int(supervisor_id))
+            if supervisor.exists():
+                supervisor_name = supervisor.name or supervisor_name
+                if supervisor.user_id and supervisor.user_id.partner_id:
+                    supervisor_partner_id = supervisor.user_id.partner_id.id
+
+        return {
+            "department": department_name,
+            "supervisor": supervisor_name,
+            "supervisor_partner_id": supervisor_partner_id,
+        }
+
     # showing page and getting manager name with id
     @http.route("/my/purchase-request/create", type="http", auth="user", website=True)
     def create_purchase_request(self, **kwargs):
         req_type = kwargs.get("type", "pr")
+        fallback_values = self._get_default_org_fallbacks()
 
         user = request.env.user
         employee = (
@@ -21,8 +50,8 @@ class PortalPR(http.Controller):
             .search([("user_id", "=", user.id)], limit=1)
         )
 
-        supervisor_name = ""
-        supervisor_partner_id = ""
+        supervisor_name = fallback_values["supervisor"]
+        supervisor_partner_id = fallback_values["supervisor_partner_id"]
         if employee and employee.parent_id:
             supervisor = employee.parent_id
             if supervisor.user_id and supervisor.user_id.partner_id:
@@ -47,7 +76,7 @@ class PortalPR(http.Controller):
             "department": (
                 employee.department_id.name
                 if employee and employee.department_id
-                else ""
+                else fallback_values["department"]
             ),
             "supervisor": supervisor_name,
             "supervisor_partner_id": supervisor_partner_id,
@@ -195,10 +224,19 @@ class PortalPR(http.Controller):
         website=True,
     )
     def submit_purchase_request(self, **post):
+        fallback_values = self._get_default_org_fallbacks()
         employee = (
             request.env["hr.employee"]
             .sudo()
             .search([("user_id", "=", request.env.user.id)], limit=1)
+        )
+
+        department = post.get("department") or fallback_values["department"]
+        supervisor = post.get("supervisor") or fallback_values["supervisor"]
+        supervisor_partner_id = (
+            post.get("supervisor_partner_id")
+            or fallback_values["supervisor_partner_id"]
+            or 0
         )
 
         requisition = (
@@ -207,11 +245,9 @@ class PortalPR(http.Controller):
             .create(
                 {
                     "requested_by": post.get("requested_by"),
-                    "department": post.get("department"),
-                    "supervisor": post.get("supervisor"),
-                    "supervisor_partner_id": int(
-                        post.get("supervisor_partner_id") or 0
-                    ),
+                    "department": department,
+                    "supervisor": supervisor,
+                    "supervisor_partner_id": int(supervisor_partner_id),
                     "required_date": post.get("required_date"),
                     "priority": post.get("priority"),
                     "budget_type": post.get("budget_type_selector"),

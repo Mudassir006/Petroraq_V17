@@ -23,6 +23,7 @@
         'security/quotation.xml',
         'security/ir.model.access.csv',
         'views/views.xml',
+        'views/res_config_settings_views.xml',
         'views/templates.xml',
         'views/portal_pr_form_template.xml',
         'views/quotation.xml',
@@ -51,4 +52,3 @@
     'application': True,
 
 }
-
