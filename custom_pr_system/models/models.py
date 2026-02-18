@@ -154,14 +154,14 @@ class CustomPR(models.Model):
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
         # Check if related project exists
-        project = self.env['project.project'].search([('budget_code', '=', rec.budget_details)], limit=1)
-        if not project:
-            raise ValidationError("No project found for the selected cost center / budget details.")
+        cost_center = self.env['account.analytic.account'].sudo().search([('budget_type', '=', rec.budget_type), ('budget_code', '=', rec.budget_details)], limit=1)
+        if not cost_center:
+            raise ValidationError("No cost center found for the selected budget type / cost center code.")
 
         # Budget validation
-        if rec.total_excl_vat > project.budget_left:
+        if rec.total_excl_vat > cost_center.budget_left:
             raise ValidationError(
-                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({project.budget_left})."
+                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({cost_center.budget_left})."
             )
 
         # Validation: prevent 0 amount PR
@@ -230,12 +230,12 @@ class CustomPR(models.Model):
         for rec in self:
             rec.has_valid_project = False
             if rec.budget_type and rec.budget_details:
-                project = self.env['project.project'].search([
+                cost_center = self.env['account.analytic.account'].sudo().search([
                     ('budget_type', '=', rec.budget_type),
                     ('budget_code', '=', rec.budget_details),
                 ], limit=1)
                 # must exist and budget_left must be greater than 0
-                if project and project.budget_left > 0:
+                if cost_center and cost_center.budget_left > 0:
                     rec.has_valid_project = True
 
 

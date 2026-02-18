@@ -73,7 +73,7 @@ class PurchaseRequisition(models.Model):
         compute="_compute_is_supervisor",
     )
     status = fields.Selection(
-        [("pr", "Pr"), ("rfq", "Rfq")],
+        [("pr", "Pr"), ("rfq", "Rfq"), ("po", "PO"), ("completed", "Completed")],
         default="pr",
         string="PR Status",
     )
@@ -147,7 +147,7 @@ class PurchaseRequisition(models.Model):
                     # Sync approval → state
                     if new_approval == "approved" and custom_pr.approval != "approved":
                         custom_pr.write(
-                            {"approval": "approved", "approval": "approved"}
+                            {"approval": "approved"}
                         )
                         self._notify_procurement_admins()
 
@@ -155,11 +155,11 @@ class PurchaseRequisition(models.Model):
                         new_approval == "rejected" and custom_pr.approval != "rejected"
                     ):
                         custom_pr.write(
-                            {"approval": "rejected", "approval": "rejected"}
+                            {"approval": "rejected"}
                         )
 
                     elif new_approval == "pending" and custom_pr.approval != "pending":
-                        custom_pr.write({"approval": "pending", "approval": "pending"})
+                        custom_pr.write({"approval": "pending"})
 
         return res
 
@@ -283,7 +283,8 @@ class PurchaseRequisition(models.Model):
     #             "partner_id": pr.vendor_id.id if pr.vendor_id else False,
     #             'pr_name': self.name,
     #             "date_planned": pr.required_date,
-    #             "project_id": matched_project.id if matched_project else False,
+    #             "budget_type": pr.budget_type,
+    #             "budget_code": pr.budget_details,
     #             "custom_line_ids": [],  # Populate custom tab instead
     #             "date_request": pr.date_request,
     #             "requested_by": pr.requested_by,
@@ -344,13 +345,15 @@ class PurchaseRequisition(models.Model):
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
-            matched_project = self.env["project.project"].search(
+            cost_center = self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
                 ],
                 limit=1,
             )
+            if not cost_center:
+                raise UserError(_("No cost center found for this PR budget type/code."))
 
             # Create RFQ without normal order_line
             rfq_vals = {
@@ -358,7 +361,8 @@ class PurchaseRequisition(models.Model):
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "project_id": matched_project.id if matched_project else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
                 "custom_line_ids": [],  # Populate custom tab instead
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -449,20 +453,23 @@ class PurchaseRequisition(models.Model):
                     _("This PR has no line items to create a Purchase Order.")
                 )
 
-            matched_project = self.env["project.project"].search(
+            cost_center = self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
                 ],
                 limit=1,
             )
+            if not cost_center:
+                raise UserError(_("No cost center found for this PR budget type/code."))
 
             # Create PO values
             po_vals = {
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date,
-                "project_id": matched_project.id if matched_project else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
                 "custom_line_ids": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -493,7 +500,7 @@ class PurchaseRequisition(models.Model):
             # Confirm it → changes state from draft (RFQ) to purchase
             po.button_confirm()
             # Update PR status
-            pr.status = "rfq"
+            pr.status = "po"
             # Log in PR chatter
             pr.message_post(
                 body=_(

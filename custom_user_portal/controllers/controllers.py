@@ -140,8 +140,8 @@ class PortalPR(http.Controller):
                 headers=[("Content-Type", "application/json")],
             )
 
-        project = (
-            request.env["project.project"]
+        cost_center = (
+            request.env["account.analytic.account"]
             .sudo()
             .search(
                 [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
@@ -149,23 +149,23 @@ class PortalPR(http.Controller):
             )
         )
 
-        if not project:
+        if not cost_center:
             return request.make_response(
                 json.dumps(
                     {
                         "success": False,
-                        "message": "No project found for given budget type and code.",
+                        "message": "No cost center found for given budget type and code.",
                     }
                 ),
                 headers=[("Content-Type", "application/json")],
             )
 
-        if project.budget_left <= 0:
+        if cost_center.budget_left <= 0:
             return request.make_response(
                 json.dumps(
                     {
                         "success": False,
-                        "message": f"No budget left. Remaining: {project.budget_left}",
+                        "message": f"No budget left. Remaining: {cost_center.budget_left}",
                     }
                 ),
                 headers=[("Content-Type", "application/json")],
@@ -175,8 +175,8 @@ class PortalPR(http.Controller):
             json.dumps(
                 {
                     "success": True,
-                    "budget_left": project.budget_left,
-                    "message": f"Budget available: {project.budget_left}",
+                    "budget_left": cost_center.budget_left,
+                    "message": f"Budget available: {cost_center.budget_left}",
                 }
             ),
             headers=[("Content-Type", "application/json")],

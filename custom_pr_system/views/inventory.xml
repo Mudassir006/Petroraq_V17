@@ -49,13 +49,26 @@
             class="btn-primary"
             groups="custom_user_portal.inventory_admin"
             invisible="not is_reviewed or is_approved"/>
+                    <button name="action_create_vendor_bill"
+            string="Create Vendor Bill"
+            type="object"
+            class="btn-secondary"
+            invisible="stage != 'approved'"
+            groups="account.group_account_user,account.group_account_manager"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object" class="oe_stat_button" icon="fa-file-text-o" name="action_view_vendor_bills" invisible="bill_count == 0">
+                            <field name="bill_count" widget="statinfo" string="Vendor Bills"/>
+                        </button>
+                    </div>
                     <group>
                         <group>
                             <field name="is_reviewed" invisible="1"/>
                             <field name="is_approved" invisible="1"/>
                             <field name="name" readonly="1"/>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="purchase_order_id" readonly="1"/>
                             <field name="partner_ref" readonly="1"/>
                             <field name="project" readonly="1"/>
                         </group>

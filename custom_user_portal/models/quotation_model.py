@@ -84,18 +84,16 @@ class PurchaseQuotation(models.Model):
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")],
         string="Budget Type",
-        related="project_id.budget_type",
     )
-    budget_code = fields.Char(string="Budget Code", related="project_id.budget_code")
-    project_id = fields.Many2one("project.project", string="Project")
+    budget_code = fields.Char(string="Budget Code")
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", compute="_compute_cost_center", store=False)
     project_budget_allowance = fields.Float(
-        string="Project Budget Allowance",
-        related="project_id.budget_allowance",
-        readonly=True,
+        string="Budget Allowance",
+        compute="_compute_cost_center",
         store=False,
     )
     budget_left = fields.Float(
-        string="Budget Left", related="project_id.budget_left", store=False
+        string="Budget Left", compute="_compute_cost_center", store=False
     )
     status = fields.Selection(
         [("quote", "Quote"), ("po", "Purchase")],
@@ -116,6 +114,19 @@ class PurchaseQuotation(models.Model):
     line_ids = fields.One2many(
         "purchase.quotation.line", "quotation_id", string="Quotation Lines"
     )
+
+
+    @api.depends("budget_type", "budget_code")
+    def _compute_cost_center(self):
+        CostCenter = self.env["account.analytic.account"].sudo()
+        for rec in self:
+            cc = CostCenter.search([
+                ("budget_type", "=", rec.budget_type),
+                ("budget_code", "=", rec.budget_code),
+            ], limit=1) if rec.budget_type and rec.budget_code else False
+            rec.cost_center_id = cc.id if cc else False
+            rec.project_budget_allowance = cc.budget_allowance if cc else 0.0
+            rec.budget_left = cc.budget_left if cc else 0.0
 
     @api.depends("line_ids.price_unit", "line_ids.quantity")
     def _compute_totals(self):
@@ -196,13 +207,15 @@ class PurchaseQuotation(models.Model):
                     _("This Quotation has no line items to create a Purchase Order.")
                 )
 
-            matched_project = self.env["project.project"].search(
+            cost_center = self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", quotation.budget_type),
                     ("budget_code", "=", quotation.budget_code),
                 ],
                 limit=1,
             )
+            if not cost_center:
+                raise UserError(_("No cost center found for this quotation budget type/code."))
 
             # Purchase Order values
             po_vals = {
@@ -210,7 +223,8 @@ class PurchaseQuotation(models.Model):
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
                 "date_planned": quotation.delivery_date or fields.Datetime.now(),
-                "project_id": matched_project.id if matched_project else False,
+                "budget_type": quotation.budget_type,
+                "budget_code": quotation.budget_code,
                 "custom_line_ids": [],
                 "state": "pending",
                 "pr_name": self.pr_name,
