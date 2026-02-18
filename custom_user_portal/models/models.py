@@ -66,7 +66,7 @@ class PurchaseRequisition(models.Model):
         default="pr",
     )
     is_supervisor = fields.Boolean(
-        string="Is Supervisor",
+        string="Can Approve",
         compute="_compute_is_supervisor",
     )
     status = fields.Selection(
@@ -166,34 +166,38 @@ class PurchaseRequisition(models.Model):
     # sending activity to specific manager when PR is created
     def _notify_supervisor(self):
         try:
-            if self.supervisor_partner_id and self.supervisor_partner_id.isdigit():
-                partner_id = int(self.supervisor_partner_id)
+            approver_users = self.env["res.users"]
+            group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+            if group:
+                approver_users = self.env["res.users"].sudo().search(
+                    [("groups_id", "in", group.id)]
+                )
 
+            if self.supervisor_partner_id and str(self.supervisor_partner_id).isdigit():
+                partner_id = int(self.supervisor_partner_id)
                 supervisor_user = (
                     self.env["res.users"]
                     .sudo()
                     .search([("partner_id", "=", partner_id)], limit=1)
                 )
+                if supervisor_user:
+                    approver_users |= supervisor_user
 
-                if not supervisor_user:
-                    _logger.warning(
-                        "Supervisor user not found for partner_id=%s", partner_id
-                    )
-                    return
+            approver_users = approver_users.filtered(lambda u: u.active)
+            if not approver_users:
+                _logger.warning("No PR approver users found for PR=%s", self.name)
+                return
 
+            for approver in approver_users:
                 self.activity_schedule(
                     activity_type_id=self.env.ref("mail.mail_activity_data_todo").id,
-                    user_id=supervisor_user.id,
+                    user_id=approver.id,
                     summary="Review New PR",
                     note=_("Please review the new Purchase Requisition: <b>%s</b>.")
                     % self.name,
                 )
 
-                _logger.info(
-                    "Activity created for supervisor user_id=%s on PR=%s",
-                    supervisor_user.id,
-                    self.name,
-                )
+            _logger.info("Activity created for %s approver(s) on PR=%s", len(approver_users), self.name)
 
         except Exception as e:
             _logger.error("Error creating activity for PR=%s: %s", self.name, str(e))
@@ -492,14 +496,16 @@ class PurchaseRequisition(models.Model):
                 supervisor_partner_id = (
                     int(rec.supervisor_partner_id) if rec.supervisor_partner_id else 0
                 )
-            except ValueError:
+            except (ValueError, TypeError):
                 supervisor_partner_id = 0
 
-            current_partner_id = (
-                self.env.user.partner_id.id if self.env.user.partner_id else 0
-            )
+            current_user = rec.env.user
+            current_partner_id = current_user.partner_id.id if current_user.partner_id else 0
+            has_approver_group = current_user.has_group("custom_pr_system.group_pr_approver")
 
-            rec.is_supervisor = supervisor_partner_id == current_partner_id
+            rec.is_supervisor = has_approver_group or (
+                supervisor_partner_id == current_partner_id
+            )
 
 
 class PurchaseRequisitionLine(models.Model):

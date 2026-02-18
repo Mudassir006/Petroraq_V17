@@ -29,6 +29,17 @@ class PortalPR(http.Controller):
                 supervisor_name = supervisor.user_id.partner_id.name
                 supervisor_partner_id = supervisor.user_id.partner_id.id
 
+        if not supervisor_partner_id:
+            approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+            approver_user = (
+                request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)], limit=1)
+                if approver_group
+                else False
+            )
+            if approver_user and approver_user.partner_id:
+                supervisor_name = approver_user.partner_id.name
+                supervisor_partner_id = approver_user.partner_id.id
+
         seq_code = "cash.purchase.requisition" if req_type == "cash" else "purchase.requisition"
         sequence = request.env["ir.sequence"].sudo().search([("code", "=", seq_code)], limit=1)
 
@@ -96,7 +107,7 @@ class PortalPR(http.Controller):
         pr_records = (
             request.env["purchase.requisition"]
             .sudo()
-            .search([("requested_by", "=", employee.name)])
+            .search([("requested_by", "=", employee.name if employee else request.env.user.name)])
         )
 
         pending_count = sum(1 for pr in pr_records if pr.approval == "pending")
@@ -239,9 +250,19 @@ class PortalPR(http.Controller):
             index += 1
 
         manager = employee.parent_id if employee else False
+        approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+        approver_users = (
+            request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)])
+            if approver_group
+            else request.env["res.users"]
+        )
+        recipient_emails = {email for email in approver_users.mapped("email") if email}
+        if manager and manager.work_email:
+            recipient_emails.add(manager.work_email)
+
         current_date = datetime.today().strftime("%Y-%m-%d")
 
-        if manager and manager.work_email:
+        if recipient_emails:
             line_rows = ""
             subtotal = 0
             for i, item in enumerate(line_items, 1):
@@ -262,13 +283,13 @@ class PortalPR(http.Controller):
             vat = subtotal * 0.15
             total = subtotal + vat
 
-        if manager and manager.work_email:
-            subject = f"New Purchase Requisition from {employee.name}"
+        if recipient_emails:
+            subject = f"New Purchase Requisition from {(employee.name if employee else request.env.user.name)}"
             body_html = f"""
             <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-                <p>Dear {manager.name},</p>
+                <p>Dear Approver,</p>
 
-                <p><strong>{employee.name}</strong> has submitted a new <strong>Purchase Requisition</strong>.</p>
+                <p><strong>{employee.name if employee else request.env.user.name}</strong> has submitted a new <strong>Purchase Requisition</strong>.</p>
                 <p><strong>Date of Request:</strong> {current_date}</p>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                     <tr><td><strong>Requested By:</strong></td><td>{post.get('requested_by')}</td></tr>
@@ -322,7 +343,7 @@ class PortalPR(http.Controller):
                 {
                     "subject": subject,
                     "body_html": body_html,
-                    "email_to": manager.work_email,
+                    "email_to": ",".join(sorted(recipient_emails)),
                     "email_from": request.env.user.email or "noreply@yourcompany.com",
                 }
             ).send()

@@ -113,13 +113,21 @@ class CustomPR(models.Model):
 
         return res
 
+    def _get_pr_approver_users(self):
+        group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
+        if not group:
+            return self.env["res.users"]
+        return self.env["res.users"].sudo().search([("groups_id", "in", group.id)])
+
     def action_create_pr(self):
         self.ensure_one()
         rec = self
 
+        approver_users = rec._get_pr_approver_users()
+
         # Check required fields
-        if not rec.supervisor or not rec.department:
-            raise ValidationError("Supervisor and Department must be filled before creating PR.")
+        if not approver_users:
+            raise ValidationError("Please assign at least one user to the PR Approver group.")
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
@@ -146,13 +154,17 @@ class CustomPR(models.Model):
             existing_pr.sudo().unlink()
 
         # Create new Purchase Requisition
+        fallback_approver = approver_users[:1]
+        supervisor_name = rec.supervisor or (fallback_approver.partner_id.name if fallback_approver else False)
+        supervisor_partner_id = rec.supervisor_partner_id or (fallback_approver.partner_id.id if fallback_approver else False)
+
         requisition = self.env['purchase.requisition'].sudo().create({
             'name': rec.name,
             'date_request': rec.date_request,
             'requested_by': rec.requested_by,
             'department': rec.department,
-            'supervisor': rec.supervisor,
-            'supervisor_partner_id': rec.supervisor_partner_id,
+            'supervisor': supervisor_name,
+            'supervisor_partner_id': supervisor_partner_id,
             'required_date': rec.required_date,
             'priority': rec.priority,
             'budget_type': rec.budget_type,
