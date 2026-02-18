@@ -86,7 +86,7 @@
                 <field name="supervisor" readonly='1'/>
                 <field name="requested_user_id" invisible='1'/>
                 <field name="date_request"/>
-                <field name="required_date"/>
+                <field name="required_date" readonly="1"/>
                 <field name="priority"/>
                 <field name='has_valid_project' invisible='1'/>
               </group>

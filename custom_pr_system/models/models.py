@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+from dateutil.relativedelta import relativedelta
 
 class CustomPR(models.Model):
     _name = 'custom.pr'
@@ -19,10 +20,12 @@ class CustomPR(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    required_date = fields.Date(string="Required Date", required=True)
+    required_date = fields.Date(string="Required Date", required=True, readonly=True)
     priority = fields.Selection(
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
+        required=True,
+        default="medium",
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type", required=True
@@ -73,6 +76,23 @@ class CustomPR(models.Model):
         tracking=True,
     )
 
+
+    def _required_date_from_priority(self, priority):
+        today = fields.Date.context_today(self)
+        offsets = {
+            'low': 30,
+            'medium': 10,
+            'high': 3,
+            'urgent': 0,
+        }
+        return today + relativedelta(days=offsets.get(priority, 0))
+
+    @api.onchange('priority')
+    def _onchange_priority_set_required_date(self):
+        for rec in self:
+            if rec.priority:
+                rec.required_date = rec._required_date_from_priority(rec.priority)
+
     @api.depends('line_ids.total_price')
     def _compute_totals(self):
         for rec in self:
@@ -83,6 +103,8 @@ class CustomPR(models.Model):
 
     @api.model
     def create(self, vals):
+        if vals.get('priority'):
+            vals['required_date'] = self._required_date_from_priority(vals['priority'])
         if vals.get('pr_type') == 'cash':
             vals['name'] = self.env['ir.sequence'].next_by_code('custom.cash.pr') or '/'
         else:
@@ -197,6 +219,11 @@ class CustomPR(models.Model):
             }
         }
 
+    def write(self, vals):
+        if vals.get('priority'):
+            vals['required_date'] = self._required_date_from_priority(vals['priority'])
+        return super(CustomPR, self).write(vals)
+
     @api.depends('budget_type', 'budget_details')
     def _compute_has_valid_project(self):
         for rec in self:
@@ -263,6 +290,14 @@ class CustomPRLine(models.Model):
         for rec in self:
             if rec.description:
                 rec.unit = rec.description.uom_id
+
+    @api.constrains('quantity', 'unit_price')
+    def _check_non_negative_values(self):
+        for rec in self:
+            if rec.quantity < 0:
+                raise ValidationError('Quantity cannot be negative.')
+            if rec.unit_price < 0:
+                raise ValidationError('Unit Price cannot be negative.')
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 

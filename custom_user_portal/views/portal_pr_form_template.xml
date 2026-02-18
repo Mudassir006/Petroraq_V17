@@ -24,19 +24,19 @@
                             <div class="mb-2">
                                 <label>Priority:</label>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="priority" value="low"/>
+                                    <input class="form-check-input" type="radio" name="priority" value="low"/>
                                     <label class="form-check-label">Low</label>
                                 </div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="priority" value="medium"/>
+                                    <input class="form-check-input" type="radio" name="priority" value="medium" checked="checked"/>
                                     <label class="form-check-label">Medium</label>
                                 </div>
                                 <div class="form-check form-check-inline mt-2">
-                                    <input class="form-check-input" type="checkbox" name="priority" value="high"/>
+                                    <input class="form-check-input" type="radio" name="priority" value="high"/>
                                     <label class="form-check-label">High</label>
                                 </div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="priority" value="urgent"/>
+                                    <input class="form-check-input" type="radio" name="priority" value="urgent"/>
                                     <label class="form-check-label">Urgent</label>
                                 </div>
                             </div>
@@ -56,7 +56,7 @@
                             </div>
                             <div class="mb-2">
                                 <label>Required Date:</label>
-                                <input type="date" name="required_date" class="form-control"/>
+                                <input type="date" name="required_date" class="form-control" t-att-value="required_date" readonly="1"/>
                             </div>
                         </div>
                     </div>
@@ -149,9 +149,37 @@
                     const subtotalSpan = document.getElementById("subtotal");
                     const vatSpan = document.getElementById("vat");
                     const totalSpan = document.getElementById("total");
+                    const requiredDateInput = document.querySelector('input[name="required_date"]');
+                    const priorityInputs = document.querySelectorAll('input[name="priority"]');
                     
                     let rowIndex = 0;
                     let products = [];
+
+                    function formatDate(dateObj) {
+                        return dateObj.toISOString().split('T')[0];
+                    }
+
+                    function setRequiredDateFromPriority(priority) {
+                        if (!requiredDateInput) return;
+                        const today = new Date();
+                        const offsets = { low: 30, medium: 10, high: 3, urgent: 0 };
+                        const selected = new Date(today);
+                        selected.setDate(selected.getDate() + (offsets[priority] ?? 0));
+                        requiredDateInput.value = formatDate(selected);
+                    }
+
+                    priorityInputs.forEach((input) => {
+                        input.addEventListener('change', function () {
+                            if (this.checked) {
+                                setRequiredDateFromPriority(this.value);
+                            }
+                        });
+                    });
+
+                    const defaultPriority = document.querySelector('input[name="priority"]:checked');
+                    if (defaultPriority) {
+                        setRequiredDateFromPriority(defaultPriority.value);
+                    }
 
                     // Budget selector logic
                     if (inputField) inputField.classList.add("d-none");
@@ -193,8 +221,8 @@
                             const unitPriceInput = row.querySelector('input[name^="unit_price_"]');
                             const totalField = row.querySelector('input.form-control-plaintext');
 
-                            const quantity = parseFloat(quantityInput?.value) || 0;
-                            const unitPrice = parseFloat(unitPriceInput?.value) || 0;
+                            const quantity = Math.max(0, parseFloat(quantityInput?.value) || 0);
+                            const unitPrice = Math.max(0, parseFloat(unitPriceInput?.value) || 0);
                             const lineTotal = quantity * unitPrice;
 
                             totalField.value = lineTotal.toFixed(2);
@@ -230,7 +258,7 @@
                     </select>
                 </td>
                 <td>
-                    <input type="number" name="quantity_${rowIndex}" class="form-control quantity-field" />
+                    <input type="number" name="quantity_${rowIndex}" class="form-control quantity-field" min="0" />
                 </td>
                 <td>
                     <!-- <input type="text" name="unit_${rowIndex}" class="form-control product-selector"/> -->
@@ -244,7 +272,7 @@
                     </select>
                 </td>
                 <td>
-                    <input type="number" step="0.01" name="unit_price_${rowIndex}" class="form-control unit-price-field" />
+                    <input type="number" step="0.01" name="unit_price_${rowIndex}" class="form-control unit-price-field" min="0" />
                 </td>
                 <td>
                     <input type="text" class="form-control-plaintext" value="0.00" readonly='1' />
@@ -337,10 +365,8 @@
                         fetchProducts();
                     }, 500);
                 });
-                document.addEventListener('DOMContentLoaded', function() {
-                        const today = new Date().toISOString().split('T')[0];
-                        document.getElementById('request_date').textContent = today;
-                    });
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('request_date').textContent = today;
             </script>
         </t>
     </template>

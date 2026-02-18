@@ -2,6 +2,7 @@ import logging
 from odoo import _, models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.exceptions import UserError
+from dateutil.relativedelta import relativedelta
 
 _logger = logging.getLogger(__name__)
 
@@ -22,10 +23,12 @@ class PurchaseRequisition(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    required_date = fields.Date(string="Required Date")
+    required_date = fields.Date(string="Required Date", readonly=True)
     priority = fields.Selection(
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
+        required=True,
+        default="medium",
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type"
@@ -86,8 +89,26 @@ class PurchaseRequisition(models.Model):
         compute="_compute_button_visibility", store=False
     )
 
+    def _required_date_from_priority(self, priority):
+        today = fields.Date.context_today(self)
+        offsets = {
+            "low": 30,
+            "medium": 10,
+            "high": 3,
+            "urgent": 0,
+        }
+        return today + relativedelta(days=offsets.get(priority, 0))
+
+    @api.onchange("priority")
+    def _onchange_priority_set_required_date(self):
+        for rec in self:
+            if rec.priority:
+                rec.required_date = rec._required_date_from_priority(rec.priority)
+
     @api.model
     def create(self, vals):
+        if vals.get("priority"):
+            vals["required_date"] = self._required_date_from_priority(vals["priority"])
         record = super().create(vals)
         if record.name == "New":
             if record.pr_type == "cash":
@@ -107,6 +128,9 @@ class PurchaseRequisition(models.Model):
 
     # Checking when PR is approved
     def write(self, vals):
+        if vals.get("priority"):
+            vals["required_date"] = self._required_date_from_priority(vals["priority"])
+
         approval_changed = "approval" in vals
         res = super().write(vals)
 
@@ -534,6 +558,14 @@ class PurchaseRequisitionLine(models.Model):
         for rec in self:
             rec.total_price = rec.quantity * rec.unit_price
 
+    @api.constrains("quantity", "unit_price")
+    def _check_non_negative_values(self):
+        for rec in self:
+            if rec.quantity < 0:
+                raise ValidationError("Quantity cannot be negative.")
+            if rec.unit_price < 0:
+                raise ValidationError("Unit Price cannot be negative.")
+
 
 class PurchaseQuotation(models.Model):
     _inherit = "purchase.order"
@@ -573,3 +605,11 @@ class PurchaseOrderCustomLine(models.Model):
     def _compute_subtotal(self):
         for line in self:
             line.subtotal = line.quantity * line.price_unit
+
+    @api.constrains("quantity", "price_unit")
+    def _check_non_negative_subtotal_inputs(self):
+        for line in self:
+            if line.quantity < 0:
+                raise ValidationError("Quantity cannot be negative.")
+            if line.price_unit < 0:
+                raise ValidationError("Unit Price cannot be negative.")

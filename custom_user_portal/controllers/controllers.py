@@ -1,6 +1,7 @@
 from odoo import http
 from odoo.http import request
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import logging
 import json
 
@@ -8,6 +9,11 @@ _logger = logging.getLogger(__name__)
 
 
 class PortalPR(http.Controller):
+
+    def _required_date_from_priority(self, priority):
+        today = datetime.today().date()
+        offsets = {"low": 30, "medium": 10, "high": 3, "urgent": 0}
+        return today + relativedelta(days=offsets.get(priority, 0))
 
     # showing page and getting manager name with id
     @http.route("/my/purchase-request/create", type="http", auth="user", website=True)
@@ -62,6 +68,7 @@ class PortalPR(http.Controller):
             ),
             "supervisor": supervisor_name,
             "supervisor_partner_id": supervisor_partner_id,
+            "required_date": self._required_date_from_priority("medium"),
             "pr_number_preview": pr_number_preview,
             "req_type": req_type,
         }
@@ -223,7 +230,7 @@ class PortalPR(http.Controller):
                     "supervisor_partner_id": int(
                         post.get("supervisor_partner_id") or 0
                     ),
-                    "required_date": post.get("required_date"),
+                    "required_date": self._required_date_from_priority(post.get("priority") or "medium"),
                     "priority": post.get("priority"),
                     "budget_type": post.get("budget_type_selector"),
                     "budget_details": post.get("budget_input_field"),
