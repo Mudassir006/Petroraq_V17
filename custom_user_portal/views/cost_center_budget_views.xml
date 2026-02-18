@@ -1,0 +1,54 @@
+<odoo>
+    <record id="view_purchase_cost_center_budget_tree" model="ir.ui.view">
+        <field name="name">purchase.cost.center.budget.tree</field>
+        <field name="model">purchase.cost.center.budget</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="budget_type"/>
+                <field name="budget_allowance"/>
+                <field name="budget_spent"/>
+                <field name="budget_left"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_purchase_cost_center_budget_form" model="ir.ui.view">
+        <field name="name">purchase.cost.center.budget.form</field>
+        <field name="model">purchase.cost.center.budget</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="budget_type"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="budget_allowance"/>
+                            <field name="budget_spent" readonly="1"/>
+                            <field name="budget_left" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_purchase_cost_center_budget" model="ir.actions.act_window">
+        <field name="name">Cost Center Budgets</field>
+        <field name="res_model">purchase.cost.center.budget</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_purchase_cost_center_budget"
+              name="Cost Center Budgets"
+              parent="custom_pr_system.menu_purchase_requisition"
+              action="action_purchase_cost_center_budget"
+              sequence="80"
+              groups="base.group_user"/>
+</odoo>

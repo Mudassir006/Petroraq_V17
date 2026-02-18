@@ -1,5 +1,6 @@
-from odoo import http
+from odoo import _, http
 from odoo.http import request
+from odoo.exceptions import ValidationError
 from datetime import datetime
 import logging
 import json
@@ -158,43 +159,19 @@ class PortalPR(http.Controller):
                 headers=[("Content-Type", "application/json")],
             )
 
-        project = (
-            request.env["project.project"]
-            .sudo()
-            .search(
-                [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
-                limit=1,
-            )
+        budget_status = request.env["purchase.requisition"].sudo().validate_budget_for_amount(
+            budget_type,
+            budget_code,
+            0.0,
         )
-
-        if not project:
-            return request.make_response(
-                json.dumps(
-                    {
-                        "success": False,
-                        "message": "No project found for given budget type and code.",
-                    }
-                ),
-                headers=[("Content-Type", "application/json")],
-            )
-
-        if project.budget_left <= 0:
-            return request.make_response(
-                json.dumps(
-                    {
-                        "success": False,
-                        "message": f"No budget left. Remaining: {project.budget_left}",
-                    }
-                ),
-                headers=[("Content-Type", "application/json")],
-            )
 
         return request.make_response(
             json.dumps(
                 {
-                    "success": True,
-                    "budget_left": project.budget_left,
-                    "message": f"Budget available: {project.budget_left}",
+                    "success": budget_status.get("success"),
+                    "budget_left": budget_status.get("budget_left", 0.0),
+                    "message": budget_status.get("message"),
+                    "source": budget_status.get("source"),
                 }
             ),
             headers=[("Content-Type", "application/json")],
@@ -239,6 +216,29 @@ class PortalPR(http.Controller):
             or 0
         )
 
+        line_items = []
+        index = 1
+        subtotal = 0.0
+        while f"item_description_{index}" in post:
+            item = {
+                "description": post.get(f"item_description_{index}"),
+                "type": post.get(f"item_type_{index}"),
+                "quantity": float(post.get(f"quantity_{index}") or 0),
+                "unit": post.get(f"unit_{index}"),
+                "unit_price": float(post.get(f"unit_price_{index}") or 0),
+            }
+            subtotal += item["quantity"] * item["unit_price"]
+            line_items.append(item)
+            index += 1
+
+        budget_status = request.env["purchase.requisition"].sudo().validate_budget_for_amount(
+            post.get("budget_type_selector"),
+            post.get("budget_input_field"),
+            subtotal,
+        )
+        if not budget_status.get("success"):
+            raise ValidationError(_(budget_status.get("message")))
+
         requisition = (
             request.env["purchase.requisition"]
             .sudo()
@@ -258,21 +258,10 @@ class PortalPR(http.Controller):
             )
         )
 
-        line_items = []
-        index = 1
-        while f"item_description_{index}" in post:
-            item = {
-                "description": post.get(f"item_description_{index}"),
-                "type": post.get(f"item_type_{index}"),
-                "quantity": float(post.get(f"quantity_{index}") or 0),
-                "unit": post.get(f"unit_{index}"),
-                "unit_price": float(post.get(f"unit_price_{index}") or 0),
-            }
-            line_items.append(item)
+        for item in line_items:
             request.env["purchase.requisition.line"].sudo().create(
                 {"requisition_id": requisition.id, **item}
             )
-            index += 1
 
         manager = employee.parent_id if employee else False
         current_date = datetime.today().strftime("%Y-%m-%d")

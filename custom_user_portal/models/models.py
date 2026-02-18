@@ -6,6 +6,47 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
+class PurchaseCostCenterBudget(models.Model):
+    _name = "purchase.cost.center.budget"
+    _description = "Purchase Cost Center Budget"
+    _rec_name = "code"
+
+    code = fields.Char(string="Cost Center Code", required=True, index=True)
+    name = fields.Char(string="Name")
+    budget_type = fields.Selection(
+        [("opex", "Opex"), ("capex", "Capex")],
+        string="Budget Type",
+        required=True,
+    )
+    budget_allowance = fields.Float(string="Budget Allowance", required=True)
+    budget_spent = fields.Float(string="Budget Spent", compute="_compute_budget_spent", store=False)
+    budget_left = fields.Float(string="Budget Left", compute="_compute_budget_spent", store=False)
+    active = fields.Boolean(default=True)
+
+    _sql_constraints = [
+        (
+            "unique_budget_per_type_code",
+            "unique(code, budget_type)",
+            "Cost Center Code must be unique per Budget Type.",
+        )
+    ]
+
+    @api.depends("budget_allowance")
+    def _compute_budget_spent(self):
+        PurchaseOrder = self.env["purchase.order"].sudo()
+        for rec in self:
+            pos = PurchaseOrder.search([
+                ("budget_type", "=", rec.budget_type),
+                ("budget_code", "=", rec.code),
+                ("state", "in", ["purchase", "done"]),
+            ])
+            spent = sum(pos.mapped("grand_total"))
+            rec.budget_spent = spent
+            rec.budget_left = rec.budget_allowance - spent
+
+
+
+
 class PurchaseRequisition(models.Model):
     _name = "purchase.requisition"
     _description = "Purchase Requisition"
@@ -104,6 +145,74 @@ class PurchaseRequisition(models.Model):
                 )
         record._notify_supervisor()
         return record
+
+    @api.model
+    def _get_budget_bucket(self, budget_type, budget_code):
+        budget_code = (budget_code or "").strip()
+        if not budget_type or not budget_code:
+            return False
+
+        cost_center_budget = self.env["purchase.cost.center.budget"].sudo().search([
+            ("budget_type", "=", budget_type),
+            ("code", "=", budget_code),
+            ("active", "=", True),
+        ], limit=1)
+        if cost_center_budget:
+            return {
+                "source": "cost_center",
+                "record": cost_center_budget,
+                "budget_left": cost_center_budget.budget_left,
+            }
+
+        project = self.env["project.project"].sudo().search([
+            ("budget_type", "=", budget_type),
+            ("budget_code", "=", budget_code),
+        ], limit=1)
+        if project:
+            return {
+                "source": "project",
+                "record": project,
+                "budget_left": project.budget_left,
+            }
+
+        return False
+
+    @api.model
+    def validate_budget_for_amount(self, budget_type, budget_code, amount):
+        bucket = self._get_budget_bucket(budget_type, budget_code)
+        amount = float(amount or 0.0)
+
+        if not budget_type or not (budget_code or "").strip():
+            return {
+                "success": False,
+                "message": "Missing budget type or budget code.",
+                "budget_left": 0.0,
+                "source": False,
+            }
+
+        if not bucket:
+            return {
+                "success": False,
+                "message": "No budget source found for given budget type and cost center code.",
+                "budget_left": 0.0,
+                "source": False,
+            }
+
+        budget_left = float(bucket["budget_left"] or 0.0)
+        if budget_left < amount:
+            return {
+                "success": False,
+                "message": f"Budget exceeded. Required {amount:.2f}, available {budget_left:.2f}.",
+                "budget_left": budget_left,
+                "source": bucket["source"],
+            }
+
+        return {
+            "success": True,
+            "message": f"Budget available: {budget_left}",
+            "budget_left": budget_left,
+            "source": bucket["source"],
+        }
 
     # Checking when PR is approved
     def write(self, vals):

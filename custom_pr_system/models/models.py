@@ -159,16 +159,13 @@ class CustomPR(models.Model):
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
-        # Check if related project exists
-        project = self.env['project.project'].search([('budget_code', '=', rec.budget_details)], limit=1)
-        if not project:
-            raise ValidationError("No project found for the selected cost center / budget details.")
-        
-        # Budget validation
-        if rec.total_excl_vat > project.budget_left:
-            raise ValidationError(
-                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({project.budget_left})."
-            )
+        budget_status = self.env['purchase.requisition'].sudo().validate_budget_for_amount(
+            rec.budget_type,
+            rec.budget_details,
+            rec.total_excl_vat,
+        )
+        if not budget_status.get('success'):
+            raise ValidationError(budget_status.get('message'))
 
         # Validation: prevent 0 amount PR
         if rec.total_excl_vat == 0.00:
@@ -221,18 +218,17 @@ class CustomPR(models.Model):
             }
         }
 
-    @api.depends('budget_type', 'budget_details')
+    @api.depends('budget_type', 'budget_details', 'total_excl_vat')
     def _compute_has_valid_project(self):
         for rec in self:
             rec.has_valid_project = False
             if rec.budget_type and rec.budget_details:
-                project = self.env['project.project'].search([
-                    ('budget_type', '=', rec.budget_type),
-                    ('budget_code', '=', rec.budget_details),
-                ], limit=1)
-                # must exist and budget_left must be greater than 0
-                if project and project.budget_left > 0:
-                    rec.has_valid_project = True
+                budget_status = self.env['purchase.requisition'].sudo().validate_budget_for_amount(
+                    rec.budget_type,
+                    rec.budget_details,
+                    rec.total_excl_vat or 0.0,
+                )
+                rec.has_valid_project = bool(budget_status.get('success'))
 
 class CustomPRLine(models.Model):
     _name = 'custom.pr.line'
