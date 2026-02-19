@@ -92,10 +92,9 @@
               </group>
             </group>
             <notebook>
-               <page string="Budget Information">
+              <page string="Budget Information">
                 <group>
-                  <field name="budget_type"/>
-                  <field name="budget_details"/>
+                  <field name="cost_center_id"/>
                 </group>
               </page>
               <page string="Products">
