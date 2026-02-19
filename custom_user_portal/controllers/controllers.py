@@ -23,22 +23,14 @@ class PortalPR(http.Controller):
 
         supervisor_name = ""
         supervisor_partner_id = ""
-        if employee and employee.parent_id:
-            supervisor = employee.parent_id
-            if supervisor.user_id and supervisor.user_id.partner_id:
-                supervisor_name = supervisor.user_id.partner_id.name
-                supervisor_partner_id = supervisor.user_id.partner_id.id
 
-        if not supervisor_partner_id:
-            approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-            approver_user = (
-                request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)], limit=1)
-                if approver_group
-                else False
-            )
-            if approver_user and approver_user.partner_id:
-                supervisor_name = approver_user.partner_id.name
-                supervisor_partner_id = approver_user.partner_id.id
+        configured_supervisor = user.sudo().supervisor_user_id
+        if configured_supervisor and configured_supervisor.partner_id:
+            supervisor_name = configured_supervisor.partner_id.name
+            supervisor_partner_id = configured_supervisor.partner_id.id
+        elif employee and employee.parent_id and employee.parent_id.user_id and employee.parent_id.user_id.partner_id:
+            supervisor_name = employee.parent_id.user_id.partner_id.name
+            supervisor_partner_id = employee.parent_id.user_id.partner_id.id
 
         seq_code = "cash.purchase.requisition" if req_type == "cash" else "purchase.requisition"
         sequence = request.env["ir.sequence"].sudo().search([("code", "=", seq_code)], limit=1)
@@ -52,6 +44,11 @@ class PortalPR(http.Controller):
             pr_number_preview = "New"
 
 
+        cost_centers = request.env["account.analytic.account"].sudo().search([
+            ("budget_code", "!=", False),
+            ("budget_type", "!=", False),
+        ])
+
         values = {
             "page_name": "create_pr",
             "requested_by": employee.name if employee else user.name,
@@ -64,6 +61,7 @@ class PortalPR(http.Controller):
             "supervisor_partner_id": supervisor_partner_id,
             "pr_number_preview": pr_number_preview,
             "req_type": req_type,
+            "cost_centers": cost_centers,
         }
         return request.render("custom_user_portal.portal_pr_form_template", values)
 
@@ -107,7 +105,7 @@ class PortalPR(http.Controller):
         pr_records = (
             request.env["purchase.requisition"]
             .sudo()
-            .search([("requested_by", "=", employee.name if employee else request.env.user.name)])
+            .search([("requested_user_id", "=", request.env.user.id)])
         )
 
         pending_count = sum(1 for pr in pr_records if pr.approval == "pending")
@@ -129,43 +127,48 @@ class PortalPR(http.Controller):
     @http.route("/check_budget", type="http", auth="user", methods=["POST"], csrf=False)
     def check_budget(self, **post):
         data = json.loads(request.httprequest.data or "{}")
+        cost_center_id = int(data.get("cost_center_id") or 0)
         budget_type = data.get("budget_type")
         budget_code = data.get("budget_code")
 
-        if not budget_type or not budget_code:
+        if not cost_center_id and not (budget_type and budget_code):
             return request.make_response(
                 json.dumps(
-                    {"success": False, "message": "Missing budget type or budget code."}
+                    {"success": False, "message": "Missing cost center selection."}
                 ),
                 headers=[("Content-Type", "application/json")],
             )
 
-        project = (
-            request.env["project.project"]
-            .sudo()
-            .search(
-                [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
-                limit=1,
+        if cost_center_id:
+            cost_center = request.env["account.analytic.account"].sudo().browse(cost_center_id)
+            cost_center = cost_center if cost_center.exists() else request.env["account.analytic.account"].browse()
+        else:
+            cost_center = (
+                request.env["account.analytic.account"]
+                .sudo()
+                .search(
+                    [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
+                    limit=1,
+                )
             )
-        )
 
-        if not project:
+        if not cost_center:
             return request.make_response(
                 json.dumps(
                     {
                         "success": False,
-                        "message": "No project found for given budget type and code.",
+                        "message": "No cost center found for given budget type and code.",
                     }
                 ),
                 headers=[("Content-Type", "application/json")],
             )
 
-        if project.budget_left <= 0:
+        if cost_center.budget_left <= 0:
             return request.make_response(
                 json.dumps(
                     {
                         "success": False,
-                        "message": f"No budget left. Remaining: {project.budget_left}",
+                        "message": f"No budget left. Remaining: {cost_center.budget_left}",
                     }
                 ),
                 headers=[("Content-Type", "application/json")],
@@ -175,8 +178,10 @@ class PortalPR(http.Controller):
             json.dumps(
                 {
                     "success": True,
-                    "budget_left": project.budget_left,
-                    "message": f"Budget available: {project.budget_left}",
+                    "budget_left": cost_center.budget_left,
+                    "budget_type": cost_center.budget_type,
+                    "budget_code": cost_center.budget_code,
+                    "message": f"Budget available: {cost_center.budget_left}",
                 }
             ),
             headers=[("Content-Type", "application/json")],
@@ -217,14 +222,16 @@ class PortalPR(http.Controller):
             .sudo()
             .create(
                 {
-                    "requested_by": post.get("requested_by"),
+                    "requested_by": employee.name if employee else request.env.user.name,
+                    "requested_user_id": request.env.user.id,
                     "department": post.get("department"),
-                    "supervisor": post.get("supervisor"),
-                    "supervisor_partner_id": int(
-                        post.get("supervisor_partner_id") or 0
+                    "supervisor": request.env.user.supervisor_user_id.name if request.env.user.supervisor_user_id else post.get("supervisor"),
+                    "supervisor_partner_id": (
+                        request.env.user.supervisor_user_id.partner_id.id if request.env.user.supervisor_user_id and request.env.user.supervisor_user_id.partner_id else int(post.get("supervisor_partner_id") or 0)
                     ),
                     "required_date": post.get("required_date"),
                     "priority": post.get("priority"),
+                    "cost_center_id": int(post.get("cost_center_id") or 0) or False,
                     "budget_type": post.get("budget_type_selector"),
                     "budget_details": post.get("budget_input_field"),
                     "notes": post.get("notes"),
@@ -249,16 +256,10 @@ class PortalPR(http.Controller):
             )
             index += 1
 
-        manager = employee.parent_id if employee else False
-        approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-        approver_users = (
-            request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)])
-            if approver_group
-            else request.env["res.users"]
-        )
-        recipient_emails = {email for email in approver_users.mapped("email") if email}
-        if manager and manager.work_email:
-            recipient_emails.add(manager.work_email)
+        supervisor_user = request.env.user.sudo().supervisor_user_id
+        recipient_emails = set()
+        if supervisor_user and supervisor_user.email:
+            recipient_emails.add(supervisor_user.email)
 
         current_date = datetime.today().strftime("%Y-%m-%d")
 
@@ -297,8 +298,8 @@ class PortalPR(http.Controller):
                     <tr><td><strong>Supervisor:</strong></td><td>{post.get('supervisor')}</td></tr>
                     <tr><td><strong>Required Date:</strong></td><td>{post.get('required_date')}</td></tr>
                     <tr><td><strong>Priority:</strong></td><td>{post.get('priority')}</td></tr>
+                    <tr><td><strong>Cost Center:</strong></td><td>{post.get('cost_center_name') or post.get('budget_input_field')}</td></tr>
                     <tr><td><strong>Budget Type:</strong></td><td>{post.get('budget_type_selector')}</td></tr>
-                    <tr><td><strong>Budget Details:</strong></td><td>{post.get('budget_input_field')}</td></tr>
                 </table>
 
                 <h4>Requested Items</h4>

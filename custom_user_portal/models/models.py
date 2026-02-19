@@ -20,6 +20,7 @@ class PurchaseRequisition(models.Model):
         string="Date of Request", default=fields.Date.context_today
     )
     requested_by = fields.Char(string="Requested By")
+    requested_user_id = fields.Many2one("res.users", string="Requested User", readonly=True)
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
@@ -34,6 +35,7 @@ class PurchaseRequisition(models.Model):
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type"
     )
     budget_details = fields.Char(string="Cost Center Code")
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center")
     notes = fields.Text(string="Notes")
     approval = fields.Selection(
         [("pending", "Pending"), ("rejected", "Rejected"), ("approved", "Approved")],
@@ -73,7 +75,7 @@ class PurchaseRequisition(models.Model):
         compute="_compute_is_supervisor",
     )
     status = fields.Selection(
-        [("pr", "Pr"), ("rfq", "Rfq")],
+        [("pr", "Pr"), ("rfq", "Rfq"), ("po", "PO"), ("completed", "Completed")],
         default="pr",
         string="PR Status",
     )
@@ -105,10 +107,40 @@ class PurchaseRequisition(models.Model):
             if rec.priority:
                 rec.required_date = rec._required_date_from_priority(rec.priority)
 
+    @api.onchange("cost_center_id")
+    def _onchange_cost_center(self):
+        for rec in self:
+            if rec.cost_center_id:
+                rec.budget_type = rec.cost_center_id.budget_type
+                rec.budget_details = rec.cost_center_id.budget_code
+
     @api.model
     def create(self, vals):
         if vals.get("priority"):
             vals["required_date"] = self._required_date_from_priority(vals["priority"])
+
+        if vals.get("cost_center_id"):
+            cc = self.env["account.analytic.account"].sudo().browse(vals["cost_center_id"])
+            if cc.exists():
+                vals["budget_type"] = cc.budget_type
+                vals["budget_details"] = cc.budget_code
+        elif vals.get("budget_type") and vals.get("budget_details"):
+            cc = self.env["account.analytic.account"].sudo().search([
+                ("budget_type", "=", vals.get("budget_type")),
+                ("budget_code", "=", vals.get("budget_details")),
+            ], limit=1)
+            if cc:
+                vals["cost_center_id"] = cc.id
+
+        if not vals.get("requested_user_id"):
+            vals["requested_user_id"] = self.env.user.id
+
+        requester = self.env["res.users"].sudo().browse(vals.get("requested_user_id")) if vals.get("requested_user_id") else self.env.user
+        supervisor_user = requester.supervisor_user_id if requester else False
+        if supervisor_user:
+            vals["supervisor"] = vals.get("supervisor") or supervisor_user.name
+            vals["supervisor_partner_id"] = vals.get("supervisor_partner_id") or str(supervisor_user.partner_id.id)
+
         record = super().create(vals)
         if record.name == "New":
             if record.pr_type == "cash":
@@ -147,7 +179,7 @@ class PurchaseRequisition(models.Model):
                     # Sync approval → state
                     if new_approval == "approved" and custom_pr.approval != "approved":
                         custom_pr.write(
-                            {"approval": "approved", "approval": "approved"}
+                            {"approval": "approved"}
                         )
                         self._notify_procurement_admins()
 
@@ -155,11 +187,11 @@ class PurchaseRequisition(models.Model):
                         new_approval == "rejected" and custom_pr.approval != "rejected"
                     ):
                         custom_pr.write(
-                            {"approval": "rejected", "approval": "rejected"}
+                            {"approval": "rejected"}
                         )
 
                     elif new_approval == "pending" and custom_pr.approval != "pending":
-                        custom_pr.write({"approval": "pending", "approval": "pending"})
+                        custom_pr.write({"approval": "pending"})
 
         return res
 
@@ -187,44 +219,27 @@ class PurchaseRequisition(models.Model):
                 and rec.status in ["pr", "rfq"]
             )
 
-    # sending activity to specific manager when PR is created
+    # sending activity to configured supervisor when PR is created
     def _notify_supervisor(self):
-        try:
-            approver_users = self.env["res.users"]
-            group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-            if group:
-                approver_users = self.env["res.users"].sudo().search(
-                    [("groups_id", "in", group.id)]
-                )
+        for rec in self:
+            try:
+                requester = rec.requested_user_id.sudo() if rec.requested_user_id else self.env.user.sudo()
+                supervisor_user = requester.supervisor_user_id if requester else False
 
-            if self.supervisor_partner_id and str(self.supervisor_partner_id).isdigit():
-                partner_id = int(self.supervisor_partner_id)
-                supervisor_user = (
-                    self.env["res.users"]
-                    .sudo()
-                    .search([("partner_id", "=", partner_id)], limit=1)
-                )
-                if supervisor_user:
-                    approver_users |= supervisor_user
+                if not supervisor_user:
+                    _logger.warning("No supervisor configured for requester on PR=%s", rec.name)
+                    continue
 
-            approver_users = approver_users.filtered(lambda u: u.active)
-            if not approver_users:
-                _logger.warning("No PR approver users found for PR=%s", self.name)
-                return
-
-            for approver in approver_users:
-                self.activity_schedule(
+                rec.activity_schedule(
                     activity_type_id=self.env.ref("mail.mail_activity_data_todo").id,
-                    user_id=approver.id,
+                    user_id=supervisor_user.id,
                     summary="Review New PR",
-                    note=_("Please review the new Purchase Requisition: <b>%s</b>.")
-                    % self.name,
+                    note=_("Please review the new Purchase Requisition: <b>%s</b>.") % rec.name,
                 )
+                _logger.info("Activity created for supervisor %s on PR=%s", supervisor_user.login, rec.name)
 
-            _logger.info("Activity created for %s approver(s) on PR=%s", len(approver_users), self.name)
-
-        except Exception as e:
-            _logger.error("Error creating activity for PR=%s: %s", self.name, str(e))
+            except Exception as e:
+                _logger.error("Error creating supervisor activity for PR=%s: %s", rec.name, str(e))
 
     # sending approved PR activity to procurment admin
     def _notify_procurement_admins(self):
@@ -283,7 +298,8 @@ class PurchaseRequisition(models.Model):
     #             "partner_id": pr.vendor_id.id if pr.vendor_id else False,
     #             'pr_name': self.name,
     #             "date_planned": pr.required_date,
-    #             "project_id": matched_project.id if matched_project else False,
+    #             "budget_type": pr.budget_type,
+    #             "budget_code": pr.budget_details,
     #             "custom_line_ids": [],  # Populate custom tab instead
     #             "date_request": pr.date_request,
     #             "requested_by": pr.requested_by,
@@ -344,13 +360,15 @@ class PurchaseRequisition(models.Model):
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
-            matched_project = self.env["project.project"].search(
+            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
                 ],
                 limit=1,
             )
+            if not cost_center:
+                raise UserError(_("No cost center selected/found for this PR."))
 
             # Create RFQ without normal order_line
             rfq_vals = {
@@ -358,7 +376,8 @@ class PurchaseRequisition(models.Model):
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "project_id": matched_project.id if matched_project else False,
+                "budget_type": cost_center.budget_type,
+                "budget_code": cost_center.budget_code,
                 "custom_line_ids": [],  # Populate custom tab instead
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -449,20 +468,23 @@ class PurchaseRequisition(models.Model):
                     _("This PR has no line items to create a Purchase Order.")
                 )
 
-            matched_project = self.env["project.project"].search(
+            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
                 ],
                 limit=1,
             )
+            if not cost_center:
+                raise UserError(_("No cost center selected/found for this PR."))
 
             # Create PO values
             po_vals = {
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date,
-                "project_id": matched_project.id if matched_project else False,
+                "budget_type": cost_center.budget_type,
+                "budget_code": cost_center.budget_code,
                 "custom_line_ids": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -493,7 +515,7 @@ class PurchaseRequisition(models.Model):
             # Confirm it → changes state from draft (RFQ) to purchase
             po.button_confirm()
             # Update PR status
-            pr.status = "rfq"
+            pr.status = "po"
             # Log in PR chatter
             pr.message_post(
                 body=_(
@@ -525,10 +547,11 @@ class PurchaseRequisition(models.Model):
 
             current_user = rec.env.user
             current_partner_id = current_user.partner_id.id if current_user.partner_id else 0
-            has_approver_group = current_user.has_group("custom_pr_system.group_pr_approver")
+            requester_supervisor = rec.requested_user_id.supervisor_user_id if rec.requested_user_id else False
 
-            rec.is_supervisor = has_approver_group or (
-                supervisor_partner_id == current_partner_id
+            rec.is_supervisor = (
+                (requester_supervisor and requester_supervisor.id == current_user.id)
+                or (supervisor_partner_id == current_partner_id)
             )
 
 

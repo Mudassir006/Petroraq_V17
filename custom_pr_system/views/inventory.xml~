@@ -35,33 +35,30 @@
         <field name="arch" type="xml">
             <form string="GRN/SES">
                 <header>
-                    <field name="stage" invisible="1"/>
-
                     <!-- Review button (only show if not reviewed yet) -->
                     <button name="action_review"
-                            string="Review"
-                            type="object"
-                            class="btn-primary"
-                            groups="custom_pr_system.inventory_qc"
-                            invisible="is_reviewed"/>
+            string="Review"
+            type="object"
+            class="btn-primary"
+            groups="custom_pr_system.inventory_qc"
+            invisible="is_reviewed"/>
                     <!-- Approve button (only visible after review, and if not approved yet) -->
                     <button name="action_approve"
-                            string="Approve"
-                            type="object"
-                            class="btn-primary"
-                            groups="custom_user_portal.inventory_admin"
-                            invisible="not is_reviewed or is_approved"/>
+            string="Approve"
+            type="object"
+            class="btn-primary"
+            groups="custom_user_portal.inventory_admin"
+            invisible="not is_reviewed or is_approved"/>
                     <button name="action_create_vendor_bill"
-                            string="Create Vendor Bill"
-                            type="object"
-                            class="btn-secondary"
-                            invisible="stage != 'approved'"
-                            groups="account.group_account_user,account.group_account_manager"/>
+            string="Create Vendor Bill"
+            type="object"
+            class="btn-secondary"
+            invisible="stage != 'approved'"
+            groups="account.group_account_user,account.group_account_manager"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button type="object" class="oe_stat_button" icon="fa-file-text-o"
-                                name="action_view_vendor_bills" invisible="bill_count == 0">
+                        <button type="object" class="oe_stat_button" icon="fa-file-text-o" name="action_view_vendor_bills" invisible="bill_count == 0">
                             <field name="bill_count" widget="statinfo" string="Vendor Bills"/>
                         </button>
                     </div>

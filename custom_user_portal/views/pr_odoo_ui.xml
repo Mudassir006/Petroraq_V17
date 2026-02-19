@@ -48,10 +48,12 @@
                             <field name="supervisor" readonly="1"/>
                             <field name="vendor_id" groups="custom_user_portal.procurement_admin"/>
                             <field name="status" invisible="1"/>
+                            <field name="requested_user_id" invisible="1"/>
                         </group>
                         <group>
                             <field name="required_date" readonly="1"/>
                             <field name="priority" readonly="1"/>
+                            <field name="cost_center_id" readonly="1"/>
                             <field name="budget_type" readonly="1"/>
                             <field name="budget_details" readonly="1"/>
                             <field name="is_supervisor" invisible="1"/>

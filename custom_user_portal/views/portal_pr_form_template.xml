@@ -66,15 +66,18 @@
                             <thead class="table-light">
                                 <tr>
                                     <td colspan="7" class="text-start">
-                                        <label class="me-2 fw-bold">Budget Type:</label>
-                                        <select class="form-select d-inline w-auto" id="budget_type_selector" name="budget_type_selector">
-                                            <option value="">Select Budget</option>
-                                            <option value="opex">Opex</option>
-                                            <option value="capex">Capex</option>
+                                        <label class="me-2 fw-bold">Cost Center:</label>
+                                        <select class="form-select d-inline w-auto" id="cost_center_selector" name="cost_center_id">
+                                            <option value="">Select Cost Center</option>
+                                            <t t-foreach="cost_centers" t-as="cc">
+                                                <option t-att-value="cc.id" t-att-data-budget-type="cc.budget_type" t-att-data-budget-code="cc.budget_code" t-att-data-cc-name="cc.name">
+                                                    <t t-esc="('%s - %s (%s)' % ((cc.budget_code or ''), (cc.name or ''), (cc.budget_type or '').upper()))"/>
+                                                </option>
+                                            </t>
                                         </select>
-                                        <input type="text" id="budget_input_field" name="budget_input_field"
-                                                class="form-control d-inline w-auto ms-3"
-                                                placeholder="Cost Center Code" />
+                                        <input type="hidden" id="budget_type_selector" name="budget_type_selector"/>
+                                        <input type="hidden" id="budget_input_field" name="budget_input_field"/>
+                                        <input type="hidden" id="cost_center_name" name="cost_center_name"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -142,8 +145,10 @@
                     console.log('Department:', document.querySelector('input[name="department"]')?.value);
                     console.log('Supervisor:', document.querySelector('input[name="supervisor"]')?.value);
                     
-                    const selector = document.getElementById("budget_type_selector");
-                    const inputField = document.getElementById("budget_input_field");
+                    const costCenterSelector = document.getElementById("cost_center_selector");
+                    const budgetTypeField = document.getElementById("budget_type_selector");
+                    const budgetCodeField = document.getElementById("budget_input_field");
+                    const costCenterNameField = document.getElementById("cost_center_name");
                     const addProductBtn = document.getElementById("add_product_btn");
                     const tableBody = document.getElementById("product_lines");
                     const subtotalSpan = document.getElementById("subtotal");
@@ -153,16 +158,13 @@
                     let rowIndex = 0;
                     let products = [];
 
-                    // Budget selector logic
-                    if (inputField) inputField.classList.add("d-none");
-                    if (selector) {
-                        selector.addEventListener("change", function () {
-                            if (this.value === "opex" || this.value === "capex") {
-                                inputField.classList.remove("d-none");
-                            } else {
-                                inputField.classList.add("d-none");
-                                inputField.value = "";
-                            }
+                    // Cost center selector logic
+                    if (costCenterSelector) {
+                        costCenterSelector.addEventListener("change", function () {
+                            const opt = this.options[this.selectedIndex];
+                            budgetTypeField.value = opt?.dataset?.budgetType || "";
+                            budgetCodeField.value = opt?.dataset?.budgetCode || "";
+                            costCenterNameField.value = opt?.dataset?.ccName || "";
                         });
                     }
 
@@ -269,11 +271,11 @@
 
                     let budgetLeft = 0;
                     addProductBtn.addEventListener("click", async function () {
-                    const budgetType = selector.value;
-                    const budgetCode = inputField.value.trim();
+                    const selectedOption = costCenterSelector.options[costCenterSelector.selectedIndex];
+                    const selectedCostCenterId = costCenterSelector.value;
 
-                    if (!budgetType || !budgetCode) {
-                        alert("Please select budget type and enter budget code first.");
+                    if (!selectedCostCenterId) {
+                        alert("Please select a cost center first.");
                         return;
                     }
                         // Check if last row (if exists) is fully filled before adding new one
@@ -297,8 +299,7 @@
                                 'X-Requested-With': 'XMLHttpRequest'
                             },
                             body: JSON.stringify({
-                                budget_type: budgetType,
-                                budget_code: budgetCode
+                                cost_center_id: selectedCostCenterId
                             })
                         });
 
@@ -311,6 +312,9 @@
                            // ✅ Show budget_left in console
                         budgetLeft = parseFloat(data.budget_left) || 0;
                         console.log("Budget Left:", data.budget_left);
+                        budgetTypeField.value = data.budget_type || selectedOption?.dataset.budgetType || "";
+                        budgetCodeField.value = data.budget_code || selectedOption?.dataset.budgetCode || "";
+                        costCenterNameField.value = selectedOption?.dataset.ccName || "";
 
                         addProductRow();
 

@@ -1,12 +1,15 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
+
 class GrnSes(models.Model):
     _name = "grn.ses"
     _description = "GRN / SES"
     _inherit = ["mail.thread", "mail.activity.mixin"]
 
     name = fields.Char(string="Reference", required=True)
+    partner_id = fields.Many2one("res.partner", string="Vendor")
+    purchase_order_id = fields.Many2one("purchase.order", string="Purchase Order", readonly=True)
     partner_ref = fields.Char(string="Vendor Reference")
     date_order = fields.Date(string="Order Date")
     date_planned = fields.Date(string="Planned Date")
@@ -22,6 +25,8 @@ class GrnSes(models.Model):
     is_reviewed = fields.Boolean("Reviewed", default=False)
     is_approved = fields.Boolean("Approved", default=False)
     line_ids = fields.One2many("grn.ses.line", "order_id", string="GRN/SES Lines")
+    bill_ids = fields.One2many("account.move", "grn_ses_id", string="Vendor Bills")
+    bill_count = fields.Integer(string="Bill Count", compute="_compute_bill_count")
     stage = fields.Selection(
         [
             ("pending", "Pending"),
@@ -32,28 +37,33 @@ class GrnSes(models.Model):
         default="pending",
         tracking=True,
     )
-    
-    
+
     @api.depends("line_ids.subtotal")
     def _compute_totals(self):
         for rec in self:
             rec.subtotal = sum(line.subtotal for line in rec.line_ids)
             rec.tax_15 = rec.subtotal * 0.15 if rec.subtotal else 0.0
             rec.grand_total = rec.subtotal + rec.tax_15
+
+    @api.depends("bill_ids")
+    def _compute_bill_count(self):
+        for rec in self:
+            rec.bill_count = len(rec.bill_ids)
+
     def action_review(self):
         """Mark record as reviewed"""
         for rec in self:
             rec.is_reviewed = True
-            rec.stage = "reviewed" 
-        group = self.env.ref("custom_user_portal.inventory_admin", raise_if_not_found=False)
-        if group and group.users:
-            for user in group.users:
-                rec.activity_schedule(
-                    'mail.mail_activity_data_todo',
-                    user_id=user.id,
-                    summary="Record Reviewed",
-                    note=f"Record {rec.display_name} has been reviewed and awaits approval."
-                )
+            rec.stage = "reviewed"
+            group = self.env.ref("custom_user_portal.inventory_admin", raise_if_not_found=False)
+            if group and group.users:
+                for user in group.users:
+                    rec.activity_schedule(
+                        'mail.mail_activity_data_todo',
+                        user_id=user.id,
+                        summary="Record Reviewed",
+                        note=f"Record {rec.display_name} has been reviewed and awaits approval."
+                    )
         return True
 
     def action_approve(self):
@@ -61,8 +71,7 @@ class GrnSes(models.Model):
         for rec in self:
             rec.is_approved = True
             rec.stage = "approved"
-            # Notify approvers group
-            group = self.env.ref("custom_pr_system.inventory_approver", raise_if_not_found=False)
+            group = self.env.ref("custom_user_portal.inventory_admin", raise_if_not_found=False)
             if group and group.users:
                 for user in group.users:
                     rec.activity_schedule(
@@ -72,28 +81,105 @@ class GrnSes(models.Model):
                         note=f"Record {rec.display_name} has been approved."
                     )
 
+    def _get_expense_account(self, product=False):
+        account = False
+        if product:
+            account = product.property_account_expense_id or product.categ_id.property_account_expense_categ_id
+        if not account:
+            account = self.env["account.account"].sudo().search([
+                ("company_id", "=", self.company_id.id),
+                ("account_type", "=", "expense"),
+                ("deprecated", "=", False),
+            ], limit=1)
+        if not account:
+            raise UserError(_("No expense account found to create vendor bill lines."))
+        return account
+
+    def action_create_vendor_bill(self):
+        self.ensure_one()
+        if not self.is_approved:
+            raise UserError(_("Please approve the GRN/SES before creating a vendor bill."))
+        if not self.partner_id:
+            raise UserError(_("Vendor is required on GRN/SES to create a bill."))
+        if not self.line_ids:
+            raise UserError(_("Cannot create vendor bill without GRN/SES lines."))
+
+        existing_draft = self.bill_ids.filtered(lambda b: b.state == "draft")[:1]
+        if existing_draft:
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Vendor Bill"),
+                "res_model": "account.move",
+                "res_id": existing_draft.id,
+                "view_mode": "form",
+                "target": "current",
+            }
+
+        invoice_lines = []
+        for line in self.line_ids:
+            product = self.env["product.product"].sudo().search([("name", "=", line.name)], limit=1)
+            vals = {
+                "name": line.name or _("GRN/SES Item"),
+                "quantity": line.quantity or 1.0,
+                "price_unit": line.price_unit or 0.0,
+            }
+            if product:
+                vals["product_id"] = product.id
+            else:
+                vals["account_id"] = self._get_expense_account().id
+            invoice_lines.append((0, 0, vals))
+
+        bill = self.env["account.move"].sudo().create({
+            "move_type": "in_invoice",
+            "partner_id": self.partner_id.id,
+            "invoice_date": fields.Date.context_today(self),
+            "invoice_origin": self.purchase_order_id.name if self.purchase_order_id else self.name,
+            "ref": self.partner_ref or self.name,
+            "invoice_line_ids": invoice_lines,
+            "grn_ses_id": self.id,
+        })
+
+        self.message_post(body=_("Vendor Bill %s created from %s.") % (bill.name or bill.id, self.name))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Vendor Bill"),
+            "res_model": "account.move",
+            "res_id": bill.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
+    def action_view_vendor_bills(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Vendor Bills"),
+            "res_model": "account.move",
+            "view_mode": "tree,form",
+            "domain": [("id", "in", self.bill_ids.ids)],
+            "context": {"default_move_type": "in_invoice", "create": False},
+        }
+
     def _get_report_base_filename(self):
         """Hide GRN/SES report until approved"""
         self.ensure_one()
         if not self.is_approved:
-            return False  # prevents showing in Print dropdown
+            return False
         return f"{self.name}_Report"
-    
+
     def print_grn_ses_report(self):
         for rec in self:
-            if rec.state != "approved":   # change to your real approval field
+            if rec.stage != "approved":
                 raise UserError(_("Reports cannot be downloaded until GRN/SES is approved"))
         return self.env.ref("custom_pr_system.action_report_grn_ses").report_action(self)
-
 
 
 class GrnSesLine(models.Model):
     _name = "grn.ses.line"
     _description = "GRN/SES Line"
 
-    order_id = fields.Many2one(
-        "grn.ses", string="GRN/SES", ondelete="cascade", required=True
-    )
+    order_id = fields.Many2one("grn.ses", string="GRN/SES", ondelete="cascade", required=True)
     name = fields.Char(string="Description")
     quantity = fields.Float(string="Quantity")
     unit = fields.Char(string="Unit")
@@ -112,6 +198,7 @@ class GrnSesLine(models.Model):
         for line in self:
             line.subtotal = line.quantity * line.price_unit
 
+
 class GrnSesWizard(models.TransientModel):
     _name = "grn.ses.wizard"
     _description = "Wizard for GRN/SES Creation"
@@ -124,88 +211,68 @@ class GrnSesWizard(models.TransientModel):
 
         created_records = []
 
-        # Separate PO lines by type
         material_lines = order.custom_line_ids.filtered(lambda l: l.type == "material")
         service_lines = order.custom_line_ids.filtered(lambda l: l.type == "service")
 
-        # 🚀 Create GRN if material lines exist
+        common_vals = {
+            "partner_id": order.partner_id.id,
+            "purchase_order_id": order.id,
+            "partner_ref": order.partner_ref,
+            "date_order": order.date_order,
+            "date_planned": order.date_planned,
+            "project": order.project_id.name if getattr(order, "project_id", False) else False,
+            "requested_by": order.requested_by,
+            "department": order.department,
+            "supervisor": order.supervisor,
+            "origin": order.origin,
+            "date_request": order.date_request,
+        }
+
         if material_lines:
-            grn = self.env["grn.ses"].create(
-                {
-                    "name": f"GRN for {order.name}",
-                    "partner_ref": order.partner_ref,
-                    "date_order": order.date_order,
-                    "date_planned": order.date_planned,
-                    "project": order.project_id.name if order.project_id else False,
-                    "requested_by": order.requested_by,
-                    "department": order.department,
-                    "supervisor": order.supervisor,
-                    "origin": order.origin,
-                    "date_request": order.date_request,
-                }
-            )
-            grn.write(
-                {
-                    "line_ids": [
-                        (
-                            0,
-                            0,
-                            {
-                                "name": line.name,
-                                "quantity": line.quantity,
-                                "unit": line.unit,
-                                "type": line.type,
-                                "price_unit": line.price_unit,
-                                "subtotal": line.subtotal,
-                                "remarks": self.remarks,
-                            },
-                        )
-                        for line in material_lines
-                    ]
-                }
-            )
+            grn = self.env["grn.ses"].create({
+                **common_vals,
+                "name": f"GRN for {order.name}",
+            })
+            grn.write({
+                "line_ids": [
+                    (0, 0, {
+                        "name": line.name,
+                        "quantity": line.quantity,
+                        "unit": line.unit,
+                        "type": line.type,
+                        "price_unit": line.price_unit,
+                        "subtotal": line.subtotal,
+                        "remarks": self.remarks,
+                    })
+                    for line in material_lines
+                ]
+            })
             created_records.append(grn)
 
         if service_lines:
-            ses = self.env["grn.ses"].create(
-                {
-                    "name": f"SES for {order.name}",
-                    "partner_ref": order.partner_ref,
-                    "date_order": order.date_order,
-                    "date_planned": order.date_planned,
-                    "project": order.project_id.name if order.project_id else False,
-                    "requested_by": order.requested_by,
-                    "department": order.department,
-                    "supervisor": order.supervisor,
-                    "origin": order.origin,
-                    "date_request": order.date_request,
-                }
-            )
-            ses.write(
-                {
-                    "line_ids": [
-                        (
-                            0,
-                            0,
-                            {
-                                "name": line.name,
-                                "quantity": line.quantity,
-                                "unit": line.unit,
-                                "type": line.type,
-                                "price_unit": line.price_unit,
-                                "subtotal": line.subtotal,
-                                "remarks": self.remarks,
-                            },
-                        )
-                        for line in service_lines
-                    ]
-                }
-            )
+            ses = self.env["grn.ses"].create({
+                **common_vals,
+                "name": f"SES for {order.name}",
+            })
+            ses.write({
+                "line_ids": [
+                    (0, 0, {
+                        "name": line.name,
+                        "quantity": line.quantity,
+                        "unit": line.unit,
+                        "type": line.type,
+                        "price_unit": line.price_unit,
+                        "subtotal": line.subtotal,
+                        "remarks": self.remarks,
+                    })
+                    for line in service_lines
+                ]
+            })
             created_records.append(ses)
-                # 🚀 Send activity to Inventory QC group after creation
+
         group = self.env.ref("custom_pr_system.inventory_qc", raise_if_not_found=False)
         if group and group.users:
-            for rec in created_records:  # Loop over GRN/SES records
+            for rec in created_records:
                 for user in group.users:
                     rec.activity_schedule(
                         'mail.mail_activity_data_todo',
@@ -217,6 +284,12 @@ class GrnSesWizard(models.TransientModel):
         return {"type": "ir.actions.act_window_close"}
 
 
+class AccountMove(models.Model):
+    _inherit = "account.move"
+
+    grn_ses_id = fields.Many2one("grn.ses", string="GRN/SES", readonly=True, copy=False)
+
+
 class GrnSesReport(models.AbstractModel):
     _name = 'report.custom_pr_system.report_petroraq_grn_ses'
     _description = 'GRN/SES QWeb Report'
@@ -225,13 +298,10 @@ class GrnSesReport(models.AbstractModel):
     def _get_report_values(self, docids, data=None):
         docs = self.env['grn.ses'].browse(docids)
         for rec in docs:
-            if not rec.is_approved:  # ✅ check approval before printing
+            if not rec.is_approved:
                 raise UserError("You can only print the GRN/SES Report after it is approved.")
         return {
             'doc_ids': docids,
             'doc_model': 'grn.ses',
             'docs': docs,
         }
-        
-        
-        

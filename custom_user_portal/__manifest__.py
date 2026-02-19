@@ -12,7 +12,7 @@
     'website': "https://www.yourcompany.com",
     'category': 'Uncategorized',
     'version': '0.1',
-    'depends': ['base', 'portal', 'product', 'hr', 'mail', 'web', 'purchase', 'purchase_stock', 'stock', 'bus', 'project', 'custom_pr_system'],
+    'depends': ['base', 'portal', 'product', 'hr', 'mail', 'web', 'purchase', 'purchase_stock', 'stock', 'bus', 'project', 'account', 'custom_pr_system'],
     'license': 'LGPL-3',
     'installable': True,
     'application': True,
@@ -34,6 +34,7 @@
         'views/pr_portal_view.xml',
         'views/rfq_vendor.xml',
         'views/purchase_order_inherit.xml',
+        'views/res_users_supervisor.xml',
 
         'data/ir_sequence_data.xml',
     ],
