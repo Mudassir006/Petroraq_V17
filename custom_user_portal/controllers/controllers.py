@@ -128,10 +128,7 @@ class PortalPR(http.Controller):
     def check_budget(self, **post):
         data = json.loads(request.httprequest.data or "{}")
         cost_center_id = int(data.get("cost_center_id") or 0)
-        budget_type = data.get("budget_type")
-        budget_code = data.get("budget_code")
-
-        if not cost_center_id and not (budget_type and budget_code):
+        if not cost_center_id:
             return request.make_response(
                 json.dumps(
                     {"success": False, "message": "Missing cost center selection."}
@@ -139,25 +136,15 @@ class PortalPR(http.Controller):
                 headers=[("Content-Type", "application/json")],
             )
 
-        if cost_center_id:
-            cost_center = request.env["account.analytic.account"].sudo().browse(cost_center_id)
-            cost_center = cost_center if cost_center.exists() else request.env["account.analytic.account"].browse()
-        else:
-            cost_center = (
-                request.env["account.analytic.account"]
-                .sudo()
-                .search(
-                    [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
-                    limit=1,
-                )
-            )
+        cost_center = request.env["account.analytic.account"].sudo().browse(cost_center_id)
+        cost_center = cost_center if cost_center.exists() else request.env["account.analytic.account"].browse()
 
         if not cost_center:
             return request.make_response(
                 json.dumps(
                     {
                         "success": False,
-                        "message": "No cost center found for given budget type and code.",
+                        "message": "No cost center found for the selected value.",
                     }
                 ),
                 headers=[("Content-Type", "application/json")],
@@ -179,8 +166,6 @@ class PortalPR(http.Controller):
                 {
                     "success": True,
                     "budget_left": cost_center.budget_left,
-                    "budget_type": cost_center.budget_type,
-                    "budget_code": cost_center.budget_code,
                     "message": f"Budget available: {cost_center.budget_left}",
                 }
             ),
@@ -232,8 +217,6 @@ class PortalPR(http.Controller):
                     "required_date": post.get("required_date"),
                     "priority": post.get("priority"),
                     "cost_center_id": int(post.get("cost_center_id") or 0) or False,
-                    "budget_type": post.get("budget_type_selector"),
-                    "budget_details": post.get("budget_input_field"),
                     "notes": post.get("notes"),
                     "pr_type": post.get("pr_type") or "pr",
                 }
@@ -298,8 +281,7 @@ class PortalPR(http.Controller):
                     <tr><td><strong>Supervisor:</strong></td><td>{post.get('supervisor')}</td></tr>
                     <tr><td><strong>Required Date:</strong></td><td>{post.get('required_date')}</td></tr>
                     <tr><td><strong>Priority:</strong></td><td>{post.get('priority')}</td></tr>
-                    <tr><td><strong>Cost Center:</strong></td><td>{post.get('cost_center_name') or post.get('budget_input_field')}</td></tr>
-                    <tr><td><strong>Budget Type:</strong></td><td>{post.get('budget_type_selector')}</td></tr>
+                    <tr><td><strong>Cost Center:</strong></td><td>{post.get('cost_center_name')}</td></tr>
                 </table>
 
                 <h4>Requested Items</h4>

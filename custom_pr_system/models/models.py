@@ -28,10 +28,11 @@ class CustomPR(models.Model):
         required=True,
         default="medium",
     )
-    budget_type = fields.Selection(
-        [("opex", "Opex"), ("capex", "Capex")], string="Budget Type", required=True
+    cost_center_id = fields.Many2one(
+        'account.analytic.account',
+        string="Cost Center",
+        required=True,
     )
-    budget_details = fields.Char(string="Cost Center Code", required=True)
     comments = fields.Text(string="Comments")
     notes = fields.Text(string="Notes")
     rejection_reason = fields.Text(string="Reason for Rejection")
@@ -144,9 +145,9 @@ class CustomPR(models.Model):
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
         # Check if related project exists
-        cost_center = self.env['account.analytic.account'].sudo().search([('budget_type', '=', rec.budget_type), ('budget_code', '=', rec.budget_details)], limit=1)
+        cost_center = rec.cost_center_id.sudo()
         if not cost_center:
-            raise ValidationError("No cost center found for the selected budget type / cost center code.")
+            raise ValidationError("Please select a valid cost center.")
 
         # Budget validation
         if rec.total_excl_vat > cost_center.budget_left:
@@ -172,11 +173,6 @@ class CustomPR(models.Model):
         supervisor_partner_id = rec.supervisor_partner_id or (
             supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id else False)
 
-        requisition_cost_center = self.env['account.analytic.account'].sudo().search([
-            ('budget_type', '=', rec.budget_type),
-            ('budget_code', '=', rec.budget_details),
-        ], limit=1)
-
         requisition = self.env['purchase.requisition'].sudo().create({
             'name': rec.name,
             'date_request': rec.date_request,
@@ -186,9 +182,7 @@ class CustomPR(models.Model):
             'supervisor_partner_id': supervisor_partner_id,
             'required_date': rec.required_date,
             'priority': rec.priority,
-            'cost_center_id': requisition_cost_center.id if requisition_cost_center else False,
-            'budget_type': rec.budget_type,
-            'budget_details': rec.budget_details,
+            'cost_center_id': rec.cost_center_id.id,
             'notes': rec.notes,
             'comments': rec.comments,
             'pr_type': 'cash' if rec.pr_type == 'cash' else 'pr',
@@ -222,18 +216,12 @@ class CustomPR(models.Model):
             vals['required_date'] = self._required_date_from_priority(vals['priority'])
         return super(CustomPR, self).write(vals)
 
-    @api.depends('budget_type', 'budget_details')
+    @api.depends('cost_center_id')
     def _compute_has_valid_project(self):
         for rec in self:
             rec.has_valid_project = False
-            if rec.budget_type and rec.budget_details:
-                cost_center = self.env['account.analytic.account'].sudo().search([
-                    ('budget_type', '=', rec.budget_type),
-                    ('budget_code', '=', rec.budget_details),
-                ], limit=1)
-                # must exist and budget_left must be greater than 0
-                if cost_center and cost_center.budget_left > 0:
-                    rec.has_valid_project = True
+            if rec.cost_center_id and rec.cost_center_id.budget_left > 0:
+                rec.has_valid_project = True
 
 
 class CustomPRLine(models.Model):
