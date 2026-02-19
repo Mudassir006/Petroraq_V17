@@ -23,22 +23,14 @@ class PortalPR(http.Controller):
 
         supervisor_name = ""
         supervisor_partner_id = ""
-        if employee and employee.parent_id:
-            supervisor = employee.parent_id
-            if supervisor.user_id and supervisor.user_id.partner_id:
-                supervisor_name = supervisor.user_id.partner_id.name
-                supervisor_partner_id = supervisor.user_id.partner_id.id
 
-        if not supervisor_partner_id:
-            approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-            approver_user = (
-                request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)], limit=1)
-                if approver_group
-                else False
-            )
-            if approver_user and approver_user.partner_id:
-                supervisor_name = approver_user.partner_id.name
-                supervisor_partner_id = approver_user.partner_id.id
+        configured_supervisor = user.sudo().supervisor_user_id
+        if configured_supervisor and configured_supervisor.partner_id:
+            supervisor_name = configured_supervisor.partner_id.name
+            supervisor_partner_id = configured_supervisor.partner_id.id
+        elif employee and employee.parent_id and employee.parent_id.user_id and employee.parent_id.user_id.partner_id:
+            supervisor_name = employee.parent_id.user_id.partner_id.name
+            supervisor_partner_id = employee.parent_id.user_id.partner_id.id
 
         seq_code = "cash.purchase.requisition" if req_type == "cash" else "purchase.requisition"
         sequence = request.env["ir.sequence"].sudo().search([("code", "=", seq_code)], limit=1)
@@ -113,7 +105,7 @@ class PortalPR(http.Controller):
         pr_records = (
             request.env["purchase.requisition"]
             .sudo()
-            .search([("requested_by", "=", employee.name if employee else request.env.user.name)])
+            .search([("requested_user_id", "=", request.env.user.id)])
         )
 
         pending_count = sum(1 for pr in pr_records if pr.approval == "pending")
@@ -230,11 +222,12 @@ class PortalPR(http.Controller):
             .sudo()
             .create(
                 {
-                    "requested_by": post.get("requested_by"),
+                    "requested_by": employee.name if employee else request.env.user.name,
+                    "requested_user_id": request.env.user.id,
                     "department": post.get("department"),
-                    "supervisor": post.get("supervisor"),
-                    "supervisor_partner_id": int(
-                        post.get("supervisor_partner_id") or 0
+                    "supervisor": request.env.user.supervisor_user_id.name if request.env.user.supervisor_user_id else post.get("supervisor"),
+                    "supervisor_partner_id": (
+                        request.env.user.supervisor_user_id.partner_id.id if request.env.user.supervisor_user_id and request.env.user.supervisor_user_id.partner_id else int(post.get("supervisor_partner_id") or 0)
                     ),
                     "required_date": post.get("required_date"),
                     "priority": post.get("priority"),
@@ -263,16 +256,10 @@ class PortalPR(http.Controller):
             )
             index += 1
 
-        manager = employee.parent_id if employee else False
-        approver_group = request.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-        approver_users = (
-            request.env["res.users"].sudo().search([("groups_id", "in", approver_group.id)])
-            if approver_group
-            else request.env["res.users"]
-        )
-        recipient_emails = {email for email in approver_users.mapped("email") if email}
-        if manager and manager.work_email:
-            recipient_emails.add(manager.work_email)
+        supervisor_user = request.env.user.sudo().supervisor_user_id
+        recipient_emails = set()
+        if supervisor_user and supervisor_user.email:
+            recipient_emails.add(supervisor_user.email)
 
         current_date = datetime.today().strftime("%Y-%m-%d")
 

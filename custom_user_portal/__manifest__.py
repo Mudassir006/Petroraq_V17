@@ -34,6 +34,7 @@
         'views/pr_portal_view.xml',
         'views/rfq_vendor.xml',
         'views/purchase_order_inherit.xml',
+        'views/res_users_supervisor.xml',
 
         'data/ir_sequence_data.xml',
     ],

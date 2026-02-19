@@ -135,21 +135,11 @@ class CustomPR(models.Model):
 
         return res
 
-    def _get_pr_approver_users(self):
-        group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-        if not group:
-            return self.env["res.users"]
-        return self.env["res.users"].sudo().search([("groups_id", "in", group.id)])
-
     def action_create_pr(self):
         self.ensure_one()
         rec = self
 
-        approver_users = rec._get_pr_approver_users()
-
         # Check required fields
-        if not approver_users:
-            raise ValidationError("Please assign at least one user to the PR Approver group.")
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
@@ -176,10 +166,11 @@ class CustomPR(models.Model):
             existing_pr.sudo().unlink()
 
         # Create new Purchase Requisition
-        fallback_approver = approver_users[:1]
-        supervisor_name = rec.supervisor or (fallback_approver.partner_id.name if fallback_approver else False)
+        requester = rec.requested_user_id.sudo() if rec.requested_user_id else self.env.user.sudo()
+        supervisor_user = requester.supervisor_user_id if requester else False
+        supervisor_name = rec.supervisor or (supervisor_user.name if supervisor_user else False)
         supervisor_partner_id = rec.supervisor_partner_id or (
-            fallback_approver.partner_id.id if fallback_approver else False)
+            supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id else False)
 
         requisition_cost_center = self.env['account.analytic.account'].sudo().search([
             ('budget_type', '=', rec.budget_type),

@@ -20,6 +20,7 @@ class PurchaseRequisition(models.Model):
         string="Date of Request", default=fields.Date.context_today
     )
     requested_by = fields.Char(string="Requested By")
+    requested_user_id = fields.Many2one("res.users", string="Requested User", readonly=True)
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
@@ -131,6 +132,15 @@ class PurchaseRequisition(models.Model):
             if cc:
                 vals["cost_center_id"] = cc.id
 
+        if not vals.get("requested_user_id"):
+            vals["requested_user_id"] = self.env.user.id
+
+        requester = self.env["res.users"].sudo().browse(vals.get("requested_user_id")) if vals.get("requested_user_id") else self.env.user
+        supervisor_user = requester.supervisor_user_id if requester else False
+        if supervisor_user:
+            vals["supervisor"] = vals.get("supervisor") or supervisor_user.name
+            vals["supervisor_partner_id"] = vals.get("supervisor_partner_id") or str(supervisor_user.partner_id.id)
+
         record = super().create(vals)
         if record.name == "New":
             if record.pr_type == "cash":
@@ -209,44 +219,27 @@ class PurchaseRequisition(models.Model):
                 and rec.status in ["pr", "rfq"]
             )
 
-    # sending activity to specific manager when PR is created
+    # sending activity to configured supervisor when PR is created
     def _notify_supervisor(self):
-        try:
-            approver_users = self.env["res.users"]
-            group = self.env.ref("custom_pr_system.group_pr_approver", raise_if_not_found=False)
-            if group:
-                approver_users = self.env["res.users"].sudo().search(
-                    [("groups_id", "in", group.id)]
-                )
+        for rec in self:
+            try:
+                requester = rec.requested_user_id.sudo() if rec.requested_user_id else self.env.user.sudo()
+                supervisor_user = requester.supervisor_user_id if requester else False
 
-            if self.supervisor_partner_id and str(self.supervisor_partner_id).isdigit():
-                partner_id = int(self.supervisor_partner_id)
-                supervisor_user = (
-                    self.env["res.users"]
-                    .sudo()
-                    .search([("partner_id", "=", partner_id)], limit=1)
-                )
-                if supervisor_user:
-                    approver_users |= supervisor_user
+                if not supervisor_user:
+                    _logger.warning("No supervisor configured for requester on PR=%s", rec.name)
+                    continue
 
-            approver_users = approver_users.filtered(lambda u: u.active)
-            if not approver_users:
-                _logger.warning("No PR approver users found for PR=%s", self.name)
-                return
-
-            for approver in approver_users:
-                self.activity_schedule(
+                rec.activity_schedule(
                     activity_type_id=self.env.ref("mail.mail_activity_data_todo").id,
-                    user_id=approver.id,
+                    user_id=supervisor_user.id,
                     summary="Review New PR",
-                    note=_("Please review the new Purchase Requisition: <b>%s</b>.")
-                    % self.name,
+                    note=_("Please review the new Purchase Requisition: <b>%s</b>.") % rec.name,
                 )
+                _logger.info("Activity created for supervisor %s on PR=%s", supervisor_user.login, rec.name)
 
-            _logger.info("Activity created for %s approver(s) on PR=%s", len(approver_users), self.name)
-
-        except Exception as e:
-            _logger.error("Error creating activity for PR=%s: %s", self.name, str(e))
+            except Exception as e:
+                _logger.error("Error creating supervisor activity for PR=%s: %s", rec.name, str(e))
 
     # sending approved PR activity to procurment admin
     def _notify_procurement_admins(self):
@@ -554,10 +547,11 @@ class PurchaseRequisition(models.Model):
 
             current_user = rec.env.user
             current_partner_id = current_user.partner_id.id if current_user.partner_id else 0
-            has_approver_group = current_user.has_group("custom_pr_system.group_pr_approver")
+            requester_supervisor = rec.requested_user_id.supervisor_user_id if rec.requested_user_id else False
 
-            rec.is_supervisor = has_approver_group or (
-                supervisor_partner_id == current_partner_id
+            rec.is_supervisor = (
+                (requester_supervisor and requester_supervisor.id == current_user.id)
+                or (supervisor_partner_id == current_partner_id)
             )
 
 
