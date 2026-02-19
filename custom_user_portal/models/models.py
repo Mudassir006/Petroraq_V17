@@ -34,6 +34,7 @@ class PurchaseRequisition(models.Model):
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type"
     )
     budget_details = fields.Char(string="Cost Center Code")
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center")
     notes = fields.Text(string="Notes")
     approval = fields.Selection(
         [("pending", "Pending"), ("rejected", "Rejected"), ("approved", "Approved")],
@@ -105,10 +106,31 @@ class PurchaseRequisition(models.Model):
             if rec.priority:
                 rec.required_date = rec._required_date_from_priority(rec.priority)
 
+    @api.onchange("cost_center_id")
+    def _onchange_cost_center(self):
+        for rec in self:
+            if rec.cost_center_id:
+                rec.budget_type = rec.cost_center_id.budget_type
+                rec.budget_details = rec.cost_center_id.budget_code
+
     @api.model
     def create(self, vals):
         if vals.get("priority"):
             vals["required_date"] = self._required_date_from_priority(vals["priority"])
+
+        if vals.get("cost_center_id"):
+            cc = self.env["account.analytic.account"].sudo().browse(vals["cost_center_id"])
+            if cc.exists():
+                vals["budget_type"] = cc.budget_type
+                vals["budget_details"] = cc.budget_code
+        elif vals.get("budget_type") and vals.get("budget_details"):
+            cc = self.env["account.analytic.account"].sudo().search([
+                ("budget_type", "=", vals.get("budget_type")),
+                ("budget_code", "=", vals.get("budget_details")),
+            ], limit=1)
+            if cc:
+                vals["cost_center_id"] = cc.id
+
         record = super().create(vals)
         if record.name == "New":
             if record.pr_type == "cash":
@@ -345,7 +367,7 @@ class PurchaseRequisition(models.Model):
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
-            cost_center = self.env["account.analytic.account"].sudo().search(
+            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
@@ -353,7 +375,7 @@ class PurchaseRequisition(models.Model):
                 limit=1,
             )
             if not cost_center:
-                raise UserError(_("No cost center found for this PR budget type/code."))
+                raise UserError(_("No cost center selected/found for this PR."))
 
             # Create RFQ without normal order_line
             rfq_vals = {
@@ -361,8 +383,8 @@ class PurchaseRequisition(models.Model):
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "budget_type": pr.budget_type,
-                "budget_code": pr.budget_details,
+                "budget_type": cost_center.budget_type,
+                "budget_code": cost_center.budget_code,
                 "custom_line_ids": [],  # Populate custom tab instead
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -453,7 +475,7 @@ class PurchaseRequisition(models.Model):
                     _("This PR has no line items to create a Purchase Order.")
                 )
 
-            cost_center = self.env["account.analytic.account"].sudo().search(
+            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", pr.budget_type),
                     ("budget_code", "=", pr.budget_details),
@@ -461,15 +483,15 @@ class PurchaseRequisition(models.Model):
                 limit=1,
             )
             if not cost_center:
-                raise UserError(_("No cost center found for this PR budget type/code."))
+                raise UserError(_("No cost center selected/found for this PR."))
 
             # Create PO values
             po_vals = {
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date,
-                "budget_type": pr.budget_type,
-                "budget_code": pr.budget_details,
+                "budget_type": cost_center.budget_type,
+                "budget_code": cost_center.budget_code,
                 "custom_line_ids": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,

@@ -181,6 +181,11 @@ class CustomPR(models.Model):
         supervisor_partner_id = rec.supervisor_partner_id or (
             fallback_approver.partner_id.id if fallback_approver else False)
 
+        requisition_cost_center = self.env['account.analytic.account'].sudo().search([
+            ('budget_type', '=', rec.budget_type),
+            ('budget_code', '=', rec.budget_details),
+        ], limit=1)
+
         requisition = self.env['purchase.requisition'].sudo().create({
             'name': rec.name,
             'date_request': rec.date_request,
@@ -190,6 +195,7 @@ class CustomPR(models.Model):
             'supervisor_partner_id': supervisor_partner_id,
             'required_date': rec.required_date,
             'priority': rec.priority,
+            'cost_center_id': requisition_cost_center.id if requisition_cost_center else False,
             'budget_type': rec.budget_type,
             'budget_details': rec.budget_details,
             'notes': rec.notes,

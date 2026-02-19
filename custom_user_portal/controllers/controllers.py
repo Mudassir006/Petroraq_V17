@@ -52,6 +52,11 @@ class PortalPR(http.Controller):
             pr_number_preview = "New"
 
 
+        cost_centers = request.env["account.analytic.account"].sudo().search([
+            ("budget_code", "!=", False),
+            ("budget_type", "!=", False),
+        ])
+
         values = {
             "page_name": "create_pr",
             "requested_by": employee.name if employee else user.name,
@@ -64,6 +69,7 @@ class PortalPR(http.Controller):
             "supervisor_partner_id": supervisor_partner_id,
             "pr_number_preview": pr_number_preview,
             "req_type": req_type,
+            "cost_centers": cost_centers,
         }
         return request.render("custom_user_portal.portal_pr_form_template", values)
 
@@ -129,25 +135,30 @@ class PortalPR(http.Controller):
     @http.route("/check_budget", type="http", auth="user", methods=["POST"], csrf=False)
     def check_budget(self, **post):
         data = json.loads(request.httprequest.data or "{}")
+        cost_center_id = int(data.get("cost_center_id") or 0)
         budget_type = data.get("budget_type")
         budget_code = data.get("budget_code")
 
-        if not budget_type or not budget_code:
+        if not cost_center_id and not (budget_type and budget_code):
             return request.make_response(
                 json.dumps(
-                    {"success": False, "message": "Missing budget type or budget code."}
+                    {"success": False, "message": "Missing cost center selection."}
                 ),
                 headers=[("Content-Type", "application/json")],
             )
 
-        cost_center = (
-            request.env["account.analytic.account"]
-            .sudo()
-            .search(
-                [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
-                limit=1,
+        if cost_center_id:
+            cost_center = request.env["account.analytic.account"].sudo().browse(cost_center_id)
+            cost_center = cost_center if cost_center.exists() else request.env["account.analytic.account"].browse()
+        else:
+            cost_center = (
+                request.env["account.analytic.account"]
+                .sudo()
+                .search(
+                    [("budget_type", "=", budget_type), ("budget_code", "=", budget_code)],
+                    limit=1,
+                )
             )
-        )
 
         if not cost_center:
             return request.make_response(
@@ -176,6 +187,8 @@ class PortalPR(http.Controller):
                 {
                     "success": True,
                     "budget_left": cost_center.budget_left,
+                    "budget_type": cost_center.budget_type,
+                    "budget_code": cost_center.budget_code,
                     "message": f"Budget available: {cost_center.budget_left}",
                 }
             ),
@@ -225,6 +238,7 @@ class PortalPR(http.Controller):
                     ),
                     "required_date": post.get("required_date"),
                     "priority": post.get("priority"),
+                    "cost_center_id": int(post.get("cost_center_id") or 0) or False,
                     "budget_type": post.get("budget_type_selector"),
                     "budget_details": post.get("budget_input_field"),
                     "notes": post.get("notes"),
@@ -297,8 +311,8 @@ class PortalPR(http.Controller):
                     <tr><td><strong>Supervisor:</strong></td><td>{post.get('supervisor')}</td></tr>
                     <tr><td><strong>Required Date:</strong></td><td>{post.get('required_date')}</td></tr>
                     <tr><td><strong>Priority:</strong></td><td>{post.get('priority')}</td></tr>
+                    <tr><td><strong>Cost Center:</strong></td><td>{post.get('cost_center_name') or post.get('budget_input_field')}</td></tr>
                     <tr><td><strong>Budget Type:</strong></td><td>{post.get('budget_type_selector')}</td></tr>
-                    <tr><td><strong>Budget Details:</strong></td><td>{post.get('budget_input_field')}</td></tr>
                 </table>
 
                 <h4>Requested Items</h4>
