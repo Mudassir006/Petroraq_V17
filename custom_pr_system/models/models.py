@@ -24,10 +24,25 @@ class CustomPR(models.Model):
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
     )
-    budget_type = fields.Selection(
-        [("opex", "Opex"), ("capex", "Capex")], string="Budget Type", required=True
+    cost_center_id = fields.Many2one(
+        'account.analytic.account',
+        string="Cost Center",
+        required=True,
+        domain="[('analytic_plan_type', 'in', ['project', 'department', 'section'])]",
     )
-    budget_details = fields.Char(string="Cost Center Code", required=True)
+    budget_type = fields.Selection(
+        [("opex", "Opex"), ("capex", "Capex")],
+        string="Budget Type",
+        related="cost_center_id.budget_type",
+        store=True,
+        readonly=True,
+    )
+    budget_details = fields.Char(
+        string="Cost Center Code",
+        related="cost_center_id.project_code",
+        store=True,
+        readonly=True,
+    )
     comments = fields.Text(string="Comments")
     notes = fields.Text(string="Notes")
     rejection_reason = fields.Text(string="Reason for Rejection")
@@ -113,6 +128,17 @@ class CustomPR(models.Model):
 
         return res
 
+    def _get_cost_center_budget_left(self, cost_center):
+        self.ensure_one()
+        today = fields.Date.context_today(self)
+        budget_lines = self.env['crossovered.budget.lines'].search([
+            ('analytic_account_id', '=', cost_center.id),
+            ('date_from', '<=', today),
+            ('date_to', '>=', today),
+            ('crossovered_budget_id.state', '=', 'validate'),
+        ])
+        return sum(line.planned_amount - abs(line.practical_amount) for line in budget_lines)
+
     def action_create_pr(self):
         self.ensure_one()
         rec = self
@@ -123,15 +149,17 @@ class CustomPR(models.Model):
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
-        # Check if related project exists
-        project = self.env['project.project'].search([('budget_code', '=', rec.budget_details)], limit=1)
-        if not project:
-            raise ValidationError("No project found for the selected cost center / budget details.")
-        
+        if not rec.cost_center_id:
+            raise ValidationError("Please select a cost center.")
+
+        available_budget = rec._get_cost_center_budget_left(rec.cost_center_id)
+        if available_budget <= 0:
+            raise ValidationError("No available budget left for the selected cost center.")
+
         # Budget validation
-        if rec.total_excl_vat > project.budget_left:
+        if rec.total_excl_vat > available_budget:
             raise ValidationError(
-                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({project.budget_left})."
+                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({available_budget})."
             )
 
         # Validation: prevent 0 amount PR
@@ -185,18 +213,12 @@ class CustomPR(models.Model):
             }
         }
 
-    @api.depends('budget_type', 'budget_details')
+    @api.depends('cost_center_id')
     def _compute_has_valid_project(self):
         for rec in self:
             rec.has_valid_project = False
-            if rec.budget_type and rec.budget_details:
-                project = self.env['project.project'].search([
-                    ('budget_type', '=', rec.budget_type),
-                    ('budget_code', '=', rec.budget_details),
-                ], limit=1)
-                # must exist and budget_left must be greater than 0
-                if project and project.budget_left > 0:
-                    rec.has_valid_project = True
+            if rec.cost_center_id:
+                rec.has_valid_project = rec._get_cost_center_budget_left(rec.cost_center_id) > 0
 
 class CustomPRLine(models.Model):
     _name = 'custom.pr.line'
@@ -295,4 +317,3 @@ class PurchaseOrder(models.Model):
     def print_quotation(self):
         """Override Print RFQ to use custom PetroRaq Draft Invoice report"""
         return self.env.ref('custom_pr_system.action_report_petroraq_draft_invoice').report_action(self)
-
