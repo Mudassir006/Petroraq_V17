@@ -1,0 +1,43 @@
+<!-- <odoo>
+  <record id="purchase_order_custom_email_template" model="mail.template">
+    <field name="name">Purchase Order Custom Email</field>
+    <field name="model_id" ref="purchase.model_purchase_order"/>
+    <field name="subject">Purchase Order: ${object.name}</field>
+    <field name="email_from">${(user.email_formatted or '')|safe}</field>
+    <field name="email_to">${object.partner_id.email or ''}</field>
+    <field name="body_html" type="html">
+      <![CDATA[
+      <p>Dear ${object.partner_id.name},</p>
+      <p>Please find below the details of Purchase Order <strong>${object.name}</strong>:</p>
+
+      <table border="1" cellspacing="0" cellpadding="4" style="border-collapse: collapse; width: 100%;">
+        <thead>
+          <tr style="background-color:#f2f2f2;">
+            <th>Product</th>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          % for line in object.order_line:
+          <tr>
+            <td>${line.product_id.display_name}</td>
+            <td>${line.name or ''}</td>
+            <td>${line.product_qty}</td>
+            <td>${line.price_unit}</td>
+            <td>${line.price_subtotal}</td>
+          </tr>
+          % endfor
+        </tbody>
+      </table>
+
+      <p><strong>Total: </strong> ${object.amount_total}</p>
+
+      <p>Regards,<br/>
+      ${user.name}</p>
+      ]]>
+    </field>
+  </record>
+</odoo> -->
