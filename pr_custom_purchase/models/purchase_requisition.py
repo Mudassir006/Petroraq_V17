@@ -360,15 +360,15 @@ class PurchaseRequisition(models.Model):
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
-            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
-                [
-                    ("budget_type", "=", pr.budget_type),
-                    ("budget_code", "=", pr.budget_details),
-                ],
-                limit=1,
-            )
+            cost_center = pr.cost_center_id.sudo()
             if not cost_center:
                 raise UserError(_("No cost center selected/found for this PR."))
+
+            if cost_center.budget_left < pr.total_excl_vat:
+                raise UserError(
+                    _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                    % (cost_center.display_name, cost_center.budget_left, pr.total_excl_vat)
+                )
 
             # Create RFQ without normal order_line
             rfq_vals = {
@@ -468,15 +468,15 @@ class PurchaseRequisition(models.Model):
                     _("This PR has no line items to create a Purchase Order.")
                 )
 
-            cost_center = pr.cost_center_id or self.env["account.analytic.account"].sudo().search(
-                [
-                    ("budget_type", "=", pr.budget_type),
-                    ("budget_code", "=", pr.budget_details),
-                ],
-                limit=1,
-            )
+            cost_center = pr.cost_center_id.sudo()
             if not cost_center:
                 raise UserError(_("No cost center selected/found for this PR."))
+
+            if cost_center.budget_left < pr.total_excl_vat:
+                raise UserError(
+                    _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                    % (cost_center.display_name, cost_center.budget_left, pr.total_excl_vat)
+                )
 
             # Create PO values
             po_vals = {

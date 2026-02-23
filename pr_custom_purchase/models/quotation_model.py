@@ -196,18 +196,13 @@ class PurchaseQuotation(models.Model):
         """Create Purchase Order from this Quotation in pending state with Custom Lines."""
         PurchaseOrder = self.env["purchase.order"]
 
-        if self.budget_left < self.total_incl_vat:
-            raise UserError(
-                "Insufficient budget. You cannot proceed with Purchase Order creation."
-            )
-
         for quotation in self:
             if not quotation.line_ids:
                 raise UserError(
                     _("This Quotation has no line items to create a Purchase Order.")
                 )
 
-            cost_center = self.env["account.analytic.account"].sudo().search(
+            cost_center = quotation.cost_center_id.sudo() if quotation.cost_center_id else self.env["account.analytic.account"].sudo().search(
                 [
                     ("budget_type", "=", quotation.budget_type),
                     ("budget_code", "=", quotation.budget_code),
@@ -216,6 +211,12 @@ class PurchaseQuotation(models.Model):
             )
             if not cost_center:
                 raise UserError(_("No cost center found for this quotation budget type/code."))
+
+            if cost_center.budget_left < quotation.total_incl_vat:
+                raise UserError(
+                    _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                    % (cost_center.display_name, cost_center.budget_left, quotation.total_incl_vat)
+                )
 
             # Purchase Order values
             po_vals = {

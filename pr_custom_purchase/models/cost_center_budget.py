@@ -23,7 +23,7 @@ class AccountAnalyticAccount(models.Model):
                 pos = PurchaseOrder.search([
                     ("budget_type", "=", rec.budget_type),
                     ("budget_code", "=", rec.budget_code),
-                    ("state", "in", ["purchase", "done"]),
+                    ("state", "in", ["pending", "purchase", "done"]),
                 ])
                 for po in pos:
                     spent += po.grand_total if "grand_total" in po._fields else po.amount_total
