@@ -65,6 +65,7 @@
                             <field name="line_ids" readonly="1">
                                 <tree editable="bottom">
                                     <field name="description"/>
+                                    <field name="cost_center_id"/>
                                     <field name="type"/>
                                     <field name="unit"/>
                                     <field name="quantity"/>

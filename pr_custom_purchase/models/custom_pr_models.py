@@ -31,7 +31,7 @@ class CustomPR(models.Model):
     cost_center_id = fields.Many2one(
         'account.analytic.account',
         string='Cost Center',
-        required=True,
+        required=False,
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")],
@@ -165,16 +165,25 @@ class CustomPR(models.Model):
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
-        # Check if selected cost center exists
-        cost_center = rec.cost_center_id.sudo()
-        if not cost_center:
-            raise ValidationError("Please select a valid cost center.")
+        # Validate cost center budget per line (supports multiple cost centers in one PR)
+        amount_by_cost_center = {}
+        for line in rec.line_ids:
+            cost_center = line.cost_center_id.sudo() or rec.cost_center_id.sudo()
+            if not cost_center:
+                raise ValidationError(
+                    f"Please select a cost center for line '{line.description.display_name}'."
+                )
+            amount_by_cost_center.setdefault(cost_center.id, {"cc": cost_center, "amount": 0.0})
+            amount_by_cost_center[cost_center.id]["amount"] += line.total_price
 
-        # Budget validation
-        if rec.total_excl_vat > cost_center.budget_left:
-            raise ValidationError(
-                f"You are out of budget! Total amount ({rec.total_excl_vat}) exceeds remaining budget ({cost_center.budget_left})."
-            )
+        for item in amount_by_cost_center.values():
+            cost_center = item["cc"]
+            required_amount = item["amount"]
+            if required_amount > cost_center.budget_left:
+                raise ValidationError(
+                    f"You are out of budget for cost center {cost_center.display_name}! "
+                    f"Required ({required_amount}) exceeds remaining budget ({cost_center.budget_left})."
+                )
 
         # Validation: prevent 0 amount PR
         if rec.total_excl_vat == 0.00:
@@ -194,6 +203,8 @@ class CustomPR(models.Model):
         supervisor_partner_id = rec.supervisor_partner_id or (
             supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id else False)
 
+        first_cost_center = (rec.line_ids[:1].cost_center_id or rec.cost_center_id).sudo()
+
         requisition = self.env['purchase.requisition'].sudo().create({
             'name': rec.name,
             'date_request': rec.date_request,
@@ -203,9 +214,9 @@ class CustomPR(models.Model):
             'supervisor_partner_id': supervisor_partner_id,
             'required_date': rec.required_date,
             'priority': rec.priority,
-            'cost_center_id': cost_center.id,
-            'budget_type': cost_center.budget_type,
-            'budget_details': cost_center.budget_code,
+            'cost_center_id': first_cost_center.id,
+            'budget_type': first_cost_center.budget_type,
+            'budget_details': first_cost_center.budget_code,
             'notes': rec.notes,
             'comments': rec.comments,
             'pr_type': 'cash' if rec.pr_type == 'cash' else 'pr',
@@ -217,6 +228,7 @@ class CustomPR(models.Model):
                 'requisition_id': requisition.id,
                 'description': line.description.id,
                 'type': line.type,
+                'cost_center_id': (line.cost_center_id or rec.cost_center_id).id,
                 'quantity': line.quantity,
                 'unit': line.unit.name,
                 'unit_price': line.unit_price,
@@ -270,6 +282,11 @@ class CustomPRLine(models.Model):
         required=True,
         ondelete="restrict",
         context={'display_default_code': False},
+    )
+    cost_center_id = fields.Many2one(
+        'account.analytic.account',
+        string='Cost Center',
+        required=True,
     )
 
     type = fields.Selection(
