@@ -251,7 +251,7 @@ class CustomPRLine(models.Model):
         compute="_compute_type_from_product",
         store=True,
         readonly=True,
-        required=True,
+        required=False,
     )
     quantity = fields.Float(string="Quantity", default=1.0)
     # unit = fields.Selection(
