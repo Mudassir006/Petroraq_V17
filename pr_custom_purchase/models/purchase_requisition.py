@@ -210,6 +210,38 @@ class PurchaseRequisition(models.Model):
                 and rec.status in ["pr", "rfq"]
             )
 
+
+    def action_request_budget_increase(self):
+        self.ensure_one()
+        line_amounts = {}
+        for line in self.line_ids:
+            line_cc = line.cost_center_id.sudo()
+            if not line_cc:
+                continue
+            line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
+            line_amounts[line_cc.id]["amount"] += line.total_price
+
+        request = self.env["budget.increase.request"].create({
+            "requisition_id": self.id,
+            "reason": _("Budget increase requested for PR %s") % self.name,
+            "line_ids": [
+                (0, 0, {
+                    "cost_center_id": item["cc"].id,
+                    "requested_increase": max(item["amount"] - item["cc"].budget_left, 1.0),
+                })
+                for item in line_amounts.values()
+            ],
+        })
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Budget Increase Request"),
+            "res_model": "budget.increase.request",
+            "res_id": request.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
     # sending activity to configured supervisor when PR is created
     def _notify_supervisor(self):
         for rec in self:

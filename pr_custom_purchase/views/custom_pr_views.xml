@@ -65,6 +65,14 @@
       <field name="arch" type="xml">
         <form string="Purchase Requisition">
           <header>
+            <button name="action_request_budget_increase"
+            type="object"
+            string="Request Budget Increase"
+            class="btn btn-secondary"/>
+            <button name="action_open_budget_requests"
+            type="object"
+            string="Budget Requests"
+            class="btn btn-secondary"/>
             <button name="action_create_pr"
             type="object"
             string="Create PR"

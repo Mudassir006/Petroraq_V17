@@ -20,6 +20,10 @@
         <field name="arch" type="xml">
             <form string="Purchase Requisition">
                 <header>
+                    <button name="action_request_budget_increase"
+                        type="object"
+                        string="Request Budget Increase"
+                        class="btn-secondary"/>
                     <button name="action_create_rfq"
                         type="object"
                         string="Create RFQ"
