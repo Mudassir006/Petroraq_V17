@@ -8,3 +8,5 @@ from . import project
 from . import cost_center_budget
 from . import purchase_order_inherit
 from . import res_users
+
+from . import budget_increase_request

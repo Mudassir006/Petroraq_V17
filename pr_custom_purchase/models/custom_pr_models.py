@@ -69,6 +69,12 @@ class CustomPR(models.Model):
         default='draft',
         tracking=True,
     )
+    budget_increase_request_count = fields.Integer(compute="_compute_budget_increase_request_count")
+
+    def _compute_budget_increase_request_count(self):
+        Request = self.env['budget.increase.request'].sudo()
+        for rec in self:
+            rec.budget_increase_request_count = Request.search_count([('custom_pr_id', '=', rec.id)])
 
     def _required_date_from_priority(self, priority):
         today = fields.Date.context_today(self)
@@ -217,6 +223,47 @@ class CustomPR(models.Model):
                 'message': f"PR {requisition.name} has been created (old one replaced if existed).",
                 'sticky': False,
             }
+        }
+
+    def action_open_budget_requests(self):
+        self.ensure_one()
+        return {
+            'name': 'Budget Increase Requests',
+            'type': 'ir.actions.act_window',
+            'res_model': 'budget.increase.request',
+            'view_mode': 'tree,form',
+            'domain': [('custom_pr_id', '=', self.id)],
+            'context': {'default_custom_pr_id': self.id},
+        }
+
+    def action_request_budget_increase(self):
+        self.ensure_one()
+        amount_by_cost_center = {}
+        for line in self.line_ids:
+            if not line.cost_center_id:
+                continue
+            cc = line.cost_center_id
+            amount_by_cost_center.setdefault(cc.id, {"cc": cc, "amount": 0.0})
+            amount_by_cost_center[cc.id]["amount"] += line.total_price
+
+        request = self.env['budget.increase.request'].create({
+            'custom_pr_id': self.id,
+            'reason': f'Budget increase requested for PR {self.name}.',
+            'line_ids': [
+                (0, 0, {
+                    'cost_center_id': item['cc'].id,
+                    'requested_increase': max(item['amount'] - item['cc'].budget_left, 1.0),
+                })
+                for item in amount_by_cost_center.values()
+            ]
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Budget Increase Request',
+            'res_model': 'budget.increase.request',
+            'res_id': request.id,
+            'view_mode': 'form',
+            'target': 'current',
         }
 
     def write(self, vals):

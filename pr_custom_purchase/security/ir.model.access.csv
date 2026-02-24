@@ -9,3 +9,5 @@ access_grn_ses_wizard,access.grn.ses.wizard,model_grn_ses_wizard,stock.group_sto
 access_purchase_requisition_user,purchase.requisition user,model_purchase_requisition,base.group_user,1,1,1,1
 access_purchase_requisition_line_user,purchase.requisition.line user,model_purchase_requisition_line,base.group_user,1,1,1,1
 access_purchase_order_custom_line_stock_manager,purchase.order.custom.line stock manager,model_purchase_order_custom_line,base.group_user,1,1,1,1
+access_budget_increase_request_user,budget.increase.request user,model_budget_increase_request,base.group_user,1,1,1,1
+access_budget_increase_request_line_user,budget.increase.request.line user,model_budget_increase_request_line,base.group_user,1,1,1,1
