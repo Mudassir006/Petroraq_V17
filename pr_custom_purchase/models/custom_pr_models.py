@@ -112,18 +112,25 @@ class CustomPR(models.Model):
         user = self.env.user
         employee = self.env['hr.employee'].search([('user_id', '=', user.id)], limit=1)
 
+        supervisor_user = user.supervisor_user_id
+
         if employee:
             res.update({
                 'requested_by': employee.name,
                 'requested_user_id': user.id,
                 'department': employee.department_id.name if employee.department_id else False,
-                'supervisor': employee.parent_id.name if employee.parent_id else False,
-                'supervisor_partner_id': employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else False,
+                'supervisor': supervisor_user.name if supervisor_user else (employee.parent_id.name if employee.parent_id else False),
+                'supervisor_partner_id': (
+                    supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id
+                    else (employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else False)
+                ),
             })
         else:
             res.update({
                 'requested_by': user.name,
                 'requested_user_id': user.id,
+                'supervisor': supervisor_user.name if supervisor_user else False,
+                'supervisor_partner_id': supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id else False,
             })
 
         return res

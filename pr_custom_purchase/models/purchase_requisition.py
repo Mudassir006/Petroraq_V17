@@ -116,6 +116,17 @@ class PurchaseRequisition(models.Model):
             vals["requested_user_id"] = self.env.user.id
 
         requester = self.env["res.users"].sudo().browse(vals.get("requested_user_id")) if vals.get("requested_user_id") else self.env.user
+
+        employee = self.env["hr.employee"].sudo().search([
+            ("user_id", "=", requester.id)
+        ], limit=1) if requester else False
+
+        if not vals.get("requested_by"):
+            vals["requested_by"] = employee.name if employee else (requester.name if requester else self.env.user.name)
+
+        if not vals.get("department") and employee and employee.department_id:
+            vals["department"] = employee.department_id.name
+
         supervisor_user = requester.supervisor_user_id if requester else False
         if supervisor_user:
             vals["supervisor"] = vals.get("supervisor") or supervisor_user.name
