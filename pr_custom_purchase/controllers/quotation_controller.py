@@ -159,8 +159,6 @@ class PortalRFQ(http.Controller):
                     # Partial Order Acceptable
                     "partial_yes": bool(post.get("partial_yes")),
                     "partial_no": bool(post.get("partial_no")),
-                    "budget_type": rfq.budget_type,
-                    "budget_code": rfq.budget_code,
                     "project_id": rfq.project_id.id,
                     #PO Info
                     "requested_by": rfq.requested_by,
@@ -171,6 +169,8 @@ class PortalRFQ(http.Controller):
                 }
             )
         )
+        rfq_line_by_index = {idx: line for idx, line in enumerate(rfq.custom_line_ids)}
+
         product_indexes = set()
         for key in post:
             if key.startswith("product_description_"):
@@ -190,6 +190,9 @@ class PortalRFQ(http.Controller):
             if not description:
                 continue
 
+            rfq_line = rfq_line_by_index.get(i)
+            if not (rfq_line and rfq_line.cost_center_id):
+                return request.redirect(f"/vendor/rfq/form/{rfq_id}?error=missing_cost_center")
             request.env["purchase.quotation.line"].sudo().create(
                 {
                     "quotation_id": quotation.id,
@@ -198,6 +201,7 @@ class PortalRFQ(http.Controller):
                     "type": product_type,
                     "unit": unit,
                     "price_unit": price_unit,
+                    "cost_center_id": rfq_line.cost_center_id.id if rfq_line and rfq_line.cost_center_id else False,
                 }
             )
 

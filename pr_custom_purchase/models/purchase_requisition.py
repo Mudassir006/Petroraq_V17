@@ -107,30 +107,10 @@ class PurchaseRequisition(models.Model):
             if rec.priority:
                 rec.required_date = rec._required_date_from_priority(rec.priority)
 
-    @api.onchange("cost_center_id")
-    def _onchange_cost_center(self):
-        for rec in self:
-            if rec.cost_center_id:
-                rec.budget_type = rec.cost_center_id.budget_type
-                rec.budget_details = rec.cost_center_id.budget_code
-
     @api.model
     def create(self, vals):
         if vals.get("priority"):
             vals["required_date"] = self._required_date_from_priority(vals["priority"])
-
-        if vals.get("cost_center_id"):
-            cc = self.env["account.analytic.account"].sudo().browse(vals["cost_center_id"])
-            if cc.exists():
-                vals["budget_type"] = cc.budget_type
-                vals["budget_details"] = cc.budget_code
-        elif vals.get("budget_type") and vals.get("budget_details"):
-            cc = self.env["account.analytic.account"].sudo().search([
-                ("budget_type", "=", vals.get("budget_type")),
-                ("budget_code", "=", vals.get("budget_details")),
-            ], limit=1)
-            if cc:
-                vals["cost_center_id"] = cc.id
 
         if not vals.get("requested_user_id"):
             vals["requested_user_id"] = self.env.user.id
@@ -362,7 +342,7 @@ class PurchaseRequisition(models.Model):
 
             line_amounts = {}
             for line in pr.line_ids:
-                line_cc = line.cost_center_id.sudo() or pr.cost_center_id.sudo()
+                line_cc = line.cost_center_id.sudo()
                 if not line_cc:
                     raise UserError(_("Please set a cost center on every PR line."))
                 line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
@@ -376,16 +356,12 @@ class PurchaseRequisition(models.Model):
                         % (cc.display_name, cc.budget_left, item["amount"])
                     )
 
-            default_cost_center = (pr.line_ids[:1].cost_center_id or pr.cost_center_id).sudo()
-
             # Create RFQ without normal order_line
             rfq_vals = {
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "budget_type": default_cost_center.budget_type,
-                "budget_code": default_cost_center.budget_code,
                 "custom_line_ids": [],  # Populate custom tab instead
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -406,7 +382,7 @@ class PurchaseRequisition(models.Model):
                         "type": line.type,
                         "unit": line.unit,
                         "price_unit": line.unit_price,
-                        "cost_center_id": (line.cost_center_id or pr.cost_center_id).id,
+                        "cost_center_id": line.cost_center_id.id,
                     },
                 )
                 rfq_vals["custom_line_ids"].append(line_vals)
@@ -479,7 +455,7 @@ class PurchaseRequisition(models.Model):
 
             line_amounts = {}
             for line in pr.line_ids:
-                line_cc = line.cost_center_id.sudo() or pr.cost_center_id.sudo()
+                line_cc = line.cost_center_id.sudo()
                 if not line_cc:
                     raise UserError(_("Please set a cost center on every PR line."))
                 line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
@@ -493,15 +469,11 @@ class PurchaseRequisition(models.Model):
                         % (cc.display_name, cc.budget_left, item["amount"])
                     )
 
-            default_cost_center = (pr.line_ids[:1].cost_center_id or pr.cost_center_id).sudo()
-
             # Create PO values
             po_vals = {
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date,
-                "budget_type": default_cost_center.budget_type,
-                "budget_code": default_cost_center.budget_code,
                 "custom_line_ids": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
@@ -522,7 +494,7 @@ class PurchaseRequisition(models.Model):
                         "type": line.type,
                         "unit": line.unit,
                         "price_unit": line.unit_price,
-                        "cost_center_id": (line.cost_center_id or pr.cost_center_id).id,
+                        "cost_center_id": line.cost_center_id.id,
                     },
                 )
                 po_vals["custom_line_ids"].append(line_vals)
@@ -593,7 +565,7 @@ class PurchaseRequisitionLine(models.Model):
     unit = fields.Char(string="Unit")
     unit_price = fields.Float(string="Unit Price")
     cost_center_id = fields.Many2one(
-        "account.analytic.account", string="Cost Center"
+        "account.analytic.account", string="Cost Center", required=True
     )
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)
 
@@ -643,7 +615,7 @@ class PurchaseOrderCustomLine(models.Model):
         required=True
     )
     price_unit = fields.Float(string="Unit Price")
-    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center")
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     subtotal = fields.Float(string="Subtotal", compute="_compute_subtotal", store=True)
 
     @api.depends("quantity", "price_unit")
