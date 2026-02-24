@@ -202,21 +202,21 @@ class PurchaseQuotation(models.Model):
                     _("This Quotation has no line items to create a Purchase Order.")
                 )
 
-            cost_center = quotation.cost_center_id.sudo() if quotation.cost_center_id else self.env["account.analytic.account"].sudo().search(
-                [
-                    ("budget_type", "=", quotation.budget_type),
-                    ("budget_code", "=", quotation.budget_code),
-                ],
-                limit=1,
-            )
-            if not cost_center:
-                raise UserError(_("No cost center found for this quotation budget type/code."))
+            amount_by_cost_center = {}
+            for line in quotation.line_ids:
+                cost_center = line.cost_center_id.sudo()
+                if not cost_center:
+                    raise UserError(_("Please set a cost center on every quotation line."))
+                amount_by_cost_center.setdefault(cost_center.id, {"cc": cost_center, "amount": 0.0})
+                amount_by_cost_center[cost_center.id]["amount"] += line.price_unit * line.quantity
 
-            if cost_center.budget_left < quotation.total_incl_vat:
-                raise UserError(
-                    _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
-                    % (cost_center.display_name, cost_center.budget_left, quotation.total_incl_vat)
-                )
+            for item in amount_by_cost_center.values():
+                cost_center = item["cc"]
+                if cost_center.budget_left < item["amount"]:
+                    raise UserError(
+                        _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                        % (cost_center.display_name, cost_center.budget_left, item["amount"])
+                    )
 
             # Purchase Order values
             po_vals = {
@@ -224,8 +224,6 @@ class PurchaseQuotation(models.Model):
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
                 "date_planned": quotation.delivery_date or fields.Datetime.now(),
-                "budget_type": quotation.budget_type,
-                "budget_code": quotation.budget_code,
                 "custom_line_ids": [],
                 "state": "pending",
                 "pr_name": self.pr_name,
@@ -247,6 +245,7 @@ class PurchaseQuotation(models.Model):
                         "type": line.type,
                         "unit": line.unit,
                         "price_unit": line.price_unit,
+                        "cost_center_id": line.cost_center_id.id,
                     },
                 )
                 po_vals["custom_line_ids"].append(line_vals)
@@ -357,6 +356,7 @@ class PurchaseQuotationLine(models.Model):
         required=True
     )
     price_unit = fields.Float(string="Unit Price")
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     subtotal = fields.Float(string="Subtotal", compute="_compute_subtotal", store=True)
     tax_15 = fields.Float(string="15% Tax", compute="_compute_subtotal", store=True)
     grand_total = fields.Float(

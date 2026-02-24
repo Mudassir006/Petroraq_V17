@@ -53,9 +53,6 @@
                         <group>
                             <field name="required_date" readonly="1"/>
                             <field name="priority" readonly="1"/>
-                            <field name="cost_center_id" readonly="1"/>
-                            <field name="budget_type" readonly="1"/>
-                            <field name="budget_details" readonly="1"/>
                             <field name="is_supervisor" invisible="1"/>
                             <field name="approval" invisible="not is_supervisor"/>
                         </group>
@@ -65,6 +62,7 @@
                             <field name="line_ids" readonly="1">
                                 <tree editable="bottom">
                                     <field name="description"/>
+                                    <field name="cost_center_id"/>
                                     <field name="type"/>
                                     <field name="unit"/>
                                     <field name="quantity"/>

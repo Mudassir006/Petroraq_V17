@@ -47,6 +47,7 @@
                                 <tree>
                                     <field name="name" string="Item Description" readonly="1"/>
                                     <field name="type" readonly="1"/>
+                                    <field name="cost_center_id" readonly="1"/>
                                     <field name="quantity" readonly="1"/>
                                     <field name="price_unit" readonly="1"/>
                                     <field name="subtotal" readonly="1"/>

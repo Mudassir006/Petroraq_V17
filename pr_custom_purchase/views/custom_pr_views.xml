@@ -88,22 +88,15 @@
                 <field name="date_request" readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
                 <field name="required_date" readonly="1"/>
                 <field name="priority" readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
-                <field name='has_valid_project' invisible='1'/>
               </group>
             </group>
             <notebook>
-              <page string="Budget Information">
-                <group>
-                  <field name="cost_center_id" readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
-                  <field name="budget_type" readonly="1"/>
-                  <field name="budget_details" readonly="1"/>
-                </group>
-              </page>
               <page string="Products">
-                <field name="line_ids" invisible="not has_valid_project" readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'">
+                <field name="line_ids" readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'">
                   <tree editable="bottom">
                     <!-- <field name="description"/> -->
                     <field name="description" context="{'display_default_code': False}"/>
+                    <field name="cost_center_id"/>
                     <field name="type" readonly="1"/>
                     <field name="unit"/>
                     <field name="quantity"/>
