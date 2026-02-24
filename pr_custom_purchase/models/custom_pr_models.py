@@ -258,6 +258,11 @@ class CustomPRLine(models.Model):
     _name = 'custom.pr.line'
     _description = 'Custom PR Line'
 
+    _sql_constraints = [
+        ('custom_pr_line_qty_non_negative', 'CHECK(quantity >= 0)', 'Quantity cannot be negative.'),
+        ('custom_pr_line_price_non_negative', 'CHECK(unit_price >= 0)', 'Unit Price cannot be negative.'),
+    ]
+
     pr_id = fields.Many2one('custom.pr', string="Purchase Requisition", ondelete="cascade")
     description = fields.Many2one(
         'product.product',
@@ -273,8 +278,10 @@ class CustomPRLine(models.Model):
             ('service', 'Service')
         ],
         string="Type",
-        default='material',
-        required=True
+        compute="_compute_type_from_product",
+        store=True,
+        readonly=True,
+        required=True,
     )
     quantity = fields.Float(string="Quantity", default=1.0)
     # unit = fields.Selection(
@@ -307,6 +314,14 @@ class CustomPRLine(models.Model):
         for rec in self:
             if rec.description:
                 rec.unit = rec.description.uom_id
+
+    @api.depends('description', 'description.detailed_type')
+    def _compute_type_from_product(self):
+        for rec in self:
+            if rec.description and rec.description.detailed_type == 'service':
+                rec.type = 'service'
+            else:
+                rec.type = 'material'
 
     @api.constrains('quantity', 'unit_price')
     def _check_non_negative_values(self):
