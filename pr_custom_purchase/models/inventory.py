@@ -129,6 +129,10 @@ class GrnSes(models.Model):
                 vals["account_id"] = self._get_expense_account().id
             invoice_lines.append((0, 0, vals))
 
+        purchase_journal = self.env["account.journal"].sudo().search([("type", "=", "purchase")], limit=1)
+        if not purchase_journal:
+            raise UserError(_("Please configure a purchase journal to create vendor bills."))
+
         bill = self.env["account.move"].sudo().create({
             "move_type": "in_invoice",
             "partner_id": self.partner_id.id,
@@ -137,6 +141,7 @@ class GrnSes(models.Model):
             "ref": self.partner_ref or self.name,
             "invoice_line_ids": invoice_lines,
             "grn_ses_id": self.id,
+            "journal_id": purchase_journal.id,
         })
 
         self.message_post(body=_("Vendor Bill %s created from %s.") % (bill.name or bill.id, self.name))
