@@ -328,7 +328,7 @@ class CustomPRLine(models.Model):
     )
 
     unit_price = fields.Float(
-        string="Unit Cost",
+        string="Unit Price",
         digits="Product Price",
         default=0.0,
     )

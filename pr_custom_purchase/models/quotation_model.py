@@ -19,6 +19,7 @@ class PurchaseQuotation(models.Model):
     notes = fields.Text(string="Notes")
     order_deadline = fields.Datetime(string="Deadline")
     expected_arrival = fields.Datetime(string="Quotation Date")
+    project_id = fields.Many2one("project.project", string="Project")
 
     # Supplier Info
     supplier_name = fields.Char(string="Supplier Name")
@@ -86,7 +87,8 @@ class PurchaseQuotation(models.Model):
         string="Budget Type",
     )
     budget_code = fields.Char(string="Budget Code")
-    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", compute="_compute_cost_center", store=False)
+    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", compute="_compute_cost_center",
+                                     store=False)
     project_budget_allowance = fields.Float(
         string="Budget Allowance",
         compute="_compute_cost_center",
@@ -104,7 +106,7 @@ class PurchaseQuotation(models.Model):
     show_create_po_button = fields.Boolean(
         compute="_compute_button_visibility", store=False
     )
-    #PR Info
+    # PR Info
     requested_by = fields.Char(string="Requested By")
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
@@ -114,7 +116,6 @@ class PurchaseQuotation(models.Model):
     line_ids = fields.One2many(
         "purchase.quotation.line", "quotation_id", string="Quotation Lines"
     )
-
 
     @api.depends("budget_type", "budget_code")
     def _compute_cost_center(self):
@@ -259,7 +260,7 @@ class PurchaseQuotation(models.Model):
                 body=_(
                     "Purchase Order %s created from this Quotation and populated in Custom Lines tab."
                 )
-                % po.name,
+                     % po.name,
                 message_type="notification",
             )
 
@@ -329,7 +330,7 @@ class PurchaseQuotation(models.Model):
                     "mail.mail_activity_data_todo",
                     summary="New Purchase Quotation Created",
                     note=f"A new purchase quotation (ID: {record.id}) has been created "
-                    f"with a total amount of {record.total_incl_vat:.2f}.",
+                         f"with a total amount of {record.total_incl_vat:.2f}.",
                     user_id=user.id,
                 )
 
@@ -355,7 +356,7 @@ class PurchaseQuotationLine(models.Model):
         default='material',
         required=True
     )
-    price_unit = fields.Float(string="Unit Price")
+    price_unit = fields.Float(string="Unit Cost")
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     subtotal = fields.Float(string="Subtotal", compute="_compute_subtotal", store=True)
     tax_15 = fields.Float(string="15% Tax", compute="_compute_subtotal", store=True)
@@ -374,6 +375,12 @@ class PurchaseQuotationLine(models.Model):
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
+
+    quotation_count = fields.Integer(
+        string="Quotations",
+        compute="_compute_quotation_count",
+        store=False,
+    )
 
     state = fields.Selection(
         [
@@ -450,7 +457,47 @@ class PurchaseOrder(models.Model):
     )
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
-    
+
+    def _compute_quotation_count(self):
+        for order in self:
+            if not order.name:
+                order.quotation_count = 0
+                continue
+            order.quotation_count = self.env["purchase.quotation"].search_count(
+                [("rfq_origin", "=", order.name)]
+            )
+
+    def action_view_rfq_quotations(self):
+        self.ensure_one()
+        action = {
+            "type": "ir.actions.act_window",
+            "name": _("RFQ Quotations"),
+            "res_model": "purchase.quotation",
+            "view_mode": "tree,form",
+            "domain": [("rfq_origin", "=", self.name)],
+            "context": {"default_rfq_origin": self.name},
+        }
+        if self.quotation_count == 1:
+            quotation = self.env["purchase.quotation"].search(
+                [("rfq_origin", "=", self.name)], limit=1
+            )
+            if quotation:
+                action.update({"view_mode": "form", "res_id": quotation.id})
+        return action
+
+    def action_open_rfq_comparison(self):
+        self.ensure_one()
+        if self.quotation_count == 0:
+            raise UserError(_("No quotations are available for this RFQ yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Quotation Comparison"),
+            "res_model": "rfq.comparison.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_rfq_id": self.id},
+        }
+
     def _reload_action(self):
         """Return an action that reloads the current form to refresh button visibility."""
         return {
@@ -460,7 +507,7 @@ class PurchaseOrder(models.Model):
             "res_id": self.id,
             "target": "current",
         }
-    
+
     @api.depends("custom_line_ids.subtotal")
     def _compute_amount_untaxed_custom(self):
         for order in self:
@@ -480,7 +527,7 @@ class PurchaseOrder(models.Model):
             # Preserve native confirm to keep purchase↔stock linkage
             if order.name.startswith("RFQ"):
                 order.name = (
-                    self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
+                        self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
                 )
 
             if order.state == "pending":
@@ -611,14 +658,14 @@ class PurchaseOrder(models.Model):
                 order.can_confirm_order = order.pe_approved and order.pm_approved
             elif amt <= 500000:
                 order.can_confirm_order = (
-                    order.pe_approved and order.pm_approved and order.od_approved
+                        order.pe_approved and order.pm_approved and order.od_approved
                 )
             else:
                 order.can_confirm_order = (
-                    order.pe_approved
-                    and order.pm_approved
-                    and order.od_approved
-                    and order.md_approved
+                        order.pe_approved
+                        and order.pm_approved
+                        and order.od_approved
+                        and order.md_approved
                 )
 
     @api.depends("state")
@@ -732,7 +779,7 @@ class PurchaseOrder(models.Model):
                             else False
                         ),
                         "note": _("Purchase Order %s was rejected by %s")
-                        % (order.name, rejecting_user.name),
+                                % (order.name, rejecting_user.name),
                     }
                 )
 
@@ -745,12 +792,12 @@ class PurchaseOrder(models.Model):
                             "<p>The Purchase Order <b>%s</b> has been rejected by <b>%s</b>.</p>"
                             "<p>Regards,<br/>%s</p>"
                         )
-                        % (
-                            supervisor_partner.name,
-                            order.name,
-                            rejecting_user.name,
-                            rejecting_user.company_id.name,
-                        ),
+                                     % (
+                                         supervisor_partner.name,
+                                         order.name,
+                                         rejecting_user.name,
+                                         rejecting_user.company_id.name,
+                                     ),
                         "email_to": supervisor_partner.email,
                     }
                     self.env["mail.mail"].create(mail_values).send()
@@ -834,7 +881,7 @@ class PurchaseOrder(models.Model):
     #                     note=f"Purchase Order {order.name} has been approved."
     #                 )
     #     return True
-    
+
     # def action_confirm(self):
     #     """Custom confirm: set state from pending → purchase + create/update product & update stock (Odoo 17)."""
     #     for order in self:
@@ -941,8 +988,8 @@ class PurchaseOrder(models.Model):
     #                     "uom_id": uom.id if uom else env.ref("uom.product_uom_unit").id,
     #                     "uom_po_id": uom.id if uom else env.ref("uom.product_uom_unit").id,
     #                     "categ_id": categ.id if categ else False,
-    #                     "list_price": info["sample_line"].price_unit or 0.0,   
-    #                     "standard_price": info["sample_line"].price_unit or 0.0,  
+    #                     "list_price": info["sample_line"].price_unit or 0.0,
+    #                     "standard_price": info["sample_line"].price_unit or 0.0,
     #                 }
     #                 product_tmpl = env["product.template"].sudo().create(tmpl_vals)
 
@@ -1031,7 +1078,8 @@ class PurchaseOrder(models.Model):
 
         # Locations
         suppliers_loc = self.env.ref("stock.stock_location_suppliers", raise_if_not_found=False)
-        location_id = (picking_type.default_location_src_id and picking_type.default_location_src_id.id) or (suppliers_loc and suppliers_loc.id)
+        location_id = (picking_type.default_location_src_id and picking_type.default_location_src_id.id) or (
+                suppliers_loc and suppliers_loc.id)
 
         dest_loc = picking_type.default_location_dest_id
         if not dest_loc:
@@ -1093,8 +1141,6 @@ class PurchaseOrder(models.Model):
         # Validate picking
         picking.sudo()._action_done()
         return True
-
-
 
     def create_grn_ses(self):
         return {

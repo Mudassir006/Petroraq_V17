@@ -56,6 +56,7 @@ function addLine() {
         <td><input type="text" name="product_unit_${lineIndex}" class="form-control"/></td>
         <td><input type="number" step="0.01" name="product_price_${lineIndex}" class="form-control"/></td>
         <td><input type="number" step="0.01" name="product_total_${lineIndex}" class="form-control" readonly="readonly"/></td>
+        <td><input type="text" name="product_cost_center_${lineIndex}" class="form-control" readonly="readonly"/></td>
         <td><button type="button" class="btn btn-danger btn-sm p-1" title="Remove" aria-label="Remove">&times;</button></td>
     `;
     tbody.appendChild(tr);
@@ -222,7 +223,7 @@ class QuotationFormPage extends Component {
                 const clines = await this.rpc('/web/dataset/call_kw', {
                     model: 'purchase.order.custom.line',
                     method: 'read',
-                    args: [po.custom_line_ids, ['name','quantity','unit','type','price_unit']],
+                    args: [po.custom_line_ids, ['name','quantity','unit','type','price_unit','cost_center_id']],
                     kwargs: {},
                 });
                 for (const ln of (clines || [])) {
@@ -232,6 +233,8 @@ class QuotationFormPage extends Component {
                         type: ln.type || '',
                         unit: ln.unit || '',
                         price: ln.price_unit || 0,
+                        cost_center_id: ln.cost_center_id && ln.cost_center_id[0] || null,
+                        cost_center_name: ln.cost_center_id && ln.cost_center_id[1] || '',
                     });
                 }
             } else if (po.order_line && po.order_line.length) {
@@ -259,6 +262,8 @@ class QuotationFormPage extends Component {
                         type: normalizeType((ln.product_id && ln.product_id[1]) || 'material'),
                         unit: (ln.product_uom && ln.product_uom[1]) || '',
                         price: ln.price_unit || 0,
+                        cost_center_id: ln.cost_center_id && ln.cost_center_id[0] || null,
+                        cost_center_name: ln.cost_center_id && ln.cost_center_id[1] || '',
                     });
                 }
             }
@@ -283,6 +288,7 @@ class QuotationFormPage extends Component {
                     <td><input type="text" name="product_unit_${lineIndex}" class="form-control"/></td>
                     <td><input type="number" step="0.01" name="product_price_${lineIndex}" class="form-control"/></td>
                     <td><input type="number" step="0.01" name="product_total_${lineIndex}" class="form-control" readonly="readonly"/></td>
+                    <td><input type="text" name="product_cost_center_${lineIndex}" class="form-control" readonly="readonly"/></td>
                     <td><button type="button" class="btn btn-danger btn-sm p-1" title="Remove" aria-label="Remove">&times;</button></td>
                 `;
                 tbody.appendChild(tr);
@@ -292,6 +298,13 @@ class QuotationFormPage extends Component {
                 tr.querySelector(`input[name="product_type_${lineIndex}"]`).value = ln.type || '';
                 tr.querySelector(`input[name="product_unit_${lineIndex}"]`).value = ln.unit || '';
                 tr.querySelector(`input[name="product_price_${lineIndex}"]`).value = (ln.price || 0);
+                const ccEl = tr.querySelector(`input[name="product_cost_center_${lineIndex}"]`);
+                if (ccEl) {
+                    ccEl.value = ln.cost_center_name || '';
+                }
+                if (ln.cost_center_id) {
+                    tr.dataset.costCenterId = String(ln.cost_center_id);
+                }
                 wireRowEvents(tr);
             };
             if (lines.length) {
@@ -482,21 +495,6 @@ class QuotationFormPage extends Component {
             if (rfqMeta.supervisor_partner_id) quotationVals.supervisor_partner_id = rfqMeta.supervisor_partner_id;
         }
 
-        // Create quotation
-        let quotationId;
-        try {
-            quotationId = await this.rpc('/web/dataset/call_kw', {
-                model: 'purchase.quotation',
-                method: 'create',
-                args: [quotationVals],
-                kwargs: {},
-            });
-        } catch (e) {
-            console.error('Failed to create quotation', e);
-            alert('Failed to save quotation header.');
-            return;
-        }
-
         // Collect line items
         const rows = Array.from(document.querySelectorAll('#quotation_lines_body tr'));
 
@@ -515,11 +513,28 @@ class QuotationFormPage extends Component {
             const type = (get('input[name^="product_type_"]') || '').trim();
             const unit = (get('input[name^="product_unit_"]') || '').trim();
             const price = parseFloat(get('input[name^="product_price_"]') || '0');
+            const costCenterId = parseInt((row.dataset && row.dataset.costCenterId) || '0', 10) || 0;
             if (!description) { alert(`Line ${i+1}: Item Description is required`); return; }
             if (!(quantity > 0)) { alert(`Line ${i+1}: Quantity must be greater than 0`); return; }
             if (!type) { alert(`Line ${i+1}: Type is required`); return; }
             if (!unit) { alert(`Line ${i+1}: Unit is required`); return; }
             if (!(price > 0)) { alert(`Line ${i+1}: Unit Price must be greater than 0`); return; }
+            if (!(costCenterId > 0)) { alert(`Line ${i+1}: Cost Center is missing. Please select RFQ origin to load valid lines.`); return; }
+        }
+
+        // Create quotation only after line validation passes
+        let quotationId;
+        try {
+            quotationId = await this.rpc('/web/dataset/call_kw', {
+                model: 'purchase.quotation',
+                method: 'create',
+                args: [quotationVals],
+                kwargs: {},
+            });
+        } catch (e) {
+            console.error('Failed to create quotation', e);
+            alert('Failed to save quotation header.');
+            return;
         }
         const lineCreates = [];
         for (const row of rows) {
@@ -533,6 +548,7 @@ class QuotationFormPage extends Component {
             const price = parseFloat(get('input[name^="product_price_"]') || '0') || 0;
             const typeRaw = get('input[name^="product_type_"]');
             if (!description) continue; // skip empty
+            const costCenterId = parseInt((row.dataset && row.dataset.costCenterId) || '0', 10) || 0;
             const vals = {
                 quotation_id: quotationId,
                 name: description, // product name into description field
@@ -540,6 +556,7 @@ class QuotationFormPage extends Component {
                 unit: unit || null,
                 type: normalizeType(typeRaw),
                 price_unit: price,
+                cost_center_id: costCenterId,
             };
             lineCreates.push(this.rpc('/web/dataset/call_kw', {
                 model: 'purchase.quotation.line',

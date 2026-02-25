@@ -38,6 +38,7 @@
         'views/pr_portal_view.xml',
         'views/rfq_vendor.xml',
         'views/purchase_order_inherit.xml',
+        'views/rfq_comparison_wizard.xml',
         'views/res_users_supervisor.xml',
         'data/custom_pr_ir_sequence_data.xml',
         'data/budget_increase_sequence.xml',

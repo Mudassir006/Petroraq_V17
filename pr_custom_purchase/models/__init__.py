@@ -10,3 +10,4 @@ from . import purchase_order_inherit
 from . import res_users
 
 from . import budget_increase_request
+from . import rfq_comparison_wizard

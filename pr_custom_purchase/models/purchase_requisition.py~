@@ -90,7 +90,6 @@ class PurchaseRequisition(models.Model):
     show_create_po_button = fields.Boolean(
         compute="_compute_button_visibility", store=False
     )
-    project_id = fields.Many2one("project.project", string="Project")
 
     def _required_date_from_priority(self, priority):
         today = fields.Date.context_today(self)
