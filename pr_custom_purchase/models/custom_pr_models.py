@@ -152,6 +152,10 @@ class CustomPR(models.Model):
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
 
+        # Enforce WO per-product mini-budget caps at submit time as a hard gate
+        # (in addition to line-level constrains) so users cannot bypass via UI flow.
+        rec.line_ids._check_work_order_product_limits()
+
         # Validate cost center budget per line (supports multiple cost centers in one PR)
         amount_by_cost_center = {}
         for line in rec.line_ids:
