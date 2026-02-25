@@ -111,7 +111,7 @@
                         <page string="Budget Info" name="budget_info">
                             <group>
                                 <group>
-                                    <!--                                    <field name="project_id" readonly="1"/>-->
+                                    <field name="project_id" readonly="1"/>
                                     <field name="budget_type" readonly="1"/>
                                     <field name="budget_code" readonly="1"/>
                                 </group>

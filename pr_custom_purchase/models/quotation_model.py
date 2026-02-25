@@ -16,6 +16,7 @@ class PurchaseQuotation(models.Model):
     rfq_origin = fields.Char(string="RFQ Origin")
     vendor_ref = fields.Char(string="Vendor Reference")
     pr_name = fields.Char(string="PR Name", readonly=True)
+    project_id = fields.Many2one("project.project", string="Project")
     notes = fields.Text(string="Notes")
     order_deadline = fields.Datetime(string="Deadline")
     expected_arrival = fields.Datetime(string="Quotation Date")
