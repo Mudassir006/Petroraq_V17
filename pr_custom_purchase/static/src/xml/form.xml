@@ -73,6 +73,7 @@
                                     <th>Unit</th>
                                     <th>Unit Price</th>
                                     <th>Total Price</th>
+                                    <th>Cost Center</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -84,12 +85,13 @@
                                     <td><input type="text" name="product_unit_1" class="form-control"/></td>
                                     <td><input type="number" step="0.01" name="product_price_1" class="form-control"/></td>
                                     <td><input type="number" step="0.01" name="product_total_1" class="form-control" readonly="readonly"/></td>
+                                    <td><input type="text" name="product_cost_center_1" class="form-control" readonly="readonly"/></td>
                                     <td><button type="button" class="btn btn-danger btn-sm p-1" onclick="this.closest('tr').remove(); updateTotalAmount();" title="Remove" aria-label="Remove">&#215;</button></td>
                                 </tr>
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="5"></td>
+                                    <td colspan="6"></td>
                                     <td><strong>Total Amount</strong></td>
                                     <td><input type="number" step="0.01" id="total_amount" class="form-control" readonly="readonly"/></td>
                                 </tr>
