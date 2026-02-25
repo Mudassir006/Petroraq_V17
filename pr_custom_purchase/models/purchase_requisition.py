@@ -29,7 +29,7 @@ class PurchaseRequisition(models.Model):
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
         required=True,
-        default="medium",
+        default="low",
     )
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")], string="Budget Type"
@@ -648,7 +648,7 @@ class PurchaseRequisitionLine(models.Model):
     type = fields.Char(string="Type")
     quantity = fields.Float(string="Quantity")
     unit = fields.Char(string="Unit")
-    unit_price = fields.Float(string="Unit Price")
+    unit_price = fields.Float(string="Unit Cost")
     cost_center_id = fields.Many2one(
         "account.analytic.account", string="Cost Center", required=True
     )

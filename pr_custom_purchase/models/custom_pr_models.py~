@@ -108,8 +108,6 @@ class CustomPR(models.Model):
 
     @api.model
     def create(self, vals):
-        if not vals.get('line_ids'):
-            raise ValidationError(_("Please add at least one line."))
         if vals.get('priority'):
             vals['required_date'] = self._required_date_from_priority(vals['priority'])
         if vals.get('pr_type') == 'cash':
