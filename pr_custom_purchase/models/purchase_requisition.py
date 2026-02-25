@@ -42,6 +42,12 @@ class PurchaseRequisition(models.Model):
         default="pending",
         string="Approval",
     )
+    wo_variance_requires_approval = fields.Boolean(
+        string="WO Variance Requires Approval",
+        compute="_compute_wo_variance_requires_approval",
+        store=False,
+        help="Quantity/unit cost exceeds WO baseline but total requested amount remains within allowed WO amount.",
+    )
     comments = fields.Text(string="Comments")
     vendor_id = fields.Many2one("res.partner", string="Preferred Vendor")
     total_excl_vat = fields.Float(
@@ -211,6 +217,24 @@ class PurchaseRequisition(models.Model):
                     and rec.approval == "approved"
                     and rec.status in ["pr", "rfq"]
             )
+
+    @api.depends(
+        "line_ids.quantity",
+        "line_ids.unit_price",
+        "line_ids.cost_center_id",
+        "line_ids.description",
+    )
+    def _compute_wo_variance_requires_approval(self):
+        for rec in self:
+            variance_found = False
+            for line in rec.line_ids:
+                caps = line._get_wo_product_caps()
+                if not caps:
+                    continue
+                if line.quantity > caps["allowed_qty"] or line.unit_price > caps["allowed_unit_price"]:
+                    variance_found = True
+                    break
+            rec.wo_variance_requires_approval = variance_found
 
     def action_request_budget_increase(self):
         self.ensure_one()
@@ -393,6 +417,8 @@ class PurchaseRequisition(models.Model):
         MailMessage = self.env["mail.message"]
 
         for pr in self:
+            if pr.approval != "approved":
+                raise UserError(_("Supervisor approval is required before creating RFQ."))
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
@@ -505,6 +531,8 @@ class PurchaseRequisition(models.Model):
         PurchaseOrder = self.env["purchase.order"]
 
         for pr in self:
+            if pr.approval != "approved":
+                raise UserError(_("Supervisor approval is required before creating Purchase Order."))
             if not pr.line_ids:
                 raise UserError(
                     _("This PR has no line items to create a Purchase Order.")
@@ -704,7 +732,6 @@ class PurchaseRequisitionLine(models.Model):
                 lambda l: l.cost_center_id.id == rec.cost_center_id.id
                 and l.description.id == rec.description.id
             )
-            current_req_qty = sum(current_req_lines.mapped("quantity"))
             current_req_amount = sum(current_req_lines.mapped("total_price"))
 
             other_pr_lines = self.env["purchase.requisition.line"].sudo().search([
@@ -713,27 +740,7 @@ class PurchaseRequisitionLine(models.Model):
                 ("description", "=", rec.description.id),
                 ("requisition_id.approval", "!=", "rejected"),
             ])
-            total_requested_qty = current_req_qty + sum(other_pr_lines.mapped("quantity"))
             total_requested_amount = current_req_amount + sum(other_pr_lines.mapped("total_price"))
-
-            if rec.unit_price > caps["allowed_unit_price"]:
-                raise ValidationError(_(
-                    "Unit price for '%(product)s' cannot exceed Work Order unit cost (%(allowed)s) for cost center '%(cc)s'."
-                ) % {
-                    "product": rec.description.display_name,
-                    "allowed": caps["allowed_unit_price"],
-                    "cc": rec.cost_center_id.display_name,
-                })
-
-            if total_requested_qty > caps["allowed_qty"]:
-                raise ValidationError(_(
-                    "Requested quantity for '%(product)s' exceeds Work Order quantity for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
-                ) % {
-                    "product": rec.description.display_name,
-                    "cc": rec.cost_center_id.display_name,
-                    "allowed": caps["allowed_qty"],
-                    "requested": total_requested_qty,
-                })
 
             if total_requested_amount > caps["allowed_amount"]:
                 raise ValidationError(_(
