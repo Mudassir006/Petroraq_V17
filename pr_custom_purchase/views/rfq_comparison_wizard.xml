@@ -10,21 +10,21 @@
                         <h1>Line-by-Line Quotation Comparison</h1>
                         <h2><field name="rfq_id" readonly="1"/></h2>
                     </div>
+                    <label string="Select one offer per product. All vendor offers are listed below." class="text-muted"/>
                     <group>
                         <field name="line_ids" nolabel="1">
-                            <tree editable="bottom" create="0" delete="0" decoration-success="selected_vendor_id == best_vendor_id">
+                            <tree create="0" delete="0" decoration-success="is_best_line">
                                 <field name="is_selected"/>
+                                <field name="product_key" column_invisible="1"/>
                                 <field name="product_name"/>
+                                <field name="quotation_id"/>
+                                <field name="vendor_id"/>
                                 <field name="quantity"/>
                                 <field name="unit"/>
                                 <field name="type"/>
                                 <field name="cost_center_id"/>
-                                <field name="best_vendor_id"/>
-                                <field name="best_price"/>
-                                <field name="possible_vendor_ids" invisible="1"/>
-                                <field name="selected_vendor_id" domain="[('id', 'in', possible_vendor_ids)]"/>
-                                <field name="selected_price"/>
-                                <field name="offer_summary" readonly="1" optional="show"/>
+                                <field name="unit_price"/>
+                                <field name="best_badge" widget="badge" decoration-success="is_best_line"/>
                             </tree>
                         </field>
                     </group>
