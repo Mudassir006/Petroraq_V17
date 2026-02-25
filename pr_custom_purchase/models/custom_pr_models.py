@@ -388,7 +388,7 @@ class CustomPRLine(models.Model):
 
         wo_cc = self.env['pr.work.order.cost.center'].sudo().search([
             ('analytic_account_id', '=', self.cost_center_id.id),
-            ('work_order_id.state', 'in', ['approved', 'in_progress', 'done']),
+            ('work_order_id.state', 'in', ['ops_approval', 'acc_approval', 'final_approval', 'approved', 'in_progress', 'done']),
         ], limit=1)
 
         if not wo_cc:
