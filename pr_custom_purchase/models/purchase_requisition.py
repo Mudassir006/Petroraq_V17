@@ -243,6 +243,18 @@ class PurchaseRequisition(models.Model):
             "target": "current",
         }
 
+    def action_supervisor_approve(self):
+        for rec in self:
+            if rec.approval != "pending":
+                continue
+            rec.write({"approval": "approved"})
+
+    def action_supervisor_reject(self):
+        for rec in self:
+            if rec.approval != "pending":
+                continue
+            rec.write({"approval": "rejected"})
+
     # sending activity to configured supervisor when PR is created
     def _notify_supervisor(self):
         for rec in self:
