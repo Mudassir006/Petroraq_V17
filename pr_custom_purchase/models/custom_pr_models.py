@@ -1,4 +1,4 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 from dateutil.relativedelta import relativedelta
 
@@ -375,6 +375,122 @@ class CustomPRLine(models.Model):
                 raise ValidationError('Quantity cannot be negative.')
             if rec.unit_price < 0:
                 raise ValidationError('Unit Price cannot be negative.')
+
+    def _get_wo_product_caps(self):
+        """Return allowed qty/price/amount for this cost center + product from approved WO BOQ."""
+        self.ensure_one()
+
+        if not self.cost_center_id or not self.description:
+            return False
+
+        if 'pr.work.order.cost.center' not in self.env:
+            return False
+
+        wo_cc = self.env['pr.work.order.cost.center'].sudo().search([
+            ('analytic_account_id', '=', self.cost_center_id.id),
+            ('work_order_id.state', 'in', ['approved', 'in_progress', 'done']),
+        ], limit=1)
+
+        if not wo_cc:
+            return False
+
+        boq_lines = wo_cc.work_order_id.boq_line_ids.filtered(
+            lambda l: l.display_type not in ('line_section', 'line_note')
+            and l.section_name == wo_cc.section_name
+            and l.product_id
+            and l.product_id.id == self.description.id
+        )
+
+        if not boq_lines:
+            return {
+                'found_work_order': True,
+                'allowed_qty': 0.0,
+                'allowed_unit_price': 0.0,
+                'allowed_amount': 0.0,
+                'work_order': wo_cc.work_order_id,
+                'section_name': wo_cc.section_name,
+            }
+
+        allowed_qty = sum(boq_lines.mapped('qty'))
+        allowed_amount = sum(boq_lines.mapped('total'))
+        allowed_unit_price = max(boq_lines.mapped('unit_cost') or [0.0])
+
+        return {
+            'found_work_order': True,
+            'allowed_qty': allowed_qty,
+            'allowed_unit_price': allowed_unit_price,
+            'allowed_amount': allowed_amount,
+            'work_order': wo_cc.work_order_id,
+            'section_name': wo_cc.section_name,
+        }
+
+    @api.constrains('cost_center_id', 'description', 'quantity', 'unit_price', 'pr_id')
+    def _check_work_order_product_limits(self):
+        for rec in self:
+            if not rec.cost_center_id or not rec.description:
+                continue
+
+            caps = rec._get_wo_product_caps()
+            if not caps:
+                continue
+
+            if not caps['allowed_qty']:
+                raise ValidationError(_(
+                    "Product '%(product)s' is not budgeted in approved Work Order '%(wo)s' section '%(section)s' for cost center '%(cc)s'."
+                ) % {
+                    'product': rec.description.display_name,
+                    'wo': caps['work_order'].display_name,
+                    'section': caps['section_name'] or '-',
+                    'cc': rec.cost_center_id.display_name,
+                })
+
+            sibling_lines = rec.pr_id.line_ids.filtered(
+                lambda l: l.cost_center_id.id == rec.cost_center_id.id
+                and l.description.id == rec.description.id
+            )
+            current_pr_qty = sum(sibling_lines.mapped('quantity'))
+            current_pr_amount = sum(sibling_lines.mapped('total_price'))
+
+            already_requested_lines = self.env['custom.pr.line'].sudo().search([
+                ('id', 'not in', rec.pr_id.line_ids.ids),
+                ('cost_center_id', '=', rec.cost_center_id.id),
+                ('description', '=', rec.description.id),
+                ('pr_id.approval', '!=', 'rejected'),
+            ])
+            already_requested_qty = sum(already_requested_lines.mapped('quantity'))
+            already_requested_amount = sum(already_requested_lines.mapped('total_price'))
+
+            total_requested_qty = current_pr_qty + already_requested_qty
+            total_requested_amount = current_pr_amount + already_requested_amount
+
+            if rec.unit_price > caps['allowed_unit_price']:
+                raise ValidationError(_(
+                    "Unit price for '%(product)s' cannot exceed Work Order unit cost (%(allowed)s) for cost center '%(cc)s'."
+                ) % {
+                    'product': rec.description.display_name,
+                    'allowed': caps['allowed_unit_price'],
+                    'cc': rec.cost_center_id.display_name,
+                })
+
+            if total_requested_qty > caps['allowed_qty']:
+                raise ValidationError(_(
+                    "Requested quantity for '%(product)s' exceeds Work Order quantity for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
+                ) % {
+                    'product': rec.description.display_name,
+                    'cc': rec.cost_center_id.display_name,
+                    'allowed': caps['allowed_qty'],
+                    'requested': total_requested_qty,
+                })
+
+            if total_requested_amount > caps['allowed_amount']:
+                raise ValidationError(_(
+                    "Requested amount for '%(product)s' exceeds Work Order amount for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
+                ) % {
+                    'product': rec.description.display_name,
+                    'cc': rec.cost_center_id.display_name,
+                    'allowed': caps['allowed_amount'],
+                    'requested': total_requested_amount,
+                })
 
 
 class PurchaseOrder(models.Model):
