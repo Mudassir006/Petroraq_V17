@@ -13,3 +13,4 @@ access_budget_increase_request_user,budget.increase.request user,model_budget_in
 access_budget_increase_request_line_user,budget.increase.request.line user,model_budget_increase_request_line,base.group_user,1,1,1,1
 access_rfq_comparison_wizard_procurement_admin,access.rfq.comparison.wizard.procurement.admin,model_rfq_comparison_wizard,pr_custom_purchase.procurement_admin,1,1,1,1
 access_rfq_comparison_wizard_line_procurement_admin,access.rfq.comparison.wizard.line.procurement.admin,model_rfq_comparison_wizard_line,pr_custom_purchase.procurement_admin,1,1,1,1
+access_budget_increase_reject_wizard_user,budget.increase.reject.wizard user,model_budget_increase_reject_wizard,base.group_user,1,1,1,1

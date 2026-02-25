@@ -22,6 +22,7 @@ class BudgetIncreaseRequest(models.Model):
         ("approved", "Approved"),
         ("rejected", "Rejected"),
     ], default="draft", tracking=True)
+    rejection_reason = fields.Text(string="Rejection Reason", readonly=True, tracking=True)
     line_ids = fields.One2many("budget.increase.request.line", "request_id", string="Cost Center Lines", required=True)
 
     can_pm_approve = fields.Boolean(compute="_compute_role_flags")
@@ -116,7 +117,28 @@ class BudgetIncreaseRequest(models.Model):
             rec.state = "approved"
 
     def action_reject(self):
-        self.write({"state": "rejected"})
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reject Budget Increase"),
+            "res_model": "budget.increase.reject.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_request_id": self.id},
+        }
+
+
+class BudgetIncreaseRejectWizard(models.TransientModel):
+    _name = "budget.increase.reject.wizard"
+    _description = "Budget Increase Rejection Wizard"
+
+    request_id = fields.Many2one("budget.increase.request", string="Request", required=True)
+    rejection_reason = fields.Text(string="Rejection Reason", required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        self.request_id.write({"state": "rejected", "rejection_reason": self.rejection_reason})
+        return {"type": "ir.actions.act_window_close"}
 
 
 class BudgetIncreaseRequestLine(models.Model):
