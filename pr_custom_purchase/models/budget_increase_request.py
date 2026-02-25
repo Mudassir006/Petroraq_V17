@@ -28,6 +28,7 @@ class BudgetIncreaseRequest(models.Model):
     can_pm_approve = fields.Boolean(compute="_compute_role_flags")
     can_accounts_approve = fields.Boolean(compute="_compute_role_flags")
     can_md_approve = fields.Boolean(compute="_compute_role_flags")
+    can_reject = fields.Boolean(compute="_compute_role_flags")
 
     @api.depends_context("uid")
     def _compute_role_flags(self):
@@ -39,6 +40,12 @@ class BudgetIncreaseRequest(models.Model):
             rec.can_pm_approve = is_pm
             rec.can_accounts_approve = is_accounts
             rec.can_md_approve = is_md
+            rec.can_reject = (
+                (rec.state == "draft" and rec.requested_by_id == user)
+                or (rec.state == "pm_approval" and is_pm)
+                or (rec.state == "accounts_approval" and is_accounts)
+                or (rec.state == "md_approval" and is_md)
+            )
 
     @api.model
     def create(self, vals):
@@ -118,6 +125,8 @@ class BudgetIncreaseRequest(models.Model):
 
     def action_reject(self):
         self.ensure_one()
+        if not self.can_reject:
+            raise UserError(_("You cannot reject this request at the current stage."))
         return {
             "type": "ir.actions.act_window",
             "name": _("Reject Budget Increase"),

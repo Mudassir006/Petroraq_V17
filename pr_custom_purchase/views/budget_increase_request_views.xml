@@ -24,6 +24,7 @@
                     <field name="can_pm_approve" invisible="1"/>
                     <field name="can_accounts_approve" invisible="1"/>
                     <field name="can_md_approve" invisible="1"/>
+                    <field name="can_reject" invisible="1"/>
                     <button name="action_submit" type="object" string="Submit" class="btn-primary"
                             invisible="state != 'draft'"/>
                     <button name="action_pm_approve" type="object" string="PM Approve" class="btn-primary"
@@ -33,7 +34,7 @@
                     <button name="action_md_approve" type="object" string="MD Approve" class="btn-primary"
                             invisible="state != 'md_approval' or not can_md_approve"/>
                     <button name="action_reject" type="object" string="Reject" class="btn-secondary"
-                            invisible="state in ('approved','rejected')"/>
+                            invisible="not can_reject"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,pm_approval,accounts_approval,md_approval,approved,rejected"/>
                 </header>
