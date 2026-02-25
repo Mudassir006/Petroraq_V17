@@ -92,13 +92,31 @@ class SaleOrder(models.Model):
             if l.display_type == "line_section"
         ]
 
+        section_amounts = {}
+        current_section = False
+        for line in order.order_line:
+            if line.display_type == "line_section":
+                current_section = line.name
+                section_amounts.setdefault(current_section, 0.0)
+                continue
+            if line.display_type:
+                continue
+            if current_section:
+                section_amounts[current_section] = section_amounts.get(current_section, 0.0) + (line.price_subtotal or 0.0)
+
         for sec in sections:
-            analytic = analytic_model.create({
+            analytic_vals = {
                 "name": f"{order.name} - {sec.name}",
                 "company_id": order.company_id.id,
                 "plan_id": self.env.ref("pr_account.pr_account_analytic_plan_our_project").id,
                 "partner_id": order.partner_id.id,
-            })
+            }
+            if "budget_type" in analytic_model._fields:
+                analytic_vals["budget_type"] = "capex"
+            if "budget_allowance" in analytic_model._fields:
+                analytic_vals["budget_allowance"] = section_amounts.get(sec.name, 0.0)
+
+            analytic = analytic_model.create(analytic_vals)
 
             wo_cost_center_model.create({
                 "work_order_id": work_order.id,

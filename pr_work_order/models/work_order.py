@@ -486,6 +486,19 @@ class WorkOrderCostCenter(models.Model):
             )
             rec.estimated_cost = sum(lines.mapped("total"))
 
+            analytic = rec.analytic_account_id
+            if not analytic:
+                continue
+
+            analytic_vals = {}
+            if "budget_type" in analytic._fields:
+                analytic_vals["budget_type"] = "capex"
+            if "budget_allowance" in analytic._fields:
+                analytic_vals["budget_allowance"] = rec.estimated_cost
+
+            if analytic_vals:
+                analytic.sudo().write(analytic_vals)
+
     @api.onchange("department_id", "section_id")
     def _sync_fields_to_analytic_account(self):
         for rec in self:

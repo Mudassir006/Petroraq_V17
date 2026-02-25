@@ -20,6 +20,16 @@
         <field name="arch" type="xml">
             <form string="Purchase Requisition">
                 <header>
+                    <button name="action_supervisor_approve"
+                        type="object"
+                        string="Approve"
+                        class="btn-primary"
+                        invisible="not is_supervisor or approval != 'pending'"/>
+                    <button name="action_supervisor_reject"
+                        type="object"
+                        string="Reject"
+                        class="btn-secondary"
+                        invisible="not is_supervisor or approval != 'pending'"/>
                     <button name="action_request_budget_increase"
                         type="object"
                         string="Request Budget Increase"
@@ -43,7 +53,8 @@
                     <field name="pr_type" invisible="1"/>
                     <field name="show_create_rfq_button" invisible="1"/>
                     <field name="show_create_po_button" invisible="1"/>
-                    
+                    <field name="is_supervisor" invisible="1"/>
+
                     <group>
                         <group>
                             <field name="name" readonly="1"/>
@@ -57,8 +68,7 @@
                         <group>
                             <field name="required_date" readonly="1"/>
                             <field name="priority" readonly="1"/>
-                            <field name="is_supervisor" invisible="1"/>
-                            <field name="approval" invisible="not is_supervisor"/>
+                            <field name="approval" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
