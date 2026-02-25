@@ -375,6 +375,12 @@ class PurchaseQuotationLine(models.Model):
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
+    quotation_count = fields.Integer(
+        string="Quotations",
+        compute="_compute_quotation_count",
+        store=False,
+    )
+
     state = fields.Selection(
         [
             ("draft", "Draft"),
@@ -450,6 +456,46 @@ class PurchaseOrder(models.Model):
     )
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
+
+    def _compute_quotation_count(self):
+        for order in self:
+            if not order.name:
+                order.quotation_count = 0
+                continue
+            order.quotation_count = self.env["purchase.quotation"].search_count(
+                [("rfq_origin", "=", order.name)]
+            )
+
+    def action_view_rfq_quotations(self):
+        self.ensure_one()
+        action = {
+            "type": "ir.actions.act_window",
+            "name": _("RFQ Quotations"),
+            "res_model": "purchase.quotation",
+            "view_mode": "tree,form",
+            "domain": [("rfq_origin", "=", self.name)],
+            "context": {"default_rfq_origin": self.name},
+        }
+        if self.quotation_count == 1:
+            quotation = self.env["purchase.quotation"].search(
+                [("rfq_origin", "=", self.name)], limit=1
+            )
+            if quotation:
+                action.update({"view_mode": "form", "res_id": quotation.id})
+        return action
+
+    def action_open_rfq_comparison(self):
+        self.ensure_one()
+        if self.quotation_count == 0:
+            raise UserError(_("No quotations are available for this RFQ yet."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Quotation Comparison"),
+            "res_model": "rfq.comparison.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_rfq_id": self.id},
+        }
     
     def _reload_action(self):
         """Return an action that reloads the current form to refresh button visibility."""

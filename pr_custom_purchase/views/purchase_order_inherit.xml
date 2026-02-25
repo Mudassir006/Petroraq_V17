@@ -14,23 +14,21 @@
       </xpath>
     </field>
   </record>
+
   <record id="view_purchase_order_form_inherit_hide_send_by_email" model="ir.ui.view">
     <field name="name">purchase.order.form.inherit.hide.send.by_email</field>
     <field name="model">purchase.order</field>
     <field name="inherit_id" ref="purchase.purchase_order_form"/>
     <field name="arch" type="xml">
-      
-      <!-- Select the FIRST Send by Email button -->
       <xpath expr="//form/header/button[@name='action_rfq_send'][1]" position="attributes">
         <attribute name="invisible">1</attribute>
       </xpath>
-      <!-- Select the SECOND Re-Send by Email button -->
       <xpath expr="//form/header/button[@name='action_rfq_send'][2]" position="attributes">
         <attribute name="invisible">1</attribute>
       </xpath>
-
     </field>
   </record>
+
   <record id="purchase_order_form_inherit_reason_tab" model="ir.ui.view">
     <field name="name">purchase.order.form.inherit.reason.tab</field>
     <field name="model">purchase.order</field>
@@ -48,6 +46,34 @@
                    groups="pr_custom_purchase.procurement_admin"/>
           </group>
         </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="purchase_order_form_inherit_rfq_quotation_actions" model="ir.ui.view">
+    <field name="name">purchase.order.form.inherit.rfq.quotation.actions</field>
+    <field name="model">purchase.order</field>
+    <field name="inherit_id" ref="purchase.purchase_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <field name="quotation_count" invisible="1"/>
+      </xpath>
+      <xpath expr="//form/header" position="inside">
+        <button name="action_open_rfq_comparison"
+                type="object"
+                string="Compare Quotations"
+                class="btn-secondary"
+                groups="pr_custom_purchase.procurement_admin"
+                invisible="state not in ('draft','sent') or quotation_count == 0"/>
+      </xpath>
+      <xpath expr="//sheet/div[@name='button_box']" position="inside">
+        <button type="object"
+                class="oe_stat_button"
+                name="action_view_rfq_quotations"
+                icon="fa-list-alt"
+                invisible="state not in ('draft','sent')">
+          <field name="quotation_count" widget="statinfo" string="Quotations"/>
+        </button>
       </xpath>
     </field>
   </record>
