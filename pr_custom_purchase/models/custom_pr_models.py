@@ -36,6 +36,11 @@ class CustomPR(models.Model):
         default="pending",
         string="Approval",
     )
+    wo_variance_requires_approval = fields.Boolean(
+        string="WO Variance Requires Approval",
+        default=False,
+        help="Checked when requested quantity/unit cost exceeds WO product baselines but total amount remains within allowed WO amount.",
+    )
 
     total_excl_vat = fields.Float(
         string="Total Amount",
@@ -156,6 +161,18 @@ class CustomPR(models.Model):
         # (in addition to line-level constrains) so users cannot bypass via UI flow.
         rec.line_ids._check_work_order_product_limits()
 
+        wo_variance_requires_approval = False
+        for line in rec.line_ids:
+            caps = line._get_wo_product_caps()
+            if not caps:
+                continue
+            if line.quantity > caps['allowed_qty'] or line.unit_price > caps['allowed_unit_price']:
+                wo_variance_requires_approval = True
+                break
+
+        if rec.wo_variance_requires_approval != wo_variance_requires_approval:
+            rec.wo_variance_requires_approval = wo_variance_requires_approval
+
         # Validate cost center budget per line (supports multiple cost centers in one PR)
         amount_by_cost_center = {}
         for line in rec.line_ids:
@@ -206,6 +223,7 @@ class CustomPR(models.Model):
             'notes': rec.notes,
             'comments': rec.comments,
             'pr_type': 'cash' if rec.pr_type == 'cash' else 'pr',
+            'wo_variance_requires_approval': wo_variance_requires_approval,
         })
 
         # Create Lines
@@ -452,7 +470,6 @@ class CustomPRLine(models.Model):
                 lambda l: l.cost_center_id.id == rec.cost_center_id.id
                 and l.description.id == rec.description.id
             )
-            current_pr_qty = sum(sibling_lines.mapped('quantity'))
             current_pr_amount = sum(sibling_lines.mapped('total_price'))
 
             already_requested_lines = self.env['custom.pr.line'].sudo().search([
@@ -461,30 +478,9 @@ class CustomPRLine(models.Model):
                 ('description', '=', rec.description.id),
                 ('pr_id.approval', '!=', 'rejected'),
             ])
-            already_requested_qty = sum(already_requested_lines.mapped('quantity'))
             already_requested_amount = sum(already_requested_lines.mapped('total_price'))
 
-            total_requested_qty = current_pr_qty + already_requested_qty
             total_requested_amount = current_pr_amount + already_requested_amount
-
-            if rec.unit_price > caps['allowed_unit_price']:
-                raise ValidationError(_(
-                    "Unit price for '%(product)s' cannot exceed Work Order unit cost (%(allowed)s) for cost center '%(cc)s'."
-                ) % {
-                    'product': rec.description.display_name,
-                    'allowed': caps['allowed_unit_price'],
-                    'cc': rec.cost_center_id.display_name,
-                })
-
-            if total_requested_qty > caps['allowed_qty']:
-                raise ValidationError(_(
-                    "Requested quantity for '%(product)s' exceeds Work Order quantity for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
-                ) % {
-                    'product': rec.description.display_name,
-                    'cc': rec.cost_center_id.display_name,
-                    'allowed': caps['allowed_qty'],
-                    'requested': total_requested_qty,
-                })
 
             if total_requested_amount > caps['allowed_amount']:
                 raise ValidationError(_(

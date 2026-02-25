@@ -54,13 +54,6 @@
                     <field name="show_create_rfq_button" invisible="1"/>
                     <field name="show_create_po_button" invisible="1"/>
                     <field name="is_supervisor" invisible="1"/>
-                    <field name="wo_variance_requires_approval" invisible="1"/>
-
-                    <div class="alert alert-warning"
-                         role="alert"
-                         invisible="not wo_variance_requires_approval">
-                        Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line amount is still within Work Order budget. Supervisor approval is required before RFQ/PO creation.
-                    </div>
 
                     <group>
                         <group>

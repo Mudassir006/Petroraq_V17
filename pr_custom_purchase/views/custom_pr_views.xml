@@ -79,6 +79,12 @@
                                statusbar_visible="draft,rfq_sent,pending,purchase,cancel"/>
                     </header>
                     <sheet>
+                        <field name="wo_variance_requires_approval" invisible="1"/>
+                        <div class="alert alert-warning"
+                             role="alert"
+                             invisible="not wo_variance_requires_approval">
+                            Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line amount is still within Work Order budget. Supervisor approval is required.
+                        </div>
                         <div name="button_box" class="oe_button_box">
                             <button icon="fa-pencil-square-o" type="object" string="Budget Requests"
                                     class="oe_stat_button"
