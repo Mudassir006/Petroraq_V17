@@ -22,11 +22,13 @@ class BudgetIncreaseRequest(models.Model):
         ("approved", "Approved"),
         ("rejected", "Rejected"),
     ], default="draft", tracking=True)
+    rejection_reason = fields.Text(string="Rejection Reason", readonly=True, tracking=True)
     line_ids = fields.One2many("budget.increase.request.line", "request_id", string="Cost Center Lines", required=True)
 
     can_pm_approve = fields.Boolean(compute="_compute_role_flags")
     can_accounts_approve = fields.Boolean(compute="_compute_role_flags")
     can_md_approve = fields.Boolean(compute="_compute_role_flags")
+    can_reject = fields.Boolean(compute="_compute_role_flags")
 
     @api.depends_context("uid")
     def _compute_role_flags(self):
@@ -38,6 +40,12 @@ class BudgetIncreaseRequest(models.Model):
             rec.can_pm_approve = is_pm
             rec.can_accounts_approve = is_accounts
             rec.can_md_approve = is_md
+            rec.can_reject = (
+                (rec.state == "draft" and rec.requested_by_id == user)
+                or (rec.state == "pm_approval" and is_pm)
+                or (rec.state == "accounts_approval" and is_accounts)
+                or (rec.state == "md_approval" and is_md)
+            )
 
     @api.model
     def create(self, vals):
@@ -116,7 +124,30 @@ class BudgetIncreaseRequest(models.Model):
             rec.state = "approved"
 
     def action_reject(self):
-        self.write({"state": "rejected"})
+        self.ensure_one()
+        if not self.can_reject:
+            raise UserError(_("You cannot reject this request at the current stage."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reject Budget Increase"),
+            "res_model": "budget.increase.reject.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_request_id": self.id},
+        }
+
+
+class BudgetIncreaseRejectWizard(models.TransientModel):
+    _name = "budget.increase.reject.wizard"
+    _description = "Budget Increase Rejection Wizard"
+
+    request_id = fields.Many2one("budget.increase.request", string="Request", required=True)
+    rejection_reason = fields.Text(string="Rejection Reason", required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        self.request_id.write({"state": "rejected", "rejection_reason": self.rejection_reason})
+        return {"type": "ir.actions.act_window_close"}
 
 
 class BudgetIncreaseRequestLine(models.Model):
@@ -127,7 +158,7 @@ class BudgetIncreaseRequestLine(models.Model):
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     current_budget = fields.Float(string="Current Budget", related="cost_center_id.budget_allowance", readonly=True)
     budget_left = fields.Float(string="Budget Left", related="cost_center_id.budget_left", readonly=True)
-    requested_increase = fields.Float(string="Requested Increase", required=True)
+    requested_increase = fields.Float(string="Requested Amount", required=True)
     remarks = fields.Char(string="Remarks")
 
     _sql_constraints = [
