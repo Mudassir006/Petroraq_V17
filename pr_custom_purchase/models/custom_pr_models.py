@@ -71,6 +71,7 @@ class CustomPR(models.Model):
     )
     budget_increase_request_count = fields.Integer(compute="_compute_budget_increase_request_count")
 
+
     def _compute_budget_increase_request_count(self):
         Request = self.env['budget.increase.request'].sudo()
         for rec in self:
@@ -125,10 +126,12 @@ class CustomPR(models.Model):
                 'requested_by': employee.name,
                 'requested_user_id': user.id,
                 'department': employee.department_id.name if employee.department_id else False,
-                'supervisor': supervisor_user.name if supervisor_user else (employee.parent_id.name if employee.parent_id else False),
+                'supervisor': supervisor_user.name if supervisor_user else (
+                    employee.parent_id.name if employee.parent_id else False),
                 'supervisor_partner_id': (
                     supervisor_user.partner_id.id if supervisor_user and supervisor_user.partner_id
-                    else (employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else False)
+                    else (
+                        employee.parent_id.user_id.partner_id.id if employee.parent_id and employee.parent_id.user_id else False)
                 ),
             })
         else:
@@ -272,7 +275,6 @@ class CustomPR(models.Model):
         return super(CustomPR, self).write(vals)
 
 
-
 class CustomPRLine(models.Model):
     _name = 'custom.pr.line'
     _description = 'Custom PR Line'
@@ -325,7 +327,26 @@ class CustomPRLine(models.Model):
         string="Unit of Measure"
     )
 
-    unit_price = fields.Float(string="Unit Price")
+    unit_price = fields.Float(
+        string="Unit Price",
+        digits="Product Price",
+        default=0.0,
+    )
+
+    @api.onchange("description", "unit")
+    def _onchange_product_set_price(self):
+        for rec in self:
+            if not rec.description:
+                rec.unit_price = 0.0
+                return
+
+            rec.unit_price = rec.description.standard_price or 0.0
+
+            if rec.unit and rec.description.uom_id and rec.unit != rec.description.uom_id:
+                rec.unit_price = rec.description.uom_id._compute_price(
+                    rec.unit_price, rec.unit
+                )
+
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)
 
     @api.depends('quantity', 'unit_price')

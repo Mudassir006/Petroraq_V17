@@ -3,6 +3,7 @@ from datetime import datetime, date, timedelta
 import base64
 from io import BytesIO
 
+
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
@@ -97,17 +98,17 @@ class PurchaseOrder(models.Model):
             symbol = (currency and currency.symbol) or ''
             amount_str = f"{symbol} {subtotal_sum:,.2f}".strip()
             custom_lines_html = (
-                "<h3 style=\"margin-top:24px;\">Quotation Lines</h3>"
-                "<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse: collapse; width: 100%;\">"
-                "<thead><tr style=\"background-color:#f2f2f2;\">"
-                "<th>Description</th><th>Quantity</th><th>Type</th><th>Unit</th><th>Unit Price</th>"
-                "</tr></thead><tbody>" + ''.join(rows) + "</tbody></table>"
-                f"<div style=\"display:flex; justify-content:flex-end; margin-top:10px;\">"
-                f"  <div style=\"min-width:260px; text-align:right;\">"
-                f"    <span style=\"margin-right:12px;\"><strong>Subtotal</strong></span>"
-                f"    <span>{amount_str}</span>"
-                f"  </div>"
-                f"</div>"
+                    "<h3 style=\"margin-top:24px;\">Quotation Lines</h3>"
+                    "<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse: collapse; width: 100%;\">"
+                    "<thead><tr style=\"background-color:#f2f2f2;\">"
+                    "<th>Description</th><th>Quantity</th><th>Type</th><th>Unit</th><th>Unit Price</th>"
+                    "</tr></thead><tbody>" + ''.join(rows) + "</tbody></table>"
+                                                             f"<div style=\"display:flex; justify-content:flex-end; margin-top:10px;\">"
+                                                             f"  <div style=\"min-width:260px; text-align:right;\">"
+                                                             f"    <span style=\"margin-right:12px;\"><strong>Subtotal</strong></span>"
+                                                             f"    <span>{amount_str}</span>"
+                                                             f"  </div>"
+                                                             f"</div>"
             )
 
         # Standard PO lines (commented out per request)
@@ -248,9 +249,12 @@ class PurchaseOrder(models.Model):
 
         data_summary = [
             ['Vendor', _val(vendor_name), 'Vendor Ref', _val(self.partner_ref or '')],
-            ['RFQ Origin', _val(self.name), 'Expected Arrival', _val(self._format_expected_arrival(self._get_expected_arrival_from_quotation() or self.date_planned or ''))],
-            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'PR Name', _val(getattr(self, 'pr_name', ''))],
-            ['Requested By', _val(getattr(self, 'requested_by', '')), 'Department', _val(getattr(self, 'department', ''))],
+            ['RFQ Origin', _val(self.name), 'Expected Arrival', _val(
+                self._format_expected_arrival(self._get_expected_arrival_from_quotation() or self.date_planned or ''))],
+            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'PR Name',
+             _val(getattr(self, 'pr_name', ''))],
+            ['Requested By', _val(getattr(self, 'requested_by', '')), 'Department',
+             _val(getattr(self, 'department', ''))],
             ['Supervisor', _val(getattr(self, 'supervisor', '')), 'Quotation Ref No', _val(self.name)],
         ]
         t_summary = Table(data_summary, colWidths=[90, 170, 110, 170])
@@ -385,6 +389,7 @@ class PurchaseOrder(models.Model):
         """Return a dict with 'html' and 'items' for Terms and Conditions based on
         fields defined on purchase.quotation related to this PO (origin).
         """
+
         def yes(v):
             return 'Yes' if v else 'No'
 
@@ -472,7 +477,9 @@ class PurchaseOrder(models.Model):
             return {'html': '', 'items': []}
 
         # Build HTML block
-        row_html = ''.join([f"<tr><td style='width:30%;'><strong>{label}</strong></td><td>{value}</td></tr>" for label, value in items])
+        row_html = ''.join(
+            [f"<tr><td style='width:30%;'><strong>{label}</strong></td><td>{value}</td></tr>" for label, value in
+             items])
         html = f"""
         <h3 style=\"margin-top:24px;\">Terms and Conditions</h3>
         <table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse; width:100%;\">{row_html}</table>
