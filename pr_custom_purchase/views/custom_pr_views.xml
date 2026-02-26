@@ -56,7 +56,8 @@
                     <field name="state" widget="badge"
                            decoration-success="state == 'purchase'"
                            decoration-danger="state == 'cancel'"
-                           decoration-warning="state in ('draft', 'rfq_sent')"
+                           decoration-warning="state == 'rfq_sent'"
+                           decoration-muted="state == 'draft'"
                            decoration-info="state == 'pending'"/>
                     <field name="approval" widget="badge"
                            decoration-success="approval == 'approved'"
@@ -91,7 +92,8 @@
                         <div class="alert alert-warning"
                              role="alert"
                              invisible="not wo_variance_requires_approval">
-                            Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line amount is still within Work Order budget. Supervisor approval is required.
+                            Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line
+                            amount is still within Work Order budget. Supervisor approval is required.
                         </div>
                         <div name="button_box" class="oe_button_box">
                             <button icon="fa-pencil-square-o" type="object" string="Budget Requests"
