@@ -13,6 +13,11 @@ class BudgetIncreaseRequest(models.Model):
     requested_by_id = fields.Many2one("res.users", string="Requested By", default=lambda self: self.env.user, readonly=True)
     custom_pr_id = fields.Many2one("custom.pr", string="Custom PR")
     requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition")
+    custom_pr_line_ids = fields.One2many(
+        related="custom_pr_id.line_ids",
+        string="PR Products",
+        readonly=True,
+    )
     reason = fields.Text(string="Reason", required=True)
     state = fields.Selection([
         ("draft", "Draft"),

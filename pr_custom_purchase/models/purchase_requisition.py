@@ -81,7 +81,7 @@ class PurchaseRequisition(models.Model):
         compute="_compute_is_supervisor",
     )
     status = fields.Selection(
-        [("pr", "Pr"), ("rfq", "Rfq"), ("po", "PO"), ("completed", "Completed")],
+        [("pr", "PR"), ("rfq", "RFQ"), ("po", "PO"), ("completed", "Completed")],
         default="pr",
         string="PR Status",
     )
@@ -246,7 +246,10 @@ class PurchaseRequisition(models.Model):
             line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
             line_amounts[line_cc.id]["amount"] += line.total_price
 
+        custom_pr = self.env["custom.pr"].sudo().search([("name", "=", self.name)], limit=1)
+
         request = self.env["budget.increase.request"].create({
+            "custom_pr_id": custom_pr.id,
             "requisition_id": self.id,
             "reason": _("Budget increase requested for PR %s") % self.name,
             "line_ids": [
@@ -273,11 +276,18 @@ class PurchaseRequisition(models.Model):
                 continue
             rec.write({"approval": "approved"})
 
-    def action_supervisor_reject(self):
-        for rec in self:
-            if rec.approval != "pending":
-                continue
-            rec.write({"approval": "rejected"})
+    def action_supervisor_reject_wizard(self):
+        self.ensure_one()
+        if self.approval != "pending":
+            return False
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reject Purchase Requisition"),
+            "res_model": "purchase.requisition.reject.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_requisition_id": self.id},
+        }
 
     # sending activity to configured supervisor when PR is created
     def _notify_supervisor(self):
@@ -642,6 +652,24 @@ class PurchaseRequisition(models.Model):
                     (requester_supervisor and requester_supervisor.id == current_user.id)
                     or (supervisor_partner_id == current_partner_id)
             )
+
+
+class PurchaseRequisitionRejectWizard(models.TransientModel):
+    _name = "purchase.requisition.reject.wizard"
+    _description = "Purchase Requisition Rejection Wizard"
+
+    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", required=True)
+    rejection_reason = fields.Text(string="Reason for Rejection", required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        if self.requisition_id.approval != "pending":
+            return {"type": "ir.actions.act_window_close"}
+        self.requisition_id.write({
+            "approval": "rejected",
+            "rejection_reason": self.rejection_reason,
+        })
+        return {"type": "ir.actions.act_window_close"}
 
 
 class PurchaseRequisitionLine(models.Model):
