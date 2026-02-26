@@ -9,7 +9,7 @@
     </record>
 
     <menuitem id="budget_increase_request_approvals_view_menu"
-              parent="menu_my_sales_approvals"
+              parent="menu_my_purchase_approvals"
               name="Budget Requests"
               action="pr_sale_budget_increase_request_action"
               sequence="3"/>
