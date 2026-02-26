@@ -34,7 +34,7 @@ class CustomPR(models.Model):
     approval = fields.Selection(
         [("pending", "Pending"), ("rejected", "Rejected"), ("approved", "Approved")],
         default="pending",
-        string="Approval",
+        string="Internal Approval",
     )
     wo_variance_requires_approval = fields.Boolean(
         string="WO Variance Requires Approval",
