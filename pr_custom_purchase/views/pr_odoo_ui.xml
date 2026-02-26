@@ -28,26 +28,26 @@
             <form string="Purchase Requisition">
                 <header>
                     <button name="action_supervisor_approve"
-                        type="object"
-                        string="Approve"
-                        class="btn-primary"
-                        invisible="not is_supervisor or approval != 'pending'"/>
+                            type="object"
+                            string="Approve"
+                            class="btn-primary"
+                            invisible="not is_supervisor or approval != 'pending'"/>
                     <button name="action_supervisor_reject"
-                        type="object"
-                        string="Reject"
-                        class="btn-secondary"
-                        invisible="not is_supervisor or approval != 'pending'"/>
+                            type="object"
+                            string="Reject"
+                            class="btn-secondary"
+                            invisible="not is_supervisor or approval != 'pending'"/>
                     <button name="action_request_budget_increase"
-                        type="object"
-                        string="Request Budget Increase"
-                        class="btn-secondary"/>
+                            type="object"
+                            string="Request Budget Increase"
+                            class="btn-secondary"/>
                     <button name="action_create_rfq"
-                        type="object"
-                        string="Create RFQ"
-                        class="btn-primary"
-                        groups="pr_custom_purchase.procurement_admin"
-                        invisible="not show_create_rfq_button"/>
-                        <!-- Show Create Purchase Order button only if pr_type == 'cash' -->
+                            type="object"
+                            string="Create RFQ"
+                            class="btn-primary"
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="not show_create_rfq_button"/>
+                    <!-- Show Create Purchase Order button only if pr_type == 'cash' -->
                     <button name="action_create_purchase_order"
                             type="object"
                             string="Create Purchase Order"
@@ -66,7 +66,8 @@
                     <div class="alert alert-warning"
                          role="alert"
                          invisible="not wo_variance_requires_approval">
-                        Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line amount is still within Work Order budget. Supervisor approval is required before RFQ/PO creation.
+                        Quantity or unit cost exceeds Work Order baseline for one or more lines, but total line amount
+                        is still within Work Order budget. Supervisor approval is required before RFQ/PO creation.
                     </div>
 
                     <group>
@@ -120,7 +121,7 @@
                             <div class="total_padding total-amount-highlight">
                                 <label for="total_excl_vat" style="padding: 0px 8px;"></label>
                                 <field name="total_excl_vat" readonly="1" class="oe_inline"/>
-                                
+
                             </div>
                             <!-- <div class="total_padding total-amount-highlight">
                                 <label for="vat_amount" style="padding: 0px 8px;"></label>
@@ -153,38 +154,38 @@
               groups="pr_custom_purchase.group_custom_pr_end_user"/>
     <!-- Re-parent PR menu -->
     <menuitem id="pr_custom_purchase.menu_pr"
-            name="Regular PR"
-            parent="pr_custom_purchase.menu_purchase_requisition_main"
-            action="pr_custom_purchase.action_custom_pr_standard"
-            sequence="10"
-            groups="pr_custom_purchase.group_custom_pr_end_user"/>
+              name="Regular PR"
+              parent="pr_custom_purchase.menu_purchase_requisition_main"
+              action="pr_custom_purchase.action_custom_pr_standard"
+              sequence="10"
+              groups="pr_custom_purchase.group_custom_pr_end_user"/>
 
     <!-- Re-parent Cash PR menu -->
     <menuitem id="pr_custom_purchase.menu_cash_pr"
-            name="Cash PR"
-            parent="pr_custom_purchase.menu_purchase_requisition_main"
-            action="pr_custom_purchase.action_custom_pr_cash"
-            sequence="20"
-            groups="pr_custom_purchase.group_custom_pr_end_user"/>
+              name="Cash PR"
+              parent="pr_custom_purchase.menu_purchase_requisition_main"
+              action="pr_custom_purchase.action_custom_pr_cash"
+              sequence="20"
+              groups="pr_custom_purchase.group_custom_pr_end_user"/>
 
     <!-- Requisitions for other users (shows PR lists) -->
     <menuitem id="menu_purchase_requisition_main_others"
               name="Requisitions"
               parent="purchase.menu_purchase_root"
               sequence="131"
-              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin"/>
+              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
 
     <menuitem id="pr_custom_purchase.menu_pr_others"
-            name="Regular PR"
-            parent="pr_custom_purchase.menu_purchase_requisition_main_others"
-            action="pr_custom_purchase.action_purchase_requisition_list"
-            sequence="10"
-            groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin"/>
+              name="Regular PR"
+              parent="pr_custom_purchase.menu_purchase_requisition_main_others"
+              action="pr_custom_purchase.action_purchase_requisition_list"
+              sequence="10"
+              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
 
     <menuitem id="pr_custom_purchase.menu_cash_pr_others"
-            name="Cash PR"
-            parent="pr_custom_purchase.menu_purchase_requisition_main_others"
-            action="pr_custom_purchase.action_purchase_requisition_cash"
-            sequence="20"
-            groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin"/>
+              name="Cash PR"
+              parent="pr_custom_purchase.menu_purchase_requisition_main_others"
+              action="pr_custom_purchase.action_purchase_requisition_cash"
+              sequence="20"
+              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
 </odoo>
