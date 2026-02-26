@@ -20,6 +20,7 @@
         'views/menus.xml',
         'views/sale_order.xml',
         'views/work_order.xml',
+        'views/budget.xml',
     ],
     # only loaded in demonstration mode
     # 'demo': [
