@@ -59,15 +59,34 @@
                                readonly="state != 'draft'"/>
                         <field name="rejection_reason" readonly="1" invisible="not rejection_reason"/>
                     </group>
-                    <field name="line_ids" readonly="state != 'draft'">
-                        <tree editable="bottom">
-                            <field name="cost_center_id"/>
-                            <field name="current_budget" readonly="1"/>
-                            <field name="budget_left" readonly="1"/>
-                            <field name="requested_increase"/>
-                            <field name="remarks"/>
-                        </tree>
-                    </field>
+                    <notebook>
+                        <page string="Cost Centers">
+                            <field name="line_ids" readonly="state != 'draft'">
+                                <tree editable="bottom">
+                                    <field name="cost_center_id"/>
+                                    <field name="current_budget" readonly="1"/>
+                                    <field name="budget_left" readonly="1"/>
+                                    <field name="requested_increase"/>
+                                    <field name="remarks"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Requisition Products">
+                            <field name="requisition_line_ids" readonly="1"
+                                   invisible="not requisition_id">
+                                <tree>
+                                    <field name="description" string="Product"/>
+                                    <field name="quantity"/>
+                                    <field name="unit"/>
+                                    <field name="unit_price"/>
+                                    <field name="total_price"/>
+                                    <field name="cost_center_id"/>
+                                </tree>
+                            </field>
+                            <label string="Select a Purchase Requisition to view its products."
+                                   invisible="requisition_id" class="text-muted"/>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>
