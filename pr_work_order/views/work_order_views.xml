@@ -14,7 +14,11 @@
                 <field name="contract_amount"/>
                 <!--                <field name="actual_cost"/>-->
                 <!--                <field name="actual_margin"/>-->
-                <field name="state"/>
+                <field name="state"
+                       decoration-success="state in ('approved', 'done')"
+                       decoration-danger="state in ('rejected', 'cancel')"
+                       decoration-warning="state in ('draft', 'ops_approval', 'acc_approval', 'final_approval')"
+                       decoration-info="state in ('in_progress', 'pm_approval', 'accounts_approval', 'md_approval')"/>
             </tree>
         </field>
     </record>
@@ -240,7 +244,7 @@
                                     <field name="location_id"/>
                                     <field name="location_dest_id"/>
                                     <field name="product_qty"/>
-                                    <field name="state"/>
+<field name="state"/>
                                 </tree>
                             </field>
                         </page>
