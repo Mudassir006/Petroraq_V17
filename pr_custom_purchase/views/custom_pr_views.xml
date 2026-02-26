@@ -30,7 +30,7 @@
                   parent="menu_custom_purchase_root"
                   sequence="10"/> -->
         <menuitem id="menu_purchase_requisition"
-                  name="Purchase Requisition"
+                  name="Budget Request"
                   parent="purchase.menu_purchase_root"
                   sequence="30"/>
         <menuitem id="menu_pr"

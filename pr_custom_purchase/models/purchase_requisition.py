@@ -296,6 +296,13 @@ class PurchaseRequisition(models.Model):
                     summary="Review New PR",
                     note=_("Please review the new Purchase Requisition: <b>%s</b>.") % rec.name,
                 )
+                if supervisor_user.email:
+                    self.env["mail.mail"].sudo().create({
+                        "email_from": "hr@petroraq.com",
+                        "email_to": supervisor_user.email,
+                        "subject": _("Purchase Requisition %s waiting for approval") % rec.name,
+                        "body_html": _("<p>Dear Approver,</p><p>Please review Purchase Requisition <b>%s</b>.</p>") % rec.name,
+                    }).send()
                 _logger.info("Activity created for supervisor %s on PR=%s", supervisor_user.login, rec.name)
 
             except Exception as e:
@@ -323,6 +330,13 @@ class PurchaseRequisition(models.Model):
                         )
                              % pr.name,
                     )
+                    if user.email:
+                        self.env["mail.mail"].sudo().create({
+                            "email_from": "hr@petroraq.com",
+                            "email_to": user.email,
+                            "subject": _("Approved Purchase Requisition %s") % pr.name,
+                            "body_html": _("<p>Purchase Requisition <b>%s</b> is approved and ready for processing.</p>") % pr.name,
+                        }).send()
 
                 _logger.info(
                     "Activities scheduled for Procurement Admins on PR=%s", pr.name
