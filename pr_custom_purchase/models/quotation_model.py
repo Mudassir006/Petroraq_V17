@@ -305,6 +305,13 @@ class PurchaseQuotation(models.Model):
                         "date_deadline": fields.Date.today(),
                     }
                 )
+                if user.email:
+                    self.env["mail.mail"].sudo().create({
+                        "email_from": "hr@petroraq.com",
+                        "email_to": user.email,
+                        "subject": f"Purchase Order {po.name} waiting for approval",
+                        "body_html": f"<p>Dear Approver,</p><p>Please review Purchase Order <b>{po.name}</b>.</p>",
+                    }).send()
 
         return {
             "type": "ir.actions.act_window",
@@ -552,6 +559,13 @@ class PurchaseOrder(models.Model):
                 note=note,
                 user_id=user.id,
             )
+            if user.email:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": user.email,
+                    "subject": summary,
+                    "body_html": f"<p>{note}</p>",
+                }).send()
 
     def _compute_current_user_has_acted(self):
         uid = self.env.user.id
@@ -786,6 +800,7 @@ class PurchaseOrder(models.Model):
                 # Send email to supervisor
                 if supervisor_partner.email:
                     mail_values = {
+                        "email_from": "hr@petroraq.com",
                         "subject": _("Purchase Order %s Rejected") % order.name,
                         "body_html": _(
                             "<p>Hello %s,</p>"

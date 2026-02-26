@@ -10,6 +10,63 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
     _description = "Quotation"
 
+    def _notify_approval_users(self, users, subject, body_html, summary):
+        self.ensure_one()
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        for user in users.filtered(lambda u: u.active):
+            if activity_type:
+                self.activity_schedule(
+                    activity_type_id=activity_type.id,
+                    user_id=user.id,
+                    summary=summary,
+                    note=body_html,
+                )
+            if user.email:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": user.email,
+                    "subject": subject,
+                    "body_html": body_html,
+                }).send()
+
+    def _notify_manager_approval(self):
+        self.ensure_one()
+        group = self.env.ref("petroraq_sale_workflow.group_sale_approval_manager", raise_if_not_found=False)
+        if not group:
+            return
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        record_url = f"{base_url}/web#id={self.id}&model=sale.order&view_type=form"
+        body_html = _(
+            """<p>Dear Approver,</p>
+            <p>Quotation <b>%s</b> is waiting for your manager approval.</p>
+            <p><a href=\"%s\">Open Quotation</a></p>"""
+        ) % (self.name, record_url)
+        self._notify_approval_users(
+            group.users,
+            _("Quotation %s waiting for manager approval") % self.name,
+            body_html,
+            _("Quotation requires manager approval"),
+        )
+
+    def _notify_md_approval(self):
+        self.ensure_one()
+        group = self.env.ref("petroraq_sale_workflow.group_sale_approval_md", raise_if_not_found=False)
+        if not group:
+            return
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        record_url = f"{base_url}/web#id={self.id}&model=sale.order&view_type=form"
+        body_html = _(
+            """<p>Dear Approver,</p>
+            <p>Quotation <b>%s</b> is waiting for your MD approval.</p>
+            <p><a href=\"%s\">Open Quotation</a></p>"""
+        ) % (self.name, record_url)
+        self._notify_approval_users(
+            group.users,
+            _("Quotation %s waiting for MD approval") % self.name,
+            body_html,
+            _("Quotation requires MD approval"),
+        )
+
     approval_state = fields.Selection([
         ("draft", "Draft"),
         ("to_manager", "Manager Approve"),
@@ -685,6 +742,7 @@ class SaleOrder(models.Model):
                 raise UserError(_("This quotation is not awaiting manager approval."))
             order.approval_state = "to_md"
             order.locked = True
+            order._notify_md_approval()
 
     def action_confirm_quotation(self):
         for order in self:
@@ -701,6 +759,8 @@ class SaleOrder(models.Model):
             "approval_state": "to_manager",
             "approval_comment": False,
         })
+        for order in self:
+            order._notify_manager_approval()
         return True
 
     def action_md_approve(self):

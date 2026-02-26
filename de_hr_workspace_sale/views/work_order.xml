@@ -1,25 +1,79 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <odoo>
+    <record id="pr_work_order_ops_action" model="ir.actions.act_window">
+        <field name="name">Work Orders - Operations</field>
+        <field name="res_model">pr.work.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','ops_approval')]</field>
+        <field name="context">{'create':False,'edit':False}</field>
+    </record>
+
+    <record id="pr_work_order_acc_action" model="ir.actions.act_window">
+        <field name="name">Work Orders - Accounts</field>
+        <field name="res_model">pr.work.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','acc_approval')]</field>
+        <field name="context">{'create':False,'edit':False}</field>
+    </record>
+
     <record id="pr_sale_work_order_sale_order_action" model="ir.actions.act_window">
-        <field name="name">Work Orders</field>
+        <field name="name">Work Orders - Final Approval</field>
         <field name="res_model">pr.work.order</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('state','=','final_approval')]</field>
         <field name="context">{'create':False,'edit':False}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Create A Work Order
-            </p>
-        </field>
-
-
     </record>
 
+    <record id="pr_custom_purchase_pm_action" model="ir.actions.act_window">
+        <field name="name">Purchase Orders - Manager</field>
+        <field name="res_model">purchase.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','pending'),('pe_approved','=',True),('pm_approved','=',False)]</field>
+        <field name="context">{'create':False,'edit':False}</field>
+    </record>
+
+    <record id="pr_custom_purchase_md_action" model="ir.actions.act_window">
+        <field name="name">Purchase Orders - MD</field>
+        <field name="res_model">purchase.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','pending'),('pe_approved','=',True),('pm_approved','=',True),('od_approved','=',True),('md_approved','=',False)]</field>
+        <field name="context">{'create':False,'edit':False}</field>
+    </record>
+
+    <menuitem id="work_order_ops_approvals_view_menu"
+              parent="menu_sales_manager_approvals"
+              name="Work Orders - Operations"
+              action="pr_work_order_ops_action"
+              groups="pr_work_order.custom_group_work_order_operations"
+              sequence="10"/>
+
+    <menuitem id="work_order_acc_approvals_view_menu"
+              parent="menu_sales_manager_approvals"
+              name="Work Orders - Accounts"
+              action="pr_work_order_acc_action"
+              groups="pr_work_order.custom_group_work_order_accounts"
+              sequence="11"/>
+
     <menuitem id="work_order_approvals_view_menu"
-              parent="menu_my_sales_approvals"
-              name="Work Orders"
+              parent="menu_sales_md_approvals"
+              name="Work Orders - Final"
               action="pr_sale_work_order_sale_order_action"
-              sequence="2"/>
+              groups="pr_work_order.custom_group_work_order_management"
+              sequence="12"/>
+
+    <menuitem id="pr_custom_purchase_manager_approvals_view_menu"
+              parent="menu_sales_manager_approvals"
+              name="Purchase Orders"
+              action="pr_custom_purchase_pm_action"
+              groups="pr_custom_purchase.project_manager"
+              sequence="20"/>
+
+    <menuitem id="pr_custom_purchase_md_approvals_view_menu"
+              parent="menu_sales_md_approvals"
+              name="Purchase Orders"
+              action="pr_custom_purchase_md_action"
+              groups="pr_custom_purchase.managing_director"
+              sequence="20"/>
 
 </odoo>

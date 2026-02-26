@@ -7,6 +7,28 @@ class PRWorkOrder(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
 
+    def _notify_group_for_approval(self, group_xml_id, summary, body_html):
+        self.ensure_one()
+        group = self.env.ref(group_xml_id, raise_if_not_found=False)
+        if not group:
+            return
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        for user in group.users.filtered(lambda u: u.active):
+            if activity_type:
+                self.activity_schedule(
+                    activity_type_id=activity_type.id,
+                    user_id=user.id,
+                    summary=summary,
+                    note=body_html,
+                )
+            if user.email:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": user.email,
+                    "subject": summary,
+                    "body_html": body_html,
+                }).send()
+
     name = fields.Char(
         string="Work Order",
         required=True,
@@ -281,6 +303,13 @@ class PRWorkOrder(models.Model):
                 raise UserError(_("Only draft work orders can be submitted for approval"))
             rec.state = "ops_approval"
             rec.rejection_reason = ""
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_operations",
+                _("Work Order %s waiting for operations approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Operations approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+            )
             # # ---------------------------------------
             # # AUTO CREATE BUDGET (ONLY IF NOT EXISTS)
             # # ---------------------------------------
@@ -315,6 +344,13 @@ class PRWorkOrder(models.Model):
             rec.ops_approver_id = self.env.user
             rec.ops_approved_date = fields.Datetime.now()
             rec.state = "acc_approval"
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_accounts",
+                _("Work Order %s waiting for accounts approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Accounts approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+            )
 
     def action_acc_approve(self):
         for rec in self:
@@ -323,6 +359,13 @@ class PRWorkOrder(models.Model):
             rec.acc_approver_id = self.env.user
             rec.acc_approved_date = fields.Datetime.now()
             rec.state = "final_approval"
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_management",
+                _("Work Order %s waiting for final approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Management final approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+            )
 
     def action_final_approve(self):
         for rec in self:

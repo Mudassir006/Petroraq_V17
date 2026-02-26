@@ -13,7 +13,7 @@
     'category': 'Human Resources',
 
     # any module necessary for this one to work correctly
-    'depends': ['de_hr_workspace', 'pr_hr_account', 'eg_asset_management'],
+    'depends': ['de_hr_workspace', 'pr_hr_account', 'eg_asset_management', 'petroraq_sale_workflow', 'pr_work_order', 'sale_order_inquiry', 'pr_custom_purchase'],
 
     # always loaded
     'data': [
