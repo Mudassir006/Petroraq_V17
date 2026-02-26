@@ -71,9 +71,9 @@
                                 </tree>
                             </field>
                         </page>
-                        <page string="Requisition Products">
-                            <field name="requisition_line_ids" readonly="1"
-                                   invisible="not requisition_id">
+                        <page string="PR Products">
+                            <field name="custom_pr_line_ids" readonly="1"
+                                   invisible="not custom_pr_id">
                                 <tree>
                                     <field name="description" string="Product"/>
                                     <field name="quantity"/>
@@ -83,8 +83,8 @@
                                     <field name="cost_center_id"/>
                                 </tree>
                             </field>
-                            <label string="Select a Purchase Requisition to view its products."
-                                   invisible="requisition_id" class="text-muted"/>
+                            <label string="Select a Custom PR to view its products."
+                                   invisible="custom_pr_id" class="text-muted"/>
                         </page>
                     </notebook>
                 </sheet>
