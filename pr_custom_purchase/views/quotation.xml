@@ -8,6 +8,9 @@
                 <field name="vendor_id"/>
                 <field name="rfq_origin"/>
                 <field name="vendor_ref"/>
+                <field name="status"
+                       decoration-success="status == 'po'"
+                       decoration-info="status == 'quote'"/>
                 <field name="is_best_badge" widget="badge" decoration-success="is_best_badge" readonly="1"/>
                 <field name="order_deadline"/>
                 <field name="expected_arrival"/>

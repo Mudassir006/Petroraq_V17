@@ -10,7 +10,11 @@
                 <field name="requested_by_id"/>
                 <field name="custom_pr_id"/>
                 <field name="requisition_id"/>
-                <field name="state"/>
+                <field name="state" widget="badge"
+                       decoration-success="state in ('approved', 'done')"
+                       decoration-danger="state in ('rejected', 'cancel')"
+                       decoration-warning="state in ('draft', 'ops_approval', 'acc_approval', 'final_approval')"
+                       decoration-info="state in ('in_progress', 'pm_approval', 'accounts_approval', 'md_approval')"/>
             </tree>
         </field>
     </record>

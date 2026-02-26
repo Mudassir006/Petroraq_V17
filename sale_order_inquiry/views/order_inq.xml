@@ -170,9 +170,10 @@
                 <field name="deadline_submission" optional="show"/>
                 <field name="user_id" optional="show"/>
                 <field name="company_id" optional="show"/>
-                <field name="state" decoration-info="state == 'pending'"
-                       decoration-success="state == 'confirm'"
-                       decoration-danger="state == 'cancel'"/>
+                <field name="state" widget="badge" decoration-info="state in ('pending', 'estimation_created', 'quotation_created')"
+                       decoration-success="state in ('confirm', 'accept', 'closed')"
+                       decoration-danger="state in ('cancel', 'reject', 'expire')"
+                       decoration-warning="state == 'draft'"/>
                 <field name="sale_order_id" column_invisible="1"/>
             </tree>
         </field>

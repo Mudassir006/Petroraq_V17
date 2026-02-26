@@ -53,7 +53,15 @@
                     <field name="pr_type"/>
                     <field name="requested_by"/>
                     <field name="date_request"/>
-                    <field name="approval"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state == 'purchase'"
+                           decoration-danger="state == 'cancel'"
+                           decoration-warning="state in ('draft', 'rfq_sent')"
+                           decoration-info="state == 'pending'"/>
+                    <field name="approval" widget="badge"
+                           decoration-success="approval == 'approved'"
+                           decoration-danger="approval == 'rejected'"
+                           decoration-info="approval == 'pending'"/>
                     <field name="total_excl_vat"/>
                 </tree>
             </field>
