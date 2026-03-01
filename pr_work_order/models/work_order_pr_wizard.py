@@ -42,6 +42,7 @@ class WorkOrderCreatePRWizard(models.TransientModel):
                     0,
                     {
                         "selected": False,
+                        "product_id": boq_line.product_id.id,
                         "cost_center_id": cc.analytic_account_id.id if cc and cc.analytic_account_id else False,
                         "quantity": boq_line.qty,
                         "unit_id": boq_line.uom_id.id,
@@ -62,6 +63,8 @@ class WorkOrderCreatePRWizard(models.TransientModel):
 
         if self.work_order_id.state not in ["acc_approval", "final_approval", "approved", "in_progress", "done"]:
             raise UserError(_("PR can be created only after Operations approval."))
+
+        self.line_ids._ensure_product_link()
 
         selected_lines = self.line_ids.filtered("selected")
         if not selected_lines:
@@ -117,14 +120,17 @@ class WorkOrderCreatePRWizardLine(models.TransientModel):
 
     wizard_id = fields.Many2one("pr.work.order.create.pr.wizard", required=True, ondelete="cascade")
     selected = fields.Boolean(string="Select")
-    boq_line_id = fields.Many2one("pr.work.order.boq", string="BOQ Line", readonly=True, required=True)
-    product_id = fields.Many2one(
-        "product.product",
-        string="Product",
-        related="boq_line_id.product_id",
-        readonly=True,
-    )
+    boq_line_id = fields.Many2one("pr.work.order.boq", string="BOQ Line", readonly=True)
+    product_id = fields.Many2one("product.product", string="Product", required=True)
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     quantity = fields.Float(string="Quantity", required=True)
     unit_id = fields.Many2one("uom.uom", string="Unit", required=True)
     unit_price = fields.Float(string="Unit Cost", required=True)
+
+    def _ensure_product_link(self):
+        """Keep product_id populated even if the editable grid drops readonly values."""
+        for line in self:
+            if line.product_id:
+                continue
+            if line.boq_line_id and line.boq_line_id.sudo().product_id:
+                line.product_id = line.boq_line_id.sudo().product_id.id
