@@ -496,13 +496,14 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         if self.quotation_count == 0:
             raise UserError(_("No quotations are available for this RFQ yet."))
+        wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
         return {
             "type": "ir.actions.act_window",
             "name": _("Quotation Comparison"),
             "res_model": "rfq.comparison.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {"default_rfq_id": self.id},
+            "res_id": wizard.id,
         }
 
     def _reload_action(self):

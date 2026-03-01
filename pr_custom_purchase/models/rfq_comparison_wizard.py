@@ -15,6 +15,13 @@ class RFQComparisonWizard(models.TransientModel):
         string="Comparison Lines",
     )
 
+    @api.model
+    def create_for_rfq(self, rfq):
+        """Create a persisted wizard + lines so list edits don't drop line payload."""
+        wizard = self.create({"rfq_id": rfq.id})
+        wizard.write({"line_ids": wizard._prepare_comparison_lines()})
+        return wizard
+
     def _prepare_comparison_lines(self):
         self.ensure_one()
         quotations = self.env["purchase.quotation"].search(
