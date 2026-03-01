@@ -15,6 +15,7 @@
         "stock",
         "mail",
         "purchase",
+        "pr_custom_purchase",
     ],
     "data": [
         "security/groups.xml",
@@ -29,6 +30,7 @@
         "views/account_move_views.xml",
         # "views/purchase_request_views.xml",
         "views/work_order_reject_wizard_view.xml",
+        "views/work_order_pr_wizard_views.xml",
 
     ],
     "installable": True,
