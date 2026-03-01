@@ -336,6 +336,29 @@ class PRWorkOrder(models.Model):
             #
             # rec.budget_id = budget.id
 
+    def action_open_create_pr_wizard(self):
+        self.ensure_one()
+
+        if not self.env.user.has_group("pr_custom_purchase.group_custom_pr_end_user"):
+            raise UserError(_("Only End Users can create PR from Work Order."))
+
+        if self.state not in ["acc_approval", "final_approval", "approved", "in_progress", "done"]:
+            raise UserError(_("PR can be created only after Operations approval."))
+
+        if not self.boq_line_ids.filtered(lambda l: l.display_type not in ("line_section", "line_note") and l.product_id):
+            raise UserError(_("No BOQ product lines found to create PR."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Create PR"),
+            "res_model": "pr.work.order.create.pr.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_work_order_id": self.id,
+            },
+        }
+
     def action_ops_approve(self):
         for rec in self:
             if rec.state != "ops_approval":
