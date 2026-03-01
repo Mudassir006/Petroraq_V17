@@ -75,12 +75,30 @@ class CustomPR(models.Model):
         tracking=True,
     )
     budget_increase_request_count = fields.Integer(compute="_compute_budget_increase_request_count")
+    show_request_budget_increase_button = fields.Boolean(
+        compute="_compute_show_request_budget_increase_button"
+    )
 
 
     def _compute_budget_increase_request_count(self):
         Request = self.env['budget.increase.request'].sudo()
         for rec in self:
             rec.budget_increase_request_count = Request.search_count([('custom_pr_id', '=', rec.id)])
+
+    @api.depends('line_ids.total_price', 'line_ids.cost_center_id', 'line_ids.cost_center_id.budget_left')
+    def _compute_show_request_budget_increase_button(self):
+        for rec in self:
+            amount_by_cost_center = {}
+            for line in rec.line_ids:
+                if not line.cost_center_id:
+                    continue
+                cc = line.cost_center_id
+                amount_by_cost_center.setdefault(cc.id, {"cc": cc, "amount": 0.0})
+                amount_by_cost_center[cc.id]["amount"] += line.total_price
+
+            rec.show_request_budget_increase_button = any(
+                item['amount'] > item['cc'].budget_left for item in amount_by_cost_center.values()
+            )
 
     def _required_date_from_priority(self, priority):
         today = fields.Date.context_today(self)
@@ -273,6 +291,14 @@ class CustomPR(models.Model):
             amount_by_cost_center.setdefault(cc.id, {"cc": cc, "amount": 0.0})
             amount_by_cost_center[cc.id]["amount"] += line.total_price
 
+        exceeded_cost_centers = [
+            item for item in amount_by_cost_center.values()
+            if item['amount'] > item['cc'].budget_left
+        ]
+
+        if not exceeded_cost_centers:
+            raise ValidationError(_("All cost center lines are within budget. Budget increase request is not required."))
+
         request = self.env['budget.increase.request'].create({
             'custom_pr_id': self.id,
             'reason': f'Budget increase requested for PR {self.name}.',
@@ -281,7 +307,7 @@ class CustomPR(models.Model):
                     'cost_center_id': item['cc'].id,
                     'requested_increase': max(item['amount'] - item['cc'].budget_left, 1.0),
                 })
-                for item in amount_by_cost_center.values()
+                for item in exceeded_cost_centers
             ]
         })
         return {
