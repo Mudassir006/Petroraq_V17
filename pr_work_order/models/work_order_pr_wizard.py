@@ -42,6 +42,8 @@ class WorkOrderCreatePRWizard(models.TransientModel):
                     0,
                     {
                         "selected": False,
+                        "product_name": boq_line.product_id.display_name,
+                        "boq_line_db_id": boq_line.id,
                         "product_id": boq_line.product_id.id,
                         "cost_center_id": cc.analytic_account_id.id if cc and cc.analytic_account_id else False,
                         "quantity": boq_line.qty,
@@ -72,7 +74,11 @@ class WorkOrderCreatePRWizard(models.TransientModel):
 
         commands = []
         for line in selected_lines:
-            product = line.product_id or line.boq_line_id.product_id
+            product = line.product_id
+            if not product and line.boq_line_db_id:
+                product = self.env["pr.work.order.boq"].sudo().browse(line.boq_line_db_id).product_id
+            if not product and line.boq_line_id:
+                product = line.boq_line_id.sudo().product_id
             if not product:
                 raise ValidationError(
                     _("Selected line has no product. Please refresh and try again.")
@@ -120,8 +126,10 @@ class WorkOrderCreatePRWizardLine(models.TransientModel):
 
     wizard_id = fields.Many2one("pr.work.order.create.pr.wizard", required=True, ondelete="cascade")
     selected = fields.Boolean(string="Select")
+    boq_line_db_id = fields.Integer(string="BOQ Line ID", readonly=True)
     boq_line_id = fields.Many2one("pr.work.order.boq", string="BOQ Line", readonly=True)
-    product_id = fields.Many2one("product.product", string="Product", required=True)
+    product_name = fields.Char(string="Product", readonly=True)
+    product_id = fields.Many2one("product.product", string="Product")
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     quantity = fields.Float(string="Quantity", required=True)
     unit_id = fields.Many2one("uom.uom", string="Unit", required=True)
@@ -132,5 +140,14 @@ class WorkOrderCreatePRWizardLine(models.TransientModel):
         for line in self:
             if line.product_id:
                 continue
+            if line.boq_line_db_id:
+                product = self.env["pr.work.order.boq"].sudo().browse(line.boq_line_db_id).product_id
+                if product:
+                    line.product_id = product.id
+                    if not line.product_name:
+                        line.product_name = product.display_name
+                    continue
             if line.boq_line_id and line.boq_line_id.sudo().product_id:
                 line.product_id = line.boq_line_id.sudo().product_id.id
+                if not line.product_name:
+                    line.product_name = line.boq_line_id.sudo().product_id.display_name
