@@ -28,7 +28,9 @@ class WorkOrderCreatePRWizard(models.TransientModel):
         if not work_order_id:
             return values
 
-        work_order = self.env["pr.work.order"].browse(work_order_id)
+        # Use sudo for BOQ preload so readonly wizard lines are fully populated
+        # even when the opener has limited read rights on related models.
+        work_order = self.env["pr.work.order"].sudo().browse(work_order_id)
         lines = []
         for boq_line in work_order.boq_line_ids.filtered(
             lambda l: l.display_type not in ("line_section", "line_note") and l.product_id and l.qty > 0
@@ -40,7 +42,6 @@ class WorkOrderCreatePRWizard(models.TransientModel):
                     0,
                     {
                         "selected": False,
-                        "product_id": boq_line.product_id.id,
                         "cost_center_id": cc.analytic_account_id.id if cc and cc.analytic_account_id else False,
                         "quantity": boq_line.qty,
                         "unit_id": boq_line.uom_id.id,
@@ -68,16 +69,21 @@ class WorkOrderCreatePRWizard(models.TransientModel):
 
         commands = []
         for line in selected_lines:
+            product = line.product_id or line.boq_line_id.product_id
+            if not product:
+                raise ValidationError(
+                    _("Selected line has no product. Please refresh and try again.")
+                )
             if not line.cost_center_id:
                 raise ValidationError(
-                    _("Please set a Cost Center for product '%s'.") % line.product_id.display_name
+                    _("Please set a Cost Center for product '%s'.") % product.display_name
                 )
             commands.append(
                 (
                     0,
                     0,
                     {
-                        "description": line.product_id.id,
+                        "description": product.id,
                         "cost_center_id": line.cost_center_id.id,
                         "quantity": line.quantity,
                         "unit": line.unit_id.id,
@@ -111,8 +117,13 @@ class WorkOrderCreatePRWizardLine(models.TransientModel):
 
     wizard_id = fields.Many2one("pr.work.order.create.pr.wizard", required=True, ondelete="cascade")
     selected = fields.Boolean(string="Select")
-    boq_line_id = fields.Many2one("pr.work.order.boq", string="BOQ Line", readonly=True)
-    product_id = fields.Many2one("product.product", string="Product", readonly=True)
+    boq_line_id = fields.Many2one("pr.work.order.boq", string="BOQ Line", readonly=True, required=True)
+    product_id = fields.Many2one(
+        "product.product",
+        string="Product",
+        related="boq_line_id.product_id",
+        readonly=True,
+    )
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     quantity = fields.Float(string="Quantity", required=True)
     unit_id = fields.Many2one("uom.uom", string="Unit", required=True)
