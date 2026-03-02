@@ -26,7 +26,7 @@ class CustomPR(models.Model):
         [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("urgent", "Urgent")],
         string="Priority",
         required=True,
-        default="medium",
+        default="low",
     )
     comments = fields.Text(string="Comments")
     notes = fields.Text(string="Notes")
@@ -78,7 +78,6 @@ class CustomPR(models.Model):
     show_request_budget_increase_button = fields.Boolean(
         compute="_compute_show_request_budget_increase_button"
     )
-
 
     def _compute_budget_increase_request_count(self):
         Request = self.env['budget.increase.request'].sudo()
@@ -297,7 +296,8 @@ class CustomPR(models.Model):
         ]
 
         if not exceeded_cost_centers:
-            raise ValidationError(_("All cost center lines are within budget. Budget increase request is not required."))
+            raise ValidationError(
+                _("All cost center lines are within budget. Budget increase request is not required."))
 
         request = self.env['budget.increase.request'].create({
             'custom_pr_id': self.id,
@@ -438,7 +438,8 @@ class CustomPRLine(models.Model):
 
         wo_cc = self.env['pr.work.order.cost.center'].sudo().search([
             ('analytic_account_id', '=', self.cost_center_id.id),
-            ('work_order_id.state', 'in', ['ops_approval', 'acc_approval', 'final_approval', 'approved', 'in_progress', 'done']),
+            ('work_order_id.state', 'in',
+             ['ops_approval', 'acc_approval', 'final_approval', 'approved', 'in_progress', 'done']),
         ], limit=1)
 
         if not wo_cc:
@@ -446,9 +447,9 @@ class CustomPRLine(models.Model):
 
         boq_lines = wo_cc.work_order_id.boq_line_ids.filtered(
             lambda l: l.display_type not in ('line_section', 'line_note')
-            and l.section_name == wo_cc.section_name
-            and l.product_id
-            and l.product_id.id == self.description.id
+                      and l.section_name == wo_cc.section_name
+                      and l.product_id
+                      and l.product_id.id == self.description.id
         )
 
         if not boq_lines:
@@ -488,15 +489,15 @@ class CustomPRLine(models.Model):
                 raise ValidationError(_(
                     "Product '%(product)s' is not budgeted in approved Work Order '%(wo)s' section '%(section)s' for cost center '%(cc)s'."
                 ) % {
-                    'product': rec.description.display_name,
-                    'wo': caps['work_order'].display_name,
-                    'section': caps['section_name'] or '-',
-                    'cc': rec.cost_center_id.display_name,
-                })
+                                          'product': rec.description.display_name,
+                                          'wo': caps['work_order'].display_name,
+                                          'section': caps['section_name'] or '-',
+                                          'cc': rec.cost_center_id.display_name,
+                                      })
 
             sibling_lines = rec.pr_id.line_ids.filtered(
                 lambda l: l.cost_center_id.id == rec.cost_center_id.id
-                and l.description.id == rec.description.id
+                          and l.description.id == rec.description.id
             )
             current_pr_amount = sum(sibling_lines.mapped('total_price'))
 
@@ -514,11 +515,11 @@ class CustomPRLine(models.Model):
                 raise ValidationError(_(
                     "Requested amount for '%(product)s' exceeds Work Order amount for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
                 ) % {
-                    'product': rec.description.display_name,
-                    'cc': rec.cost_center_id.display_name,
-                    'allowed': caps['allowed_amount'],
-                    'requested': total_requested_amount,
-                })
+                                          'product': rec.description.display_name,
+                                          'cc': rec.cost_center_id.display_name,
+                                          'allowed': caps['allowed_amount'],
+                                          'requested': total_requested_amount,
+                                      })
 
 
 class PurchaseOrder(models.Model):
