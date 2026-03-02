@@ -168,29 +168,8 @@ class PurchaseRequisition(models.Model):
         if approval_changed:
             for requisition in self:
                 new_approval = vals.get("approval", requisition.approval)
-                custom_pr = (
-                    self.env["custom.pr"]
-                    .sudo()
-                    .search([("name", "=", requisition.name)], limit=1)
-                )
-
-                if custom_pr:
-                    # Sync approval → state
-                    if new_approval == "approved" and custom_pr.approval != "approved":
-                        custom_pr.write(
-                            {"approval": "approved"}
-                        )
-                        self._notify_procurement_admins()
-
-                    elif (
-                            new_approval == "rejected" and custom_pr.approval != "rejected"
-                    ):
-                        custom_pr.write(
-                            {"approval": "rejected"}
-                        )
-
-                    elif new_approval == "pending" and custom_pr.approval != "pending":
-                        custom_pr.write({"approval": "pending"})
+                if new_approval == "approved":
+                    requisition._notify_procurement_admins()
 
         return res
 
@@ -246,10 +225,7 @@ class PurchaseRequisition(models.Model):
             line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
             line_amounts[line_cc.id]["amount"] += line.total_price
 
-        custom_pr = self.env["custom.pr"].sudo().search([("name", "=", self.name)], limit=1)
-
         request = self.env["budget.increase.request"].create({
-            "custom_pr_id": custom_pr.id,
             "requisition_id": self.id,
             "reason": _("Budget increase requested for PR %s") % self.name,
             "line_ids": [

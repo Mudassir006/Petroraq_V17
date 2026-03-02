@@ -101,20 +101,33 @@ class WorkOrderCreatePRWizard(models.TransientModel):
                 )
             )
 
-        custom_pr = self.env["custom.pr"].create(
+        requisition = self.env["purchase.requisition"].create(
             {
-                "pr_type": "standard",
+                "pr_type": "pr",
                 "priority": self.priority,
                 "notes": self.notes,
-                "line_ids": commands,
+                "line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "description": line_vals[2]["description"],
+                            "cost_center_id": line_vals[2]["cost_center_id"],
+                            "quantity": line_vals[2]["quantity"],
+                            "unit": self.env["uom.uom"].browse(line_vals[2]["unit"]).name,
+                            "unit_price": line_vals[2]["unit_price"],
+                        },
+                    )
+                    for line_vals in commands
+                ],
             }
         )
 
         return {
             "type": "ir.actions.act_window",
             "name": _("Purchase Requisition"),
-            "res_model": "custom.pr",
-            "res_id": custom_pr.id,
+            "res_model": "purchase.requisition",
+            "res_id": requisition.id,
             "view_mode": "form",
             "target": "current",
         }

@@ -1,4 +1,4 @@
-from odoo import models
+from odoo import models, fields
 from datetime import datetime, date, timedelta
 import base64
 from io import BytesIO
@@ -6,6 +6,72 @@ from io import BytesIO
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
+
+
+    pr_name = fields.Char(string="PR Name", readonly=True)
+
+    def _update_pr_state(self):
+        """Sync requisition status using the highest PO state for the same PR number."""
+        priority = {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'cancel': 5}
+        mapping = {'draft': 'pr', 'sent': 'rfq', 'pending': 'po', 'purchase': 'completed', 'cancel': 'pr'}
+        for order in self:
+            if not order.pr_name:
+                continue
+            requisition = self.env['purchase.requisition'].sudo().search([('name', '=', order.pr_name)], limit=1)
+            if not requisition:
+                continue
+            all_pos = self.env['purchase.order'].sudo().search([('pr_name', '=', order.pr_name)])
+            if not all_pos:
+                continue
+            best_po = max(all_pos, key=lambda po: priority.get(po.state, 0))
+            requisition.status = mapping.get(best_po.state, requisition.status)
+
+    @staticmethod
+    def _po_state_priority():
+        return {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'cancel': 5}
+
+    @staticmethod
+    def _po_state_to_requisition_status():
+        return {'draft': 'pr', 'sent': 'rfq', 'pending': 'po', 'purchase': 'completed', 'cancel': 'pr'}
+
+    @staticmethod
+    def _default_requisition_status_from_po(po_state):
+        return {'draft': 'pr', 'sent': 'rfq', 'pending': 'po', 'purchase': 'completed', 'cancel': 'pr'}.get(po_state, 'pr')
+
+    @classmethod
+    def _is_po_state_change(cls, vals):
+        return 'state' in vals
+
+    @classmethod
+    def _has_pr_name(cls, order):
+        return bool(getattr(order, 'pr_name', False))
+
+    @classmethod
+    def _find_requisition_for_order(cls, env, order):
+        return env['purchase.requisition'].sudo().search([('name', '=', order.pr_name)], limit=1)
+
+    @classmethod
+    def _set_requisition_status_from_order(cls, requisition, order):
+        requisition.status = cls._default_requisition_status_from_po(order.state)
+
+    @classmethod
+    def _sync_on_create(cls, order):
+        if not cls._has_pr_name(order):
+            return
+        requisition = cls._find_requisition_for_order(order.env, order)
+        if requisition:
+            cls._set_requisition_status_from_order(requisition, order)
+
+    def create(self, vals):
+        order = super().create(vals)
+        self._sync_on_create(order)
+        return order
+
+    def write(self, vals):
+        res = super().write(vals)
+        if self._is_po_state_change(vals):
+            self._update_pr_state()
+        return res
 
     def action_send_purchase_order_email(self):
         """Open the standard Compose wizard pre-filled with our custom body and recipients."""

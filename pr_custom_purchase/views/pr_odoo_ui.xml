@@ -165,46 +165,24 @@
         <field name="domain">[('pr_type', '!=', 'cash')]</field>
     </record>
     <!-- Menu item under Purchase -->
-    <!-- End User Requisitions (folder, no action) -->
     <menuitem id="menu_purchase_requisition_main"
               name="Requisitions"
               parent="purchase.menu_purchase_root"
               sequence="130"
-              groups="pr_custom_purchase.group_custom_pr_end_user"/>
-    <!-- Re-parent PR menu -->
-    <menuitem id="pr_custom_purchase.menu_pr"
+              groups="pr_custom_purchase.group_custom_pr_end_user,pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
+
+    <menuitem id="menu_pr"
               name="Regular PR"
               parent="pr_custom_purchase.menu_purchase_requisition_main"
-              action="pr_custom_purchase.action_custom_pr_standard"
-              sequence="10"
-              groups="pr_custom_purchase.group_custom_pr_end_user"/>
-
-    <!-- Re-parent Cash PR menu -->
-    <menuitem id="pr_custom_purchase.menu_cash_pr"
-              name="Cash PR"
-              parent="pr_custom_purchase.menu_purchase_requisition_main"
-              action="pr_custom_purchase.action_custom_pr_cash"
-              sequence="20"
-              groups="pr_custom_purchase.group_custom_pr_end_user"/>
-
-    <!-- Requisitions for other users (shows PR lists) -->
-    <menuitem id="menu_purchase_requisition_main_others"
-              name="Requisitions"
-              parent="purchase.menu_purchase_root"
-              sequence="131"
-              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
-
-    <menuitem id="pr_custom_purchase.menu_pr_others"
-              name="Regular PR"
-              parent="pr_custom_purchase.menu_purchase_requisition_main_others"
               action="pr_custom_purchase.action_purchase_requisition_list"
               sequence="10"
-              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
+              groups="pr_custom_purchase.group_custom_pr_end_user,pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
 
-    <menuitem id="pr_custom_purchase.menu_cash_pr_others"
+    <menuitem id="menu_cash_pr"
               name="Cash PR"
-              parent="pr_custom_purchase.menu_purchase_requisition_main_others"
+              parent="pr_custom_purchase.menu_purchase_requisition_main"
               action="pr_custom_purchase.action_purchase_requisition_cash"
               sequence="20"
-              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
+              groups="pr_custom_purchase.group_custom_pr_end_user,pr_custom_purchase.procurement_admin,purchase.group_purchase_manager,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director,pr_custom_purchase.inventory_qc,pr_custom_purchase.inventory_data_entry,pr_custom_purchase.inventory_admin,pr_custom_purchase.group_pr_approver"/>
+
 </odoo>

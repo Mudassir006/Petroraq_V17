@@ -8,7 +8,6 @@
                 <field name="name"/>
                 <field name="request_date"/>
                 <field name="requested_by_id"/>
-                <field name="custom_pr_id"/>
                 <field name="requisition_id"/>
                 <field name="state" widget="badge"
                        decoration-success="state in ('approved', 'done')"
@@ -50,7 +49,6 @@
                             <field name="requested_by_id" readonly="1"/>
                         </group>
                         <group>
-                            <field name="custom_pr_id"/>
                             <field name="requisition_id"/>
                         </group>
                     </group>
@@ -72,8 +70,8 @@
                             </field>
                         </page>
                         <page string="PR Products">
-                            <field name="custom_pr_line_ids" readonly="1"
-                                   invisible="not custom_pr_id">
+                            <field name="requisition_line_ids" readonly="1"
+                                   invisible="not requisition_id">
                                 <tree>
                                     <field name="description" string="Product"/>
                                     <field name="quantity"/>
@@ -83,8 +81,8 @@
                                     <field name="cost_center_id"/>
                                 </tree>
                             </field>
-                            <p string="Select a Custom PR to view its products."
-                               invisible="custom_pr_id" class="text-muted"/>
+                            <p string="Select a Purchase Requisition to view its products."
+                               invisible="requisition_id" class="text-muted"/>
                         </page>
                     </notebook>
                 </sheet>
@@ -118,7 +116,7 @@
 
     <menuitem id="menu_budget_increase_request"
               name="Budget Increase Requests"
-              parent="pr_custom_purchase.menu_purchase_requisition"
+              parent="pr_custom_purchase.menu_purchase_requisition_main"
               action="action_budget_increase_request"
               sequence="40"/>
 </odoo>
