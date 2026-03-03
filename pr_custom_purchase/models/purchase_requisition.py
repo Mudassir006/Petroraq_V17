@@ -436,10 +436,10 @@ class PurchaseRequisition(models.Model):
     #         "target": "current",
     #     }
     def action_create_rfq(self):
-        """Create RFQ (purchase.order) from this PR and populate Custom Lines tab."""
-        PurchaseOrder = self.env["purchase.order"]
-        MailMessage = self.env["mail.message"]
+        """Create Custom RFQ from this PR and keep PO sequencing independent."""
+        CustomRFQ = self.env["custom.purchase.rfq"]
 
+        rfq = False
         for pr in self:
             if pr.approval != "approved":
                 raise UserError(_("Supervisor approval is required before creating RFQ."))
@@ -462,88 +462,43 @@ class PurchaseRequisition(models.Model):
                         % (cc.display_name, cc.budget_left, item["amount"])
                     )
 
-            # Create RFQ without normal order_line
             rfq_vals = {
                 "origin": pr.name,
+                "requisition_id": pr.id,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "custom_line_ids": [],  # Populate custom tab instead
+                "line_ids": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
                 "department": pr.department,
                 "supervisor": pr.supervisor,
                 "supervisor_partner_id": pr.supervisor_partner_id,
+                "project_id": pr.project_id.id if pr.project_id else False,
             }
 
-            # Fill custom_line_ids from PR lines
             for line in pr.line_ids:
-                line_vals = (
-                    0,
-                    0,
-                    {
-                        # "name": line.description.display_name,
-                        "name": line.description.name,
-                        "quantity": line.quantity,
-                        "type": line.type,
-                        "unit": line.unit,
-                        "price_unit": line.unit_price,
-                        "cost_center_id": line.cost_center_id.id,
-                    },
-                )
-                rfq_vals["custom_line_ids"].append(line_vals)
+                rfq_vals["line_ids"].append((0, 0, {
+                    "name": line.description.name,
+                    "quantity": line.quantity,
+                    "type": line.type,
+                    "unit": line.unit,
+                    "price_unit": line.unit_price,
+                    "cost_center_id": line.cost_center_id.id,
+                }))
 
-            # Create RFQ (use sudo if you want to bypass access issues)
-            rfq = PurchaseOrder.sudo().create(rfq_vals)
+            rfq = CustomRFQ.sudo().create(rfq_vals)
 
-            # Give proper sequence if needed
-            if rfq.state == "draft":
-                rfq_name = (
-                        self.env["ir.sequence"].sudo().next_by_code("purchase.order.rfq")
-                        or "RFQ0001"
-                )
-                # use write so rules are respected
-                rfq.sudo().write({"name": rfq_name})
-
-            # ---- NEW: remove default 'purchase order created' system message(s) on RFQ chatter ----
-            try:
-                msgs = MailMessage.sudo().search(
-                    [("model", "=", "purchase.order"), ("res_id", "=", rfq.id)]
-                )
-                # narrow deletion only to messages that clearly look like "Purchase order ... created"
-                msgs_to_unlink = msgs.filtered(
-                    lambda m: m.body and "purchase order" in (m.body or "").lower() and "created" in (
-                            m.body or "").lower()
-                )
-                if msgs_to_unlink:
-                    msgs_to_unlink.sudo().unlink()
-            except Exception as e:
-                _logger.exception(
-                    "Failed to remove default purchase.order messages for RFQ %s: %s", rfq.id, e
-                )
-
-            # Post a clear RFQ message on the RFQ itself (so RFQ chatter shows RFQ created)
-            rfq.sudo().message_post(
-                body=_("RFQ %s Created")
-                     % rfq.name,
-                message_type="notification",
-            )
-            # ---- END new logic ----
-
-            # Update PR status
             pr.status = "rfq"
-
-            # Log in PR chatter (keep PR message)
             pr.message_post(
-                body=_("RFQ %s created from this PR and populated in Custom Lines tab.")
-                     % rfq.name,
+                body=_("Custom RFQ %s created from this PR.") % rfq.name,
                 message_type="notification",
             )
 
         return {
             "type": "ir.actions.act_window",
-            "name": _("Purchase Order"),
-            "res_model": "purchase.order",
+            "name": _("Custom RFQ"),
+            "res_model": "custom.purchase.rfq",
             "res_id": rfq.id,
             "view_mode": "form",
             "target": "current",

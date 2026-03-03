@@ -12,14 +12,14 @@ class PortalRFQ(http.Controller):
         partner = request.env.user.partner_id
 
         rfqs_vendor = (
-            request.env["purchase.order"]
+            request.env["custom.purchase.rfq"]
             .sudo()
             .search(
                 [("partner_id", "=", partner.id), ("state", "in", ["draft", "sent"])]
             )
         )
         rfqs_following = (
-            request.env["purchase.order"]
+            request.env["custom.purchase.rfq"]
             .sudo()
             .search(
                 [
@@ -39,8 +39,8 @@ class PortalRFQ(http.Controller):
         "/my/rfq/<int:rfq_id>/quotation", type="http", auth="user", website=True
     )
     def portal_create_rfq_quotation(self, rfq_id, **kw):
-        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
-        rfq.custom_line_ids  # ensure it’s loaded
+        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq.line_ids  # ensure it’s loaded
         company_registry = rfq.partner_id.company_registry
         return request.render(
             "pr_custom_purchase.portal_create_rfq_quotation_form",
@@ -51,7 +51,7 @@ class PortalRFQ(http.Controller):
         partner = request.env.user.partner_id
 
         rfqs_following = (
-            request.env["purchase.order"]
+            request.env["custom.purchase.rfq"]
             .sudo()
             .search([
                 ("message_follower_ids.partner_id", "=", partner.id),
@@ -66,13 +66,13 @@ class PortalRFQ(http.Controller):
     @http.route("/my/rfqs/<int:rfq_id>", type="http", auth="user", website=True)
     def portal_rfq_view(self, rfq_id, **kw):
         partner = request.env.user.partner_id
-        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
+        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
 
         # Security check: only followers or vendor can see
         if partner not in rfq.message_follower_ids.mapped("partner_id") and partner.id != rfq.partner_id.id:
             return request.redirect("/my")  # not authorized
 
-        rfq.custom_line_ids  # ensure lines are loaded
+        rfq.line_ids  # ensure lines are loaded
 
         # Fetch all quotations related to this RFQ
         quotations = request.env["purchase.quotation"].sudo().search([("rfq_origin", "=", rfq.name)])
@@ -94,7 +94,7 @@ class PortalRFQ(http.Controller):
         csrf=True,
     )
     def submit_rfq_quotation(self, rfq_id, **post):
-        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
+        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
         partner = request.env.user.partner_id
 
         # Create quotation record in your custom model
@@ -106,10 +106,11 @@ class PortalRFQ(http.Controller):
                     "vendor_id": partner.id,
                     "pr_name": rfq.pr_name,
                     "rfq_origin": rfq.name,
-                    "vendor_ref": rfq.partner_ref,
+                    "vendor_ref": rfq.origin,
                     "notes": post.get("description"),
                     "order_deadline": post.get("quotation_valid_till"),
                     "expected_arrival": rfq.date_planned,
+                    "custom_rfq_id": rfq.id,
                     "supplier_name": post.get("supplier_name"),
                     "contact_person": post.get("contact_person"),
                     "company_address": post.get("company_address"),
@@ -169,7 +170,7 @@ class PortalRFQ(http.Controller):
                 }
             )
         )
-        rfq_line_by_index = {idx: line for idx, line in enumerate(rfq.custom_line_ids)}
+        rfq_line_by_index = {idx: line for idx, line in enumerate(rfq.line_ids)}
 
         product_indexes = set()
         for key in post:
@@ -239,7 +240,7 @@ class PortalRFQ(http.Controller):
         <p>Hello,</p>
         <p>A new quotation has been submitted by <strong>{partner.name}</strong> for RFQ <strong>{rfq.name}</strong>.</p>
         <p>
-        Vendor Reference: {rfq.partner_ref or 'N/A'}<br/>
+        Vendor Reference: {rfq.origin or 'N/A'}<br/>
         Total Quotation Value (incl. VAT): {quotation.total_incl_vat:.2f}
         </p>
         <p>You can view it in the system for further action.</p>

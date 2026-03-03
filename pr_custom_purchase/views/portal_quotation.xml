@@ -58,7 +58,7 @@
                         <input type="text" name="department" class="form-control d-none" t-att-value="rfq.department" readonly="readonly"/>
                         <input type="text" name="supervisor" class="form-control d-none" t-att-value="rfq.supervisor" readonly="readonly"/>
                         <input type="text" name="supervisor_partner_id" class="form-control d-none" t-att-value="rfq.supervisor_partner_id" readonly="readonly"/>
-                        <input type="text" name="vendor_reference" class="form-control" t-att-value="rfq.partner_ref" readonly="readonly"/>
+                        <input type="text" name="vendor_reference" class="form-control" t-att-value="rfq.origin" readonly="readonly"/>
                     </div>
                     <!-- New Fields -->
                     <div class='d-flex w-100 gap-4 flex-wrap'>
@@ -124,7 +124,7 @@
                         </thead>
                         <tbody id="quotation_lines">
                             <t t-set="idx" t-value="0"/>
-                            <t t-foreach="rfq.custom_line_ids" t-as="line">
+                            <t t-foreach="rfq.line_ids" t-as="line">
                                 <tr>
                                     <td>
                                         <t t-esc="idx + 1"/>
@@ -291,7 +291,7 @@
                         <label>Additional Information / Notes  (if applicable)</label>
                         <textarea name="description" class="form-control"></textarea>
                     </div>
-                    <input type="hidden" name="product_count" t-att-value="len(rfq.order_line)"/>
+                    <input type="hidden" name="product_count" t-att-value="len(rfq.line_ids)"/>
                     <button type="submit" class="btn" style='background-color: #122AA0; color: white;'>Submit Quotation</button>
                     <script type="text/javascript">
                             var tableBody = document.getElementById('quotation_lines');
