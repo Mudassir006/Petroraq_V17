@@ -55,21 +55,25 @@
                             string="Approve"
                             type="object"
                             class="btn-primary"
+                            groups="pr_custom_purchase.project_engineer"
                             invisible="stage != 'reviewed' or not show_pe_approved or can_complete_approval or current_user_has_acted"/>
                     <button name="action_approve"
                             string="Approve"
                             type="object"
                             class="btn-primary"
+                            groups="pr_custom_purchase.project_manager"
                             invisible="stage != 'reviewed' or not show_pm_approved or subtotal &lt;= 10000 or can_complete_approval or current_user_has_acted"/>
                     <button name="action_approve"
                             string="Approve"
                             type="object"
                             class="btn-primary"
+                            groups="pr_custom_purchase.operations_director"
                             invisible="stage != 'reviewed' or not show_od_approved or subtotal &lt;= 100000 or can_complete_approval or current_user_has_acted"/>
                     <button name="action_approve"
                             string="Approve"
                             type="object"
                             class="btn-primary"
+                            groups="pr_custom_purchase.managing_director"
                             invisible="stage != 'reviewed' or not show_md_approved or subtotal &lt;= 500000 or can_complete_approval or current_user_has_acted"/>
                     <button name="action_create_vendor_bill"
                             string="Create Vendor Bill"
