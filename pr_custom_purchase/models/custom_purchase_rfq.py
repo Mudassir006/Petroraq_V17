@@ -5,11 +5,17 @@ from odoo.exceptions import UserError, ValidationError
 class CustomPurchaseRFQ(models.Model):
     _name = "custom.purchase.rfq"
     _description = "Custom RFQ"
-    _inherit = "purchase.order"
+    _inherits = {"purchase.order": "order_id"}
     _order = "id desc"
 
-    # Keep vendor optional on RFQ creation from PR
-    partner_id = fields.Many2one(required=False)
+    order_id = fields.Many2one(
+        "purchase.order",
+        string="Related Purchase Order",
+        required=True,
+        ondelete="cascade",
+        auto_join=True,
+    )
+
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
     pr_name = fields.Char(string="PR Number", readonly=True)
     date_request = fields.Date(string="Date of Request")
