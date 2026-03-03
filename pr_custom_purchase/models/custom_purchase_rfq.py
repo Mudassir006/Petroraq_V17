@@ -63,10 +63,34 @@ class CustomPurchaseRFQ(models.Model):
         self.write({"state": "sent"})
         self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
 
+
+    def action_open_rfq_comparison(self):
+        self.ensure_one()
+        if self.requisition_id:
+            quotations = self.env["purchase.quotation"].search([("custom_rfq_id.requisition_id", "=", self.requisition_id.id)])
+            label = self.requisition_id.name or self.pr_name
+        else:
+            quotations = self.env["purchase.quotation"].search([("custom_rfq_id", "=", self.id)])
+            label = self.name
+        if not quotations:
+            raise UserError(_("No quotations are available for %s yet.") % label)
+        wizard = self.env["rfq.comparison.wizard"].create_for_custom_rfq(self)
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Quotation Comparison"),
+            "res_model": "rfq.comparison.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "res_id": wizard.id,
+        }
+
     def action_view_quotations(self):
         self.ensure_one()
         action = self.env.ref("pr_custom_purchase.action_purchase_quotation_list").read()[0]
-        action["domain"] = [("custom_rfq_id", "=", self.id)]
+        domain = [("custom_rfq_id", "=", self.id)]
+        if self.requisition_id:
+            domain = [("custom_rfq_id.requisition_id", "=", self.requisition_id.id)]
+        action["domain"] = domain
         action["context"] = {
             "default_custom_rfq_id": self.id,
             "default_rfq_origin": self.name,
@@ -75,6 +99,7 @@ class CustomPurchaseRFQ(models.Model):
             "default_department": self.department,
             "default_supervisor": self.supervisor,
             "default_supervisor_partner_id": self.supervisor_partner_id,
+            "group_by": "requisition_id",
         }
         return action
 

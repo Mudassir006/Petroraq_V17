@@ -8,7 +8,9 @@ class RFQComparisonWizard(models.TransientModel):
     _name = "rfq.comparison.wizard"
     _description = "RFQ Quotation Comparison"
 
-    rfq_id = fields.Many2one("purchase.order", string="RFQ", required=True, readonly=True)
+    rfq_id = fields.Many2one("purchase.order", string="RFQ (Legacy)", readonly=True)
+    custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", readonly=True)
+    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", readonly=True)
     line_ids = fields.One2many(
         "rfq.comparison.wizard.line",
         "wizard_id",
@@ -17,18 +19,44 @@ class RFQComparisonWizard(models.TransientModel):
 
     @api.model
     def create_for_rfq(self, rfq):
-        """Create a persisted wizard + lines so list edits don't drop line payload."""
+        """Legacy: build comparison from a purchase.order RFQ."""
         wizard = self.create({"rfq_id": rfq.id})
+        wizard.write({"line_ids": wizard._prepare_comparison_lines()})
+        return wizard
+
+    @api.model
+    def create_for_custom_rfq(self, rfq):
+        """Build comparison from all quotations under the RFQ requisition."""
+        wizard = self.create({
+            "custom_rfq_id": rfq.id,
+            "requisition_id": rfq.requisition_id.id if rfq.requisition_id else False,
+        })
         wizard.write({"line_ids": wizard._prepare_comparison_lines()})
         return wizard
 
     def _prepare_comparison_lines(self):
         self.ensure_one()
-        quotations = self.env["purchase.quotation"].search(
-            [("rfq_origin", "=", self.rfq_id.name)]
-        )
+        if self.requisition_id:
+            quotations = self.env["purchase.quotation"].search([
+                ("custom_rfq_id.requisition_id", "=", self.requisition_id.id)
+            ])
+            label = self.requisition_id.name
+        elif self.custom_rfq_id:
+            quotations = self.env["purchase.quotation"].search([
+                ("custom_rfq_id", "=", self.custom_rfq_id.id)
+            ])
+            label = self.custom_rfq_id.name
+        elif self.rfq_id:
+            quotations = self.env["purchase.quotation"].search([
+                ("rfq_origin", "=", self.rfq_id.name)
+            ])
+            label = self.rfq_id.name
+        else:
+            quotations = self.env["purchase.quotation"]
+            label = _("Unknown")
+
         if not quotations:
-            raise UserError(_("No quotations were found for RFQ %s.") % self.rfq_id.name)
+            raise UserError(_("No quotations were found for %s.") % label)
 
         all_offer_lines = []
         grouped_prices = defaultdict(list)
@@ -103,17 +131,18 @@ class RFQComparisonWizard(models.TransientModel):
 
         purchase_orders = self.env["purchase.order"]
         for vendor, vendor_lines in grouped_by_vendor.items():
+            source_rfq = self.custom_rfq_id or False
             po_vals = {
-                "origin": self.rfq_id.name,
+                "origin": (source_rfq.name if source_rfq else (self.rfq_id.name if self.rfq_id else "")),
                 "partner_id": vendor.id,
-                "partner_ref": self.rfq_id.partner_ref,
+                "partner_ref": (source_rfq.origin if source_rfq else (self.rfq_id.partner_ref if self.rfq_id else "")),
                 "date_planned": fields.Datetime.now(),
                 "state": "pending",
-                "pr_name": self.rfq_id.pr_name,
-                "requested_by": self.rfq_id.requested_by,
-                "department": self.rfq_id.department,
-                "supervisor": self.rfq_id.supervisor,
-                "supervisor_partner_id": self.rfq_id.supervisor_partner_id,
+                "pr_name": (source_rfq.pr_name if source_rfq else (self.rfq_id.pr_name if self.rfq_id else "")),
+                "requested_by": (source_rfq.requested_by if source_rfq else (self.rfq_id.requested_by if self.rfq_id else "")),
+                "department": (source_rfq.department if source_rfq else (self.rfq_id.department if self.rfq_id else "")),
+                "supervisor": (source_rfq.supervisor if source_rfq else (self.rfq_id.supervisor if self.rfq_id else "")),
+                "supervisor_partner_id": (source_rfq.supervisor_partner_id if source_rfq else (self.rfq_id.supervisor_partner_id if self.rfq_id else "")),
                 "custom_line_ids": [
                     (
                         0,
@@ -132,8 +161,7 @@ class RFQComparisonWizard(models.TransientModel):
             }
             purchase_orders |= self.env["purchase.order"].sudo().create(po_vals)
 
-        quotations = self.env["purchase.quotation"].search([("rfq_origin", "=", self.rfq_id.name)])
-        quotations.write({"status": "po"})
+        selected_lines.mapped("quotation_id").write({"status": "po"})
 
         action = {
             "type": "ir.actions.act_window",

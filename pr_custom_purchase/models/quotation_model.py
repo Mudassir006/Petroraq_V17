@@ -15,6 +15,7 @@ class PurchaseQuotation(models.Model):
     vendor_id = fields.Many2one("res.partner", string="Vendor")
     rfq_origin = fields.Char(string="RFQ Origin")
     custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", ondelete="set null")
+    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", related="custom_rfq_id.requisition_id", store=True, readonly=True)
     vendor_ref = fields.Char(string="Vendor Reference")
     pr_name = fields.Char(string="PR Name", readonly=True)
     notes = fields.Text(string="Notes")
@@ -469,24 +470,30 @@ class PurchaseOrder(models.Model):
             if not order.name:
                 order.quotation_count = 0
                 continue
-            order.quotation_count = self.env["purchase.quotation"].search_count(
-                [("rfq_origin", "=", order.name)]
-            )
+            domain = [("rfq_origin", "=", order.name)]
+            req = self.env["purchase.requisition"].search([("name", "=", order.origin or order.name)], limit=1)
+            if req:
+                domain = [("custom_rfq_id.requisition_id", "=", req.id)]
+            order.quotation_count = self.env["purchase.quotation"].search_count(domain)
 
     def action_view_rfq_quotations(self):
         self.ensure_one()
+        req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
+        domain = [("rfq_origin", "=", self.name)]
+        context = {"default_rfq_origin": self.name}
+        if req:
+            domain = [("custom_rfq_id.requisition_id", "=", req.id)]
+            context.update({"group_by": "requisition_id"})
         action = {
             "type": "ir.actions.act_window",
             "name": _("RFQ Quotations"),
             "res_model": "purchase.quotation",
             "view_mode": "tree,form",
-            "domain": [("rfq_origin", "=", self.name)],
-            "context": {"default_rfq_origin": self.name},
+            "domain": domain,
+            "context": context,
         }
         if self.quotation_count == 1:
-            quotation = self.env["purchase.quotation"].search(
-                [("rfq_origin", "=", self.name)], limit=1
-            )
+            quotation = self.env["purchase.quotation"].search(domain, limit=1)
             if quotation:
                 action.update({"view_mode": "form", "res_id": quotation.id})
         return action
@@ -495,7 +502,15 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         if self.quotation_count == 0:
             raise UserError(_("No quotations are available for this RFQ yet."))
-        wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
+        req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
+        if req:
+            any_rfq = self.env["custom.purchase.rfq"].search([("requisition_id", "=", req.id)], limit=1)
+            if any_rfq:
+                wizard = self.env['rfq.comparison.wizard'].create_for_custom_rfq(any_rfq)
+            else:
+                wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
+        else:
+            wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
         return {
             "type": "ir.actions.act_window",
             "name": _("Quotation Comparison"),

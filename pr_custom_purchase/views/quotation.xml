@@ -7,6 +7,7 @@
             <tree>
                 <field name="vendor_id"/>
                 <field name="rfq_origin"/>
+                <field name="requisition_id"/>
                 <field name="vendor_ref"/>
                 <field name="status"
                        decoration-success="status == 'po'"
@@ -166,6 +167,7 @@
         <field name="res_model">purchase.quotation</field>
         <field name="view_mode">tree,form</field>
         <field name="type">ir.actions.act_window</field>
+        <field name="context">{'group_by': 'requisition_id'}</field>
     </record>
     <menuitem id="menu_purchase_quotation_main"
               name="Quotations"
@@ -183,6 +185,7 @@
         <field name="res_model">purchase.quotation</field>
         <field name="view_mode">tree,form</field>
         <field name="type">ir.actions.act_window</field>
+        <field name="context">{'group_by': 'requisition_id'}</field>
     </record>
     <!-- Submenu: Submitted Quotations -->
     <menuitem id="menu_purchase_quotation_submitted"
