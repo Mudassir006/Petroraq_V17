@@ -21,7 +21,7 @@
         <field name="arch" type="xml">
             <form string="Custom RFQ">
                 <header>
-                    <button name="action_mark_sent" type="object" string="Mark as Sent" class="btn-secondary" invisible="state != 'draft'" groups="pr_custom_purchase.procurement_admin"/>
+                    <button name="action_send_rfq_email" type="object" string="Send RFQ Email" class="btn-primary" invisible="state != 'draft'" groups="pr_custom_purchase.procurement_admin"/>
                     <button name="action_view_quotations" type="object" string="Submitted Quotations" class="btn-primary" groups="pr_custom_purchase.procurement_admin"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,done,cancel"/>
                 </header>

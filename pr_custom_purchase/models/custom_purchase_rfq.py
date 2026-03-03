@@ -5,33 +5,21 @@ from odoo.exceptions import UserError, ValidationError
 class CustomPurchaseRFQ(models.Model):
     _name = "custom.purchase.rfq"
     _description = "Custom RFQ"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = "purchase.order"
     _order = "id desc"
 
-    name = fields.Char(string="RFQ Number", required=True, readonly=True, copy=False, default="New")
+    # Keep vendor optional on RFQ creation from PR
+    partner_id = fields.Many2one(required=False)
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
-    origin = fields.Char(string="Origin")
-    partner_id = fields.Many2one("res.partner", string="Preferred Vendor")
     pr_name = fields.Char(string="PR Number", readonly=True)
-    date_planned = fields.Date(string="Expected Arrival")
     date_request = fields.Date(string="Date of Request")
     requested_by = fields.Char(string="Requested By")
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="Supervisor Partner")
-    project_id = fields.Many2one("project.project", string="Project")
-    state = fields.Selection([
-        ("draft", "Draft"),
-        ("sent", "Sent"),
-        ("done", "Done"),
-        ("cancel", "Cancelled"),
-    ], default="draft", tracking=True)
-
-    line_ids = fields.One2many("custom.purchase.rfq.line", "rfq_id", string="RFQ Lines")
-    quotation_ids = fields.One2many(
-        "purchase.quotation", "custom_rfq_id", string="Submitted Quotations", readonly=True
-    )
+    quotation_ids = fields.One2many("purchase.quotation", "custom_rfq_id", string="Submitted Quotations", readonly=True)
     quotation_count = fields.Integer(compute="_compute_quotation_count")
+    line_ids = fields.One2many("custom.purchase.rfq.line", "rfq_id", string="RFQ Lines")
 
     @api.depends("quotation_ids")
     def _compute_quotation_count(self):
@@ -41,12 +29,30 @@ class CustomPurchaseRFQ(models.Model):
     @api.model
     def create(self, vals):
         rec = super().create(vals)
-        if rec.name == "New":
+        if not rec.name or rec.name == "New":
             rec.name = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
         return rec
 
-    def action_mark_sent(self):
+    def action_send_rfq_email(self):
+        self.ensure_one()
+        if not self.partner_id or not self.partner_id.email:
+            raise UserError(_("Please set a vendor with an email before sending RFQ."))
+
+        self.env["mail.mail"].sudo().create({
+            "subject": _("RFQ %s") % (self.name or ""),
+            "body_html": _(
+                "<p>Dear %(vendor)s,</p>"
+                "<p>Please submit your quotation for RFQ <b>%(rfq)s</b>.</p>"
+                "<p>Regards,<br/>Procurement Team</p>"
+            ) % {
+                "vendor": self.partner_id.display_name,
+                "rfq": self.name,
+            },
+            "email_to": self.partner_id.email,
+        }).send()
+
         self.write({"state": "sent"})
+        self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
 
     def action_view_quotations(self):
         self.ensure_one()
@@ -62,13 +68,6 @@ class CustomPurchaseRFQ(models.Model):
             "default_supervisor_partner_id": self.supervisor_partner_id,
         }
         return action
-
-    def action_create_purchase_order_from_best_quote(self):
-        self.ensure_one()
-        best_quote = self.quotation_ids.sorted(lambda q: q.total_incl_vat)[:1]
-        if not best_quote:
-            raise UserError(_("Please submit at least one quotation first."))
-        return best_quote.action_create_purchase_order()
 
 
 class CustomPurchaseRFQLine(models.Model):

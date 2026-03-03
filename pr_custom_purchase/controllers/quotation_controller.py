@@ -75,7 +75,7 @@ class PortalRFQ(http.Controller):
         rfq.line_ids  # ensure lines are loaded
 
         # Fetch all quotations related to this RFQ
-        quotations = request.env["purchase.quotation"].sudo().search([("rfq_origin", "=", rfq.name)])
+        quotations = request.env["purchase.quotation"].sudo().search([("custom_rfq_id", "=", rfq.id)])
 
         return request.render(
             "pr_custom_purchase.portal_rfq_view_template",
@@ -209,7 +209,7 @@ class PortalRFQ(http.Controller):
         all_quotations = (
             request.env["purchase.quotation"]
             .sudo()
-            .search([("rfq_origin", "=", rfq.name)])
+            .search([("custom_rfq_id", "=", rfq.id)])
         )
 
         if all_quotations:

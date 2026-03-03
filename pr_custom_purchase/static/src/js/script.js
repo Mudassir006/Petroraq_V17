@@ -109,7 +109,7 @@ class QuotationFormPage extends Component {
     async loadRfqs() {
         try {
             const rfqs = await this.rpc('/web/dataset/call_kw', {
-                model: 'purchase.order',
+                model: 'custom.purchase.rfq',
                 method: 'search_read',
                 args: [[['state', 'in', ['draft', 'sent']]]],
                 kwargs: { fields: ['id', 'name'], limit: 200 },
@@ -140,7 +140,7 @@ class QuotationFormPage extends Component {
         if (!rfqName) return null;
         try {
             const recs = await this.rpc('/web/dataset/call_kw', {
-                model: 'purchase.order',
+                model: 'custom.purchase.rfq',
                 method: 'search_read',
                 args: [[['name', '=', rfqName]]],
                 kwargs: {
@@ -164,10 +164,10 @@ class QuotationFormPage extends Component {
         let po;
         try {
             const recs = await this.rpc('/web/dataset/call_kw', {
-                model: 'purchase.order',
+                model: 'custom.purchase.rfq',
                 method: 'search_read',
                 args: [[['name', '=', rfqName]]],
-                kwargs: { fields: ['id','name','partner_id','partner_ref','date_planned','date_order','custom_line_ids','order_line'], limit: 1 },
+                kwargs: { fields: ['id','name','partner_id','origin','date_planned','line_ids','project_id','pr_name','requested_by','department','supervisor','supervisor_partner_id'], limit: 1 },
             });
             po = (recs && recs[0]) || null;
         } catch (e) {
@@ -206,7 +206,7 @@ class QuotationFormPage extends Component {
             return '';
         };
 
-        setIfExists('vendor_ref', po.partner_ref || '');
+        setIfExists('vendor_ref', po.origin || '');
         setIfExists('quotation_ref', po.name || rfqName || '');
         if (po.partner_id && po.partner_id[1]) setIfExists('supplier_name', po.partner_id[1]);
         if (po.partner_id && po.partner_id[1]) await this.populateFromVendorName(po.partner_id[1]);
@@ -214,56 +214,26 @@ class QuotationFormPage extends Component {
         // Expected Arrival: patch from RFQ/PO date_planned in YYYY-MM-DD (with +5h adjustment)
         setIfExists('expected_arrival', toDateInput(po.date_planned || headerDatePlanned));
 
-        // Fetch lines: prefer custom_line_ids
+        // Fetch lines from custom RFQ line model
         const lines = [];
         let headerDatePlanned = po.date_planned || null;
-        let minLineDatePlanned = null;
         try {
-            if (po.custom_line_ids && po.custom_line_ids.length) {
-                const clines = await this.rpc('/web/dataset/call_kw', {
-                    model: 'purchase.order.custom.line',
+            if (po.line_ids && po.line_ids.length) {
+                const rfqLines = await this.rpc('/web/dataset/call_kw', {
+                    model: 'custom.purchase.rfq.line',
                     method: 'read',
-                    args: [po.custom_line_ids, ['name','quantity','unit','type','price_unit','cost_center_id']],
+                    args: [po.line_ids, ['name','quantity','unit','type','price_unit','cost_center_id']],
                     kwargs: {},
                 });
-                for (const ln of (clines || [])) {
+                for (const ln of (rfqLines || [])) {
                     lines.push({
                         description: ln.name || '',
                         quantity: ln.quantity || 0,
                         type: ln.type || '',
                         unit: ln.unit || '',
                         price: ln.price_unit || 0,
-                        cost_center_id: ln.cost_center_id && ln.cost_center_id[0] || null,
-                        cost_center_name: ln.cost_center_id && ln.cost_center_id[1] || '',
-                    });
-                }
-            } else if (po.order_line && po.order_line.length) {
-                const olines = await this.rpc('/web/dataset/call_kw', {
-                    model: 'purchase.order.line',
-                    method: 'read',
-                    args: [po.order_line, ['name','product_id','product_qty','product_uom','price_unit','date_planned']],
-                    kwargs: {},
-                });
-                for (const ln of (olines || [])) {
-                    if (ln.date_planned) {
-                        const d = new Date(ln.date_planned);
-                        if (!isNaN(d)) {
-                            const iso = d.toISOString();
-                            if (!minLineDatePlanned || new Date(minLineDatePlanned) > d) {
-                                minLineDatePlanned = iso;
-                            }
-                        } else if (!minLineDatePlanned) {
-                            minLineDatePlanned = ln.date_planned;
-                        }
-                    }
-                    lines.push({
-                        description: ln.name || (ln.product_id && ln.product_id[1]) || '',
-                        quantity: ln.product_qty || 0,
-                        type: normalizeType((ln.product_id && ln.product_id[1]) || 'material'),
-                        unit: (ln.product_uom && ln.product_uom[1]) || '',
-                        price: ln.price_unit || 0,
-                        cost_center_id: ln.cost_center_id && ln.cost_center_id[0] || null,
-                        cost_center_name: ln.cost_center_id && ln.cost_center_id[1] || '',
+                        cost_center_id: (ln.cost_center_id && ln.cost_center_id[0]) || null,
+                        cost_center_name: (ln.cost_center_id && ln.cost_center_id[1]) || '',
                     });
                 }
             }
@@ -435,6 +405,7 @@ class QuotationFormPage extends Component {
 
         const quotationVals = {
             rfq_origin: rfqOrigin,
+            custom_rfq_id: rfqMeta ? rfqMeta.id : null,
             vendor_ref: fd.get('vendor_ref') || null,
             // If supplier_name matches a known contact, set vendor_id
             ...(function() {
