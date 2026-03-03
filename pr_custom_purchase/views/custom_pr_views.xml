@@ -125,6 +125,8 @@
                                 <field name="required_date" readonly="1"/>
                                 <field name="priority"
                                        readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
+                                <field name="expense_type"
+                                       readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
                                 <field name="expense_bucket_id"
                                        readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
                             </group>

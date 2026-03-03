@@ -63,3 +63,16 @@ class AccountAnalyticAccount(models.Model):
             )
 
         return rec
+
+    @api.constrains("budget_allowance", "expense_bucket_id")
+    def _check_budget_within_bucket(self):
+        for rec in self:
+            if not rec.expense_bucket_id:
+                continue
+            bucket = rec.expense_bucket_id
+            total = sum(bucket.line_ids.mapped("cost_center_id.budget_allowance"))
+            if total > bucket.budget_amount:
+                raise ValidationError(
+                    _("Total cost center budget (%s) cannot exceed bucket budget (%s).")
+                    % (total, bucket.budget_amount)
+                )

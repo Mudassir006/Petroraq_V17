@@ -62,10 +62,16 @@ class CustomPR(models.Model):
     )
     pr_created = fields.Boolean(string="PR Created", default=False)
     line_ids = fields.One2many('custom.pr.line', 'pr_id', string="PR Lines")
+    expense_type = fields.Selection(
+        [('opex', 'Opex'), ('capex', 'Capex')],
+        string='Expense Type',
+        required=True,
+    )
     expense_bucket_id = fields.Many2one(
         'pr.expense.bucket',
         string='Expense',
         required=True,
+        domain="[('expense_type', '=', expense_type)]",
     )
     state = fields.Selection(
         [
@@ -119,6 +125,12 @@ class CustomPR(models.Model):
         for rec in self:
             if rec.priority:
                 rec.required_date = rec._required_date_from_priority(rec.priority)
+
+    @api.onchange('expense_type')
+    def _onchange_expense_type(self):
+        for rec in self:
+            if rec.expense_bucket_id and rec.expense_bucket_id.expense_type != rec.expense_type:
+                rec.expense_bucket_id = False
 
     @api.depends('line_ids.total_price')
     def _compute_totals(self):
@@ -250,7 +262,7 @@ class CustomPR(models.Model):
             'wo_variance_requires_approval': wo_variance_requires_approval,
             'expense_bucket_id': rec.expense_bucket_id.id,
             'expense_scope': rec.expense_bucket_id.scope,
-            'expense_type': rec.expense_bucket_id.expense_type,
+            'expense_type': rec.expense_type,
         })
 
         # Create Lines
@@ -331,6 +343,12 @@ class CustomPR(models.Model):
         if vals.get('priority'):
             vals['required_date'] = self._required_date_from_priority(vals['priority'])
         return super(CustomPR, self).write(vals)
+
+    @api.constrains('expense_type', 'expense_bucket_id')
+    def _check_expense_type_bucket(self):
+        for rec in self:
+            if rec.expense_bucket_id and rec.expense_type and rec.expense_bucket_id.expense_type != rec.expense_type:
+                raise ValidationError(_('Expense bucket must match selected expense type.'))
 
 
 class CustomPRLine(models.Model):
