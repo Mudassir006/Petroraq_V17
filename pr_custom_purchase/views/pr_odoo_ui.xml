@@ -167,7 +167,7 @@
     <!-- Menu item under Purchase -->
     <!-- End User Requisitions (folder, no action) -->
     <menuitem id="menu_purchase_requisition_main"
-              name="Requisitions"
+              name="New Requisition"
               parent="purchase.menu_purchase_root"
               sequence="130"
               groups="pr_custom_purchase.group_custom_pr_end_user"/>
