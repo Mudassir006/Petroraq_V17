@@ -35,6 +35,7 @@
         'views/pr_odoo_ui.xml',
         'views/portal_quotation.xml',
         'views/project_view.xml',
+        'views/expense_bucket_views.xml',
         'views/account_analytic_account_budget.xml',
         'views/pr_portal_view.xml',
         'views/rfq_vendor.xml',

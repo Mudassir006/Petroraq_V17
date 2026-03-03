@@ -5,6 +5,12 @@ from odoo.exceptions import ValidationError
 class AccountAnalyticAccount(models.Model):
     _inherit = "account.analytic.account"
 
+    expense_bucket_id = fields.Many2one(
+        "pr.expense.bucket",
+        string="Expense Bucket",
+        help="Expense bucket (Capex/Opex for Department/Project) this cost center belongs to.",
+    )
+
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")],
         string="Budget Type",
@@ -57,4 +63,3 @@ class AccountAnalyticAccount(models.Model):
             )
 
         return rec
-

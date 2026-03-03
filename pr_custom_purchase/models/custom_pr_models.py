@@ -62,6 +62,11 @@ class CustomPR(models.Model):
     )
     pr_created = fields.Boolean(string="PR Created", default=False)
     line_ids = fields.One2many('custom.pr.line', 'pr_id', string="PR Lines")
+    expense_bucket_id = fields.Many2one(
+        'pr.expense.bucket',
+        string='Expense',
+        required=True,
+    )
     state = fields.Selection(
         [
             ('draft', 'Draft'),
@@ -243,6 +248,9 @@ class CustomPR(models.Model):
             'comments': rec.comments,
             'pr_type': 'cash' if rec.pr_type == 'cash' else 'pr',
             'wo_variance_requires_approval': wo_variance_requires_approval,
+            'expense_bucket_id': rec.expense_bucket_id.id,
+            'expense_scope': rec.expense_bucket_id.scope,
+            'expense_type': rec.expense_bucket_id.expense_type,
         })
 
         # Create Lines
@@ -346,7 +354,21 @@ class CustomPRLine(models.Model):
         'account.analytic.account',
         string='Cost Center',
         required=True,
+        domain="[('expense_bucket_id', '=', pr_id.expense_bucket_id)]",
     )
+
+    @api.onchange('pr_id.expense_bucket_id')
+    def _onchange_expense_bucket(self):
+        for rec in self:
+            bucket = rec.pr_id.expense_bucket_id
+            if rec.cost_center_id and bucket and rec.cost_center_id.expense_bucket_id != bucket:
+                rec.cost_center_id = False
+
+    @api.constrains('cost_center_id', 'pr_id')
+    def _check_cost_center_matches_bucket(self):
+        for rec in self:
+            if rec.cost_center_id and rec.pr_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.pr_id.expense_bucket_id:
+                raise ValidationError(_('Selected cost center must belong to the selected expense bucket.'))
 
     type = fields.Selection(
         [
