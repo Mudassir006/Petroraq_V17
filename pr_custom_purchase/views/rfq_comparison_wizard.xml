@@ -9,7 +9,9 @@
                     <div class="oe_title">
                         <h1>Line-by-Line Quotation Comparison</h1>
                         <h2>
-                            <field name="rfq_id" readonly="1"/>
+                            <field name="custom_rfq_id" readonly="1" invisible="not custom_rfq_id"/>
+                            <field name="rfq_id" readonly="1" invisible="custom_rfq_id"/>
+                            <field name="requisition_id" readonly="1"/>
                         </h2>
                     </div>
                     <p string="Select one offer per product. All vendor offers are listed below." class="text-muted"/>
