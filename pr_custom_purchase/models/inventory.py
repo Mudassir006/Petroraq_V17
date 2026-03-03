@@ -68,20 +68,42 @@ class GrnSes(models.Model):
         for rec in self:
             rec.bill_count = len(rec.bill_ids)
 
+    def _get_approval_group_xml_ids(self):
+        self.ensure_one()
+        amount = self.subtotal
+        if amount <= 10000:
+            return ["pr_custom_purchase.project_engineer"]
+        if amount <= 100000:
+            return [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+            ]
+        if amount <= 500000:
+            return [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+                "pr_custom_purchase.operations_director",
+            ]
+        return [
+            "pr_custom_purchase.project_engineer",
+            "pr_custom_purchase.project_manager",
+            "pr_custom_purchase.operations_director",
+            "pr_custom_purchase.managing_director",
+        ]
+
     def action_review(self):
-        """Mark record as reviewed"""
+        """Mark record as reviewed and notify approval groups like Purchase Order flow."""
         for rec in self:
             rec.is_reviewed = True
             rec.stage = "reviewed"
-            group = self.env.ref("pr_custom_purchase.inventory_admin", raise_if_not_found=False)
-            if group and group.users:
-                for user in group.users:
-                    rec.activity_schedule(
-                        'mail.mail_activity_data_todo',
-                        user_id=user.id,
-                        summary="Record Reviewed",
-                        note=f"Record {rec.display_name} has been reviewed and awaits approval."
-                    )
+
+            for group_xml_id in rec._get_approval_group_xml_ids():
+                rec._schedule_activity_for_group(
+                    group_xml_id,
+                    _("Review GRN/SES"),
+                    _("%(name)s has been reviewed and is waiting for your approval.") % {"name": rec.name},
+                )
+
         return True
 
     def action_approve(self):
@@ -175,6 +197,13 @@ class GrnSes(models.Model):
                 note=note,
                 user_id=user.id,
             )
+            if user.email:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": user.email,
+                    "subject": summary,
+                    "body_html": f"<p>{note}</p>",
+                }).send()
 
     def _compute_current_user_has_acted(self):
         uid = self.env.user.id
