@@ -34,10 +34,9 @@ class CustomPurchaseRFQ(models.Model):
 
     @api.model
     def create(self, vals):
-        rec = super().create(vals)
-        if not rec.name or rec.name == "New":
-            rec.name = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
-        return rec
+        if not vals.get("name") or vals.get("name") == "New":
+            vals["name"] = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
+        return super().create(vals)
 
     def action_send_rfq_email(self):
         self.ensure_one()
@@ -58,7 +57,7 @@ class CustomPurchaseRFQ(models.Model):
         }).send()
 
         self.write({"state": "sent"})
-        self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
+        self.order_id.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
 
     def action_view_quotations(self):
         self.ensure_one()
