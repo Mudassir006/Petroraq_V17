@@ -36,13 +36,6 @@
             <form string="GRN/SES">
                 <header>
                     <field name="stage" invisible="1"/>
-                    <field name="show_pe_approved" invisible="1"/>
-                    <field name="show_pm_approved" invisible="1"/>
-                    <field name="show_od_approved" invisible="1"/>
-                    <field name="show_md_approved" invisible="1"/>
-                    <field name="can_complete_approval" invisible="1"/>
-                    <field name="current_user_has_acted" invisible="1"/>
-                    <field name="subtotal" invisible="1"/>
 
                     <!-- Review button (only show if not reviewed yet) -->
                     <button name="action_review"
@@ -51,26 +44,13 @@
                             class="btn-primary"
                             groups="pr_custom_purchase.inventory_qc"
                             invisible="is_reviewed"/>
+                    <!-- Approve button (only visible after review, and if not approved yet) -->
                     <button name="action_approve"
                             string="Approve"
                             type="object"
                             class="btn-primary"
-                            invisible="stage != 'reviewed' or not show_pe_approved or can_complete_approval or current_user_has_acted"/>
-                    <button name="action_approve"
-                            string="Approve"
-                            type="object"
-                            class="btn-primary"
-                            invisible="stage != 'reviewed' or not show_pm_approved or subtotal &lt;= 10000 or can_complete_approval or current_user_has_acted"/>
-                    <button name="action_approve"
-                            string="Approve"
-                            type="object"
-                            class="btn-primary"
-                            invisible="stage != 'reviewed' or not show_od_approved or subtotal &lt;= 100000 or can_complete_approval or current_user_has_acted"/>
-                    <button name="action_approve"
-                            string="Approve"
-                            type="object"
-                            class="btn-primary"
-                            invisible="stage != 'reviewed' or not show_md_approved or subtotal &lt;= 500000 or can_complete_approval or current_user_has_acted"/>
+                            groups="pr_custom_purchase.inventory_admin"
+                            invisible="not is_reviewed or is_approved"/>
                     <button name="action_create_vendor_bill"
                             string="Create Vendor Bill"
                             type="object"
@@ -89,10 +69,6 @@
                         <group>
                             <field name="is_reviewed" invisible="1"/>
                             <field name="is_approved" invisible="1"/>
-                            <field name="pe_approved" invisible="1"/>
-                            <field name="pm_approved" invisible="1"/>
-                            <field name="od_approved" invisible="1"/>
-                            <field name="md_approved" invisible="1"/>
                             <field name="name" readonly="1"/>
                             <field name="partner_id" readonly="1"/>
                             <field name="purchase_order_id" readonly="1"/>

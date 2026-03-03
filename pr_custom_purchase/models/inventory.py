@@ -37,24 +37,6 @@ class GrnSes(models.Model):
         default="pending",
         tracking=True,
     )
-    pe_approved = fields.Boolean(string="Approved by PE", default=False)
-    pm_approved = fields.Boolean(string="Approved by PM", default=False)
-    od_approved = fields.Boolean(string="Approved by OD", default=False)
-    md_approved = fields.Boolean(string="Approved by MD", default=False)
-    can_complete_approval = fields.Boolean(compute="_compute_can_complete_approval", store=False)
-    show_pe_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    show_pm_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    show_od_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    show_md_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    approval_action_user_ids = fields.Many2many(
-        "res.users",
-        "grn_ses_approval_action_user_rel",
-        "grn_ses_id",
-        "user_id",
-        string="Users Who Acted",
-        copy=False,
-    )
-    current_user_has_acted = fields.Boolean(compute="_compute_current_user_has_acted", store=False)
 
     @api.depends("line_ids.subtotal")
     def _compute_totals(self):
@@ -85,128 +67,19 @@ class GrnSes(models.Model):
         return True
 
     def action_approve(self):
-        """Approve GRN/SES using same amount-based approval chain as Purchase Orders."""
-        self.ensure_one()
-        amount = self.subtotal
-        acting_user_id = self.env.user.id
-
-        if self.stage != "reviewed":
-            raise UserError(_("Only reviewed records can be approved."))
-
-        if amount <= 10000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True, "is_approved": True, "stage": "approved"})
-                self.message_post(body=_("Approved by Project Engineer."))
-
-        elif amount <= 100000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body=_("Approved by Project Engineer."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by PE. Please review.") % {"name": self.name},
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True, "is_approved": True, "stage": "approved"})
-                self.message_post(body=_("Approved by Project Manager."))
-
-        elif amount <= 500000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body=_("Approved by Project Engineer."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by PE. Please review.") % {"name": self.name},
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True})
-                self.message_post(body=_("Approved by Project Manager."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.operations_director",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by PM. Please review.") % {"name": self.name},
-                )
-            elif not self.od_approved:
-                self.write({"od_approved": True, "is_approved": True, "stage": "approved"})
-                self.message_post(body=_("Approved by Operations Director."))
-
-        else:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body=_("Approved by Project Engineer."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by PE. Please review.") % {"name": self.name},
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True})
-                self.message_post(body=_("Approved by Project Manager."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.operations_director",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by PM. Please review.") % {"name": self.name},
-                )
-            elif not self.od_approved:
-                self.write({"od_approved": True})
-                self.message_post(body=_("Approved by Operations Director."))
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.managing_director",
-                    _("Review GRN/SES"),
-                    _("%(name)s approved by OD. Please review.") % {"name": self.name},
-                )
-            elif not self.md_approved:
-                self.write({"md_approved": True, "is_approved": True, "stage": "approved"})
-                self.message_post(body=_("Approved by Managing Director."))
-
-        self.sudo().write({"approval_action_user_ids": [(4, acting_user_id)]})
-        return True
-
-    def _schedule_activity_for_group(self, group_xml_id, summary, note):
-        group = self.env.ref(group_xml_id, raise_if_not_found=False)
-        if not group:
-            return
-        for user in group.users:
-            self.activity_schedule(
-                "mail.mail_activity_data_todo",
-                summary=summary,
-                note=note,
-                user_id=user.id,
-            )
-
-    def _compute_current_user_has_acted(self):
-        uid = self.env.user.id
+        """Mark record as approved"""
         for rec in self:
-            rec.current_user_has_acted = bool(rec.approval_action_user_ids.filtered(lambda u: u.id == uid))
-
-    @api.depends("stage", "pe_approved", "pm_approved", "od_approved", "md_approved", "subtotal")
-    def _compute_can_complete_approval(self):
-        for rec in self:
-            if rec.stage != "reviewed":
-                rec.can_complete_approval = False
-                continue
-            amount = rec.subtotal
-            if amount <= 10000:
-                rec.can_complete_approval = rec.pe_approved
-            elif amount <= 100000:
-                rec.can_complete_approval = rec.pe_approved and rec.pm_approved
-            elif amount <= 500000:
-                rec.can_complete_approval = rec.pe_approved and rec.pm_approved and rec.od_approved
-            else:
-                rec.can_complete_approval = (
-                        rec.pe_approved and rec.pm_approved and rec.od_approved and rec.md_approved
-                )
-
-    @api.depends("stage")
-    def _compute_show_approvals(self):
-        for rec in self:
-            user = self.env.user
-            rec.show_pe_approved = rec.stage == "reviewed" and user.has_group("pr_custom_purchase.project_engineer")
-            rec.show_pm_approved = rec.stage == "reviewed" and user.has_group("pr_custom_purchase.project_manager")
-            rec.show_od_approved = rec.stage == "reviewed" and user.has_group("pr_custom_purchase.operations_director")
-            rec.show_md_approved = rec.stage == "reviewed" and user.has_group("pr_custom_purchase.managing_director")
+            rec.is_approved = True
+            rec.stage = "approved"
+            group = self.env.ref("pr_custom_purchase.inventory_admin", raise_if_not_found=False)
+            if group and group.users:
+                for user in group.users:
+                    rec.activity_schedule(
+                        'mail.mail_activity_data_todo',
+                        user_id=user.id,
+                        summary="Record Approved",
+                        note=f"Record {rec.display_name} has been approved."
+                    )
 
     def _get_expense_account(self, product=False):
         account = False
