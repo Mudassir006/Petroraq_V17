@@ -5,16 +5,20 @@ from odoo.exceptions import UserError, ValidationError
 class CustomPurchaseRFQ(models.Model):
     _name = "custom.purchase.rfq"
     _description = "Custom RFQ"
-    _inherits = {"purchase.order": "order_id"}
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "id desc"
 
-    order_id = fields.Many2one(
-        "purchase.order",
-        string="Related Purchase Order",
-        required=True,
-        ondelete="cascade",
-        auto_join=True,
-    )
+    name = fields.Char(string="RFQ Number", readonly=True, copy=False, default="New", tracking=True)
+    origin = fields.Char(string="Origin", tracking=True)
+    partner_id = fields.Many2one("res.partner", string="Vendor", tracking=True)
+    date_planned = fields.Date(string="Expected Arrival")
+    state = fields.Selection([
+        ("draft", "Draft"),
+        ("sent", "RFQ Sent"),
+        ("done", "Locked"),
+        ("cancel", "Cancelled"),
+    ], default="draft", tracking=True)
+    project_id = fields.Many2one("project.project", string="Project")
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
     pr_name = fields.Char(string="PR Number", readonly=True)
@@ -57,7 +61,7 @@ class CustomPurchaseRFQ(models.Model):
         }).send()
 
         self.write({"state": "sent"})
-        self.order_id.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
+        self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
 
     def action_view_quotations(self):
         self.ensure_one()
