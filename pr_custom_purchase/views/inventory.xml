@@ -106,6 +106,9 @@
                         <group>
                             <field name="date_order" readonly="1"/>
                             <field name="date_planned" readonly="1"/>
+                            <field name="subtotal" readonly="1"/>
+                            <field name="tax_15" readonly="1"/>
+                            <field name="grand_total" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
