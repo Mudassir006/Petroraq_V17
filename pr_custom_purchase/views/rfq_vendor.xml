@@ -50,7 +50,7 @@
                                     <td class="text-start">
                                         <t t-set="has_quotation"
                                         t-value="request.env['purchase.quotation'].sudo().search_count([
-                                                ('rfq_origin', '=', rfq.name),
+                                                ('custom_rfq_id', '=', rfq.id),
                                                 ('email_address', '=', request.env.user.email)
                                         ]) > 0"/>
                                         <t t-if="not has_quotation">
@@ -92,7 +92,7 @@
                         </p>
                         <t t-set="has_quotation"
                             t-value="request.env['purchase.quotation'].sudo().search_count([
-                                    ('rfq_origin', '=', rfq.name),
+                                    ('custom_rfq_id', '=', rfq.id),
                                     ('email_address', '=', request.env.user.email)
                             ]) > 0"/>
                         <p>

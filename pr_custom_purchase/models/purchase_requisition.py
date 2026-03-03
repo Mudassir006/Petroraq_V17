@@ -88,6 +88,9 @@ class PurchaseRequisition(models.Model):
     line_ids = fields.One2many(
         "purchase.requisition.line", "requisition_id", string="Line Items"
     )
+    rfq_ids = fields.One2many("custom.purchase.rfq", "requisition_id", string="RFQs")
+    rfq_count = fields.Integer(string="RFQ Count", compute="_compute_rfq_metrics")
+    rfq_sent_count = fields.Integer(string="RFQ Sent Count", compute="_compute_rfq_metrics")
 
     # Computed fields for button visibility logic
     show_create_rfq_button = fields.Boolean(
@@ -202,6 +205,12 @@ class PurchaseRequisition(models.Model):
             rec.vat_amount = total * 0.15
             rec.total_incl_vat = total + rec.vat_amount
 
+    @api.depends("rfq_ids", "rfq_ids.state")
+    def _compute_rfq_metrics(self):
+        for rec in self:
+            rec.rfq_count = len(rec.rfq_ids)
+            rec.rfq_sent_count = len(rec.rfq_ids.filtered(lambda r: r.state == "sent"))
+
     @api.depends("pr_type", "approval", "status")
     def _compute_button_visibility(self):
         """Compute button visibility based on PR type, approval, and status"""
@@ -209,7 +218,7 @@ class PurchaseRequisition(models.Model):
             rec.show_create_rfq_button = (
                     rec.pr_type != "cash"
                     and rec.approval == "approved"
-                    and rec.status == "pr"
+                    and rec.status in ["pr", "rfq"]
             )
 
             rec.show_create_po_button = (
@@ -435,6 +444,13 @@ class PurchaseRequisition(models.Model):
     #         "view_mode": "form",
     #         "target": "current",
     #     }
+    def action_view_related_rfqs(self):
+        self.ensure_one()
+        action = self.env.ref("pr_custom_purchase.action_custom_purchase_rfq").read()[0]
+        action["domain"] = [("requisition_id", "=", self.id)]
+        action["context"] = {"default_requisition_id": self.id, "default_pr_name": self.name}
+        return action
+
     def action_create_rfq(self):
         """Create Custom RFQ from this PR and keep PO sequencing independent."""
         CustomRFQ = self.env["custom.purchase.rfq"]

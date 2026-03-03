@@ -75,7 +75,7 @@
 
     <menuitem id="menu_custom_purchase_rfq"
               name="Quotation Requests"
-              parent="purchase.menu_procurement_management"
+              parent="menu_custom_purchase_rfq_root"
               action="action_custom_purchase_rfq"
               sequence="10"
               groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
