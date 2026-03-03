@@ -45,7 +45,7 @@
                                         <t t-esc="rfq.partner_id.name"/>
                                     </td>
                                     <td>
-                                        <t t-esc="rfq.date_order"/>
+                                        <t t-esc="rfq.date_request"/>
                                     </td>
                                     <td class="text-start">
                                         <t t-set="has_quotation"
@@ -121,7 +121,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <t t-foreach="rfq.custom_line_ids" t-as="line">
+                                <t t-foreach="rfq.line_ids" t-as="line">
                                     <tr>
                                         <td>
                                             <t t-esc="line.name"/>

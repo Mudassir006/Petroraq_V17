@@ -35,6 +35,7 @@
                         <group>
                             <field name="show_create_po_button" invisible="1"/>
                             <field name="vendor_id" readonly="1"/>
+                            <field name="custom_rfq_id" readonly="1"/>
                             <field name="rfq_origin" readonly="1"/>
                             <field name="status" invisible="1"/>
                         </group>

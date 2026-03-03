@@ -14,6 +14,7 @@ class PurchaseQuotation(models.Model):
     # Basic Info
     vendor_id = fields.Many2one("res.partner", string="Vendor")
     rfq_origin = fields.Char(string="RFQ Origin")
+    custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", ondelete="set null")
     vendor_ref = fields.Char(string="Vendor Reference")
     pr_name = fields.Char(string="PR Name", readonly=True)
     notes = fields.Text(string="Notes")
@@ -139,7 +140,7 @@ class PurchaseQuotation(models.Model):
             record.vat_amount = total_excl * 0.15
             record.total_incl_vat = total_excl + record.vat_amount
 
-    @api.depends("rfq_origin", "total_excl_vat")
+    @api.depends("custom_rfq_id", "rfq_origin", "total_excl_vat")
     def _compute_is_best(self):
         """Ensure only the quotation with the lowest total_excl_vat per RFQ is marked as best."""
         # Fetch all relevant rfq_origin values in current batch
@@ -183,12 +184,8 @@ class PurchaseQuotation(models.Model):
         for rec in self:
             show_button = False
             if rec.status == "quote":
-                po_exists = self.env["purchase.order"].search_count(
-                    [
-                        ("origin", "=", rec.rfq_origin),
-                        ("state", "in", ["pending", "purchase"]),
-                    ]
-                )
+                origin_name = rec.custom_rfq_id.name or rec.rfq_origin
+                po_exists = self.env["purchase.order"].search_count([("origin", "=", origin_name), ("state", "in", ["pending", "purchase"])])
                 show_button = po_exists == 0
             rec.show_create_po_button = show_button
 
@@ -221,13 +218,13 @@ class PurchaseQuotation(models.Model):
 
             # Purchase Order values
             po_vals = {
-                "origin": quotation.rfq_origin,
+                "origin": quotation.custom_rfq_id.name or quotation.rfq_origin,
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
                 "date_planned": quotation.delivery_date or fields.Datetime.now(),
                 "custom_line_ids": [],
                 "state": "pending",
-                "pr_name": self.pr_name,
+                "pr_name": quotation.pr_name,
                 "requested_by": quotation.requested_by,
                 "department": quotation.department,
                 "supervisor": quotation.supervisor,
@@ -254,6 +251,8 @@ class PurchaseQuotation(models.Model):
             # Create Purchase Order
             po = PurchaseOrder.sudo().create(po_vals)
             quotation.status = "po"
+            if quotation.custom_rfq_id:
+                quotation.custom_rfq_id.sudo().write({"state": "done"})
 
             # Log in chatter
             quotation.message_post(
