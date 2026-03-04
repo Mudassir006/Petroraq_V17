@@ -64,11 +64,13 @@ class BudgetIncreaseRequest(models.Model):
             if not rec.line_ids:
                 raise ValidationError(_("Add at least one cost center line."))
 
-    def _schedule_group_activity(self, xmlid, summary, note):
-        group = self.env.ref(xmlid, raise_if_not_found=False)
-        if not group:
-            return
-        users = self.env["res.users"].sudo().search([("groups_id", "in", group.id)])
+    def _schedule_group_activity(self, xmlids, summary, note):
+        users = self.env["res.users"]
+        for xmlid in xmlids:
+            group = self.env.ref(xmlid, raise_if_not_found=False)
+            if group:
+                users |= group.users
+        users = users.filtered(lambda u: u.active)
         activity_type = self.env.ref("mail.mail_activity_data_todo")
         for req in self:
             for user in users:
@@ -78,6 +80,14 @@ class BudgetIncreaseRequest(models.Model):
                     summary=summary,
                     note=note,
                 )
+            emails = ",".join(users.filtered(lambda u: u.email).mapped("email"))
+            if emails:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": emails,
+                    "subject": summary,
+                    "body_html": f"<p>{note}</p>",
+                }).send()
 
     def action_submit(self):
         for rec in self:
@@ -87,7 +97,7 @@ class BudgetIncreaseRequest(models.Model):
                 raise UserError(_("Add at least one cost center line."))
             rec.state = "pm_approval"
         self._schedule_group_activity(
-            "pr_custom_purchase.project_manager",
+            ["pr_custom_purchase.project_manager"],
             _("Budget Increase Approval Needed"),
             _("Please review budget increase request <b>%s</b>.") % self.name,
         )
@@ -100,7 +110,7 @@ class BudgetIncreaseRequest(models.Model):
                 raise UserError(_("Only Project Manager can approve at this stage."))
             rec.state = "accounts_approval"
         self._schedule_group_activity(
-            "account.group_account_manager",
+            ["account.group_account_manager", "account.group_account_user"],
             _("Budget Increase Approval Needed"),
             _("Please review budget increase request <b>%s</b>.") % self.name,
         )
@@ -113,7 +123,7 @@ class BudgetIncreaseRequest(models.Model):
                 raise UserError(_("Only Accounts can approve at this stage."))
             rec.state = "md_approval"
         self._schedule_group_activity(
-            "pr_custom_purchase.managing_director",
+            ["pr_custom_purchase.managing_director"],
             _("Budget Increase Approval Needed"),
             _("Please review budget increase request <b>%s</b>.") % self.name,
         )
@@ -127,6 +137,11 @@ class BudgetIncreaseRequest(models.Model):
             for line in rec.line_ids:
                 line.cost_center_id.sudo().budget_allowance += line.requested_increase
             rec.state = "approved"
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            rec.write({"state": "draft", "rejection_reason": False})
+            rec.message_post(body=_("Budget increase request has been reset to draft."))
 
     def action_reject(self):
         self.ensure_one()

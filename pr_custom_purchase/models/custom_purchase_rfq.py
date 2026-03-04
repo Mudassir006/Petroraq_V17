@@ -64,6 +64,20 @@ class CustomPurchaseRFQ(models.Model):
         self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
 
 
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            linked_po = self.env["purchase.order"].sudo().search_count([
+                ("origin", "=", rec.name),
+                ("state", "in", ["purchase", "done"]),
+            ])
+            if linked_po:
+                raise UserError(_("Cannot reset RFQ %s because a confirmed Purchase Order already exists.") % rec.name)
+
+            rec.quotation_ids.sudo().filtered(lambda q: q.status != "po").unlink()
+            rec.write({"state": "draft"})
+            rec.message_post(body=_("RFQ reset to draft."))
+
     def action_open_rfq_comparison(self):
         self.ensure_one()
         if self.requisition_id:

@@ -25,6 +25,8 @@
                     <button name="action_send_rfq_email" type="object" string="Send RFQ Email" class="btn-primary" invisible="state != 'draft'" groups="pr_custom_purchase.procurement_admin"/>
                     <button name="action_view_quotations" type="object" string="Submitted Quotations" class="btn-primary" groups="pr_custom_purchase.procurement_admin"/>
                     <button name="action_open_rfq_comparison" type="object" string="Compare Quotations" class="btn-secondary" groups="pr_custom_purchase.procurement_admin"/>
+                    <button name="action_reset_to_draft" type="object" string="Reset to Draft" class="btn-secondary"
+                            invisible="state == 'draft'" groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,done,cancel"/>
                 </header>
                 <sheet>

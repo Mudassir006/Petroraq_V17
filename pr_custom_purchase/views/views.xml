@@ -72,6 +72,12 @@
             class="btn btn-danger"
             invisible="state != 'pending' or current_user_has_acted"
             groups="pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director"/>
+                <button name="action_reset_to_draft"
+            type="object"
+            string="Reset to Draft"
+            class="btn btn-secondary"
+            invisible="state == 'draft'"
+            groups="pr_custom_purchase.procurement_admin,pr_custom_purchase.project_engineer,pr_custom_purchase.project_manager,pr_custom_purchase.operations_director,pr_custom_purchase.managing_director"/>
             </xpath>
         </field>
     </record>
