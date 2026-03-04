@@ -6,6 +6,19 @@ class ExpenseBucket(models.Model):
     _inherit = "pr.expense.bucket"
 
     work_order_id = fields.Many2one("pr.work.order", string="Work Order", tracking=True)
+    allowed_cost_center_ids = fields.Many2many(
+        "account.analytic.account",
+        compute="_compute_allowed_cost_center_ids",
+        string="Allowed Cost Centers",
+    )
+
+    @api.depends("scope", "work_order_id", "work_order_id.cost_center_ids", "work_order_id.cost_center_ids.analytic_account_id")
+    def _compute_allowed_cost_center_ids(self):
+        for rec in self:
+            if rec.scope == "project" and rec.work_order_id:
+                rec.allowed_cost_center_ids = rec.work_order_id.cost_center_ids.mapped("analytic_account_id")
+            else:
+                rec.allowed_cost_center_ids = self.env["account.analytic.account"].search([])
 
     @api.onchange("scope")
     def _onchange_scope_work_order(self):

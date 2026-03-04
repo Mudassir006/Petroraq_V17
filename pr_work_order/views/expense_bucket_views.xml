@@ -24,7 +24,7 @@
                        required="scope == 'project'" readonly="state == 'approved'"/>
             </xpath>
             <xpath expr="//field[@name='line_ids']/tree/field[@name='cost_center_id']" position="attributes">
-                <attribute name="domain">[('id', 'in', parent.work_order_id.cost_center_ids.analytic_account_id), ('budget_type', '=', 'capex')]</attribute>
+                <attribute name="domain">[('id', 'in', parent.allowed_cost_center_ids), ('budget_type', '=', parent.expense_type)]</attribute>
             </xpath>
         </field>
     </record>
