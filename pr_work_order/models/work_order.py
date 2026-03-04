@@ -307,6 +307,7 @@ class PRWorkOrder(models.Model):
         for rec in self:
             if rec.state != "draft":
                 raise UserError(_("Only draft work orders can be submitted for approval"))
+            rec._ensure_project_expense_bucket(sync_budget=False)
             rec.state = "ops_approval"
             rec.rejection_reason = ""
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
@@ -404,7 +405,7 @@ class PRWorkOrder(models.Model):
                 rec.sudo().write({"expense_bucket_id": bucket.id})
             else:
                 bucket = rec.expense_bucket_id.sudo()
-                if not bucket.work_order_id:
+                if bucket.work_order_id != rec:
                     bucket.write({"work_order_id": rec.id})
 
             existing_cc_ids = set(bucket.line_ids.mapped("cost_center_id").ids)
