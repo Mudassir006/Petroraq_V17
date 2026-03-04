@@ -398,11 +398,14 @@ class PRWorkOrder(models.Model):
                     "name": _("%s - CAPEX Bucket") % rec.name,
                     "scope": "project",
                     "expense_type": "capex",
+                    "work_order_id": rec.id,
                     "budget_amount": total_budget,
                 })
                 rec.sudo().write({"expense_bucket_id": bucket.id})
             else:
                 bucket = rec.expense_bucket_id.sudo()
+                if not bucket.work_order_id:
+                    bucket.write({"work_order_id": rec.id})
 
             existing_cc_ids = set(bucket.line_ids.mapped("cost_center_id").ids)
             for analytic in cost_centers:
