@@ -9,7 +9,7 @@
     'version': '17.0.1.0.0',
     'license': 'LGPL-3',
     'depends': ['base', 'portal', 'product', 'hr', 'mail', 'web', 'purchase', 'purchase_stock', 'stock', 'bus',
-                'project', 'account'],
+                'project', 'account', ],
     'data': [
         'security/custom_pr_groups.xml',
         'security/user_portal_groups.xml',
@@ -35,6 +35,7 @@
         'views/pr_odoo_ui.xml',
         'views/portal_quotation.xml',
         'views/project_view.xml',
+        'views/expense_bucket_views.xml',
         'views/account_analytic_account_budget.xml',
         'views/pr_portal_view.xml',
         'views/rfq_vendor.xml',

@@ -100,6 +100,15 @@ class PurchaseRequisition(models.Model):
         compute="_compute_button_visibility", store=False
     )
     project_id = fields.Many2one("project.project", string="Project")
+    expense_bucket_id = fields.Many2one("pr.expense.bucket", string="Expense")
+    expense_scope = fields.Selection(
+        [("department", "Department"), ("project", "Project")],
+        string="Expense Scope",
+    )
+    expense_type = fields.Selection(
+        [("opex", "Opex"), ("capex", "Capex")],
+        string="Expense Type",
+    )
 
     def _required_date_from_priority(self, priority):
         today = fields.Date.context_today(self)
@@ -663,8 +672,15 @@ class PurchaseRequisitionLine(models.Model):
     unit = fields.Char(string="Unit")
     unit_price = fields.Float(string="Unit Cost")
     cost_center_id = fields.Many2one(
-        "account.analytic.account", string="Cost Center", required=True
+        "account.analytic.account", string="Cost Center", required=True,
+        domain="[('expense_bucket_id', '=', requisition_id.expense_bucket_id)]",
     )
+
+    @api.constrains("cost_center_id", "requisition_id")
+    def _check_cost_center_matches_bucket(self):
+        for rec in self:
+            if rec.cost_center_id and rec.requisition_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.requisition_id.expense_bucket_id:
+                raise ValidationError(_("Selected cost center must belong to the selected expense bucket."))
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)
 
     @api.depends("quantity", "unit_price")

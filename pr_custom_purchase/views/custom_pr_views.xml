@@ -125,6 +125,10 @@
                                 <field name="required_date" readonly="1"/>
                                 <field name="priority"
                                        readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
+                                <field name="expense_type"
+                                       readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
+                                <field name="expense_bucket_id"
+                                       readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'"/>
                             </group>
                         </group>
                         <notebook>
@@ -134,7 +138,7 @@
                                     <tree editable="bottom">
                                         <!-- <field name="description"/> -->
                                         <field name="description" context="{'display_default_code': False}"/>
-                                        <field name="cost_center_id"/>
+                                        <field name="cost_center_id" domain="[('expense_bucket_id', '=', parent.expense_bucket_id)]"/>
                                         <field name="type" readonly="1"/>
                                         <field name="unit"/>
                                         <field name="quantity"/>

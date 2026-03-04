@@ -89,6 +89,9 @@
                             <field name="department" readonly="1"/>
                             <field name="supervisor" readonly="1"/>
                             <field name="vendor_id" groups="pr_custom_purchase.procurement_admin"/>
+                            <field name="expense_bucket_id" readonly="1"/>
+                            <field name="expense_scope" readonly="1"/>
+                            <field name="expense_type" readonly="1"/>
                             <field name="status" invisible="1"/>
                             <field name="rfq_sent_count" readonly="1"/>
                             <field name="requested_user_id" invisible="1"/>
@@ -104,7 +107,7 @@
                             <field name="line_ids" readonly="1">
                                 <tree editable="bottom">
                                     <field name="description"/>
-                                    <field name="cost_center_id"/>
+                                    <field name="cost_center_id" domain="[('expense_bucket_id', '=', parent.expense_bucket_id)]"/>
                                     <field name="type"/>
                                     <field name="unit"/>
                                     <field name="quantity"/>
