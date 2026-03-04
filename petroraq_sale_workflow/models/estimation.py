@@ -587,6 +587,8 @@ class PetroraqEstimation(models.Model):
                 "section_id": False,
             })
 
+        work_order._ensure_project_expense_bucket(sync_budget=False)
+
         for line_vals in self._prepare_work_order_boq_lines(work_order):
             work_order.boq_line_ids.create(line_vals)
 
