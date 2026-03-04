@@ -9,7 +9,6 @@
                 <field name="scope"/>
                 <field name="expense_type"/>
                 <field name="department_id"/>
-                <field name="work_order_id"/>
                 <field name="budget_amount"/>
                 <field name="cost_center_budget_total"/>
                 <field name="budget_left"/>
@@ -52,8 +51,6 @@
                             <field name="expense_type" readonly="state == 'approved'"/>
                             <field name="department_id" invisible="scope != 'department'"
                                    required="scope == 'department'" readonly="state == 'approved'"/>
-                            <field name="work_order_id" invisible="scope != 'project'"
-                                   required="scope == 'project'" readonly="state == 'approved'"/>
                         </group>
                         <group>
                             <field name="budget_amount" readonly="state == 'approved'"/>
