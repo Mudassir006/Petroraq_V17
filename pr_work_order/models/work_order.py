@@ -57,6 +57,12 @@ class PRWorkOrder(models.Model):
 
     project_id = fields.Many2one("project.project", string="Construction Project", ondelete="restrict")
     analytic_account_id = fields.Many2one("account.analytic.account", string="Cost Center", ondelete="restrict")
+    expense_bucket_id = fields.Many2one(
+        "pr.expense.bucket",
+        string="Expense Bucket",
+        copy=False,
+        readonly=True,
+    )
     cost_center_ids = fields.One2many(
         "pr.work.order.cost.center",
         "work_order_id",
@@ -301,6 +307,7 @@ class PRWorkOrder(models.Model):
         for rec in self:
             if rec.state != "draft":
                 raise UserError(_("Only draft work orders can be submitted for approval"))
+            rec._ensure_project_expense_bucket(sync_budget=False)
             rec.state = "ops_approval"
             rec.rejection_reason = ""
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
@@ -374,6 +381,44 @@ class PRWorkOrder(models.Model):
                 _("Work Order %s waiting for accounts approval") % rec.name,
                 _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Accounts approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
             )
+            rec._ensure_project_expense_bucket(sync_budget=True)
+
+    def _ensure_project_expense_bucket(self, sync_budget=False):
+        ExpenseBucket = self.env["pr.expense.bucket"].sudo()
+        ExpenseBucketLine = self.env["pr.expense.bucket.line"].sudo()
+
+        for rec in self:
+            cost_centers = rec.cost_center_ids.mapped("analytic_account_id").filtered(lambda a: a)
+            if not cost_centers:
+                continue
+
+            total_budget = sum(cost_centers.mapped("budget_allowance"))
+
+            if not rec.expense_bucket_id:
+                bucket = ExpenseBucket.create({
+                    "name": _("%s - CAPEX Bucket") % rec.name,
+                    "scope": "project",
+                    "expense_type": "capex",
+                    "work_order_id": rec.id,
+                    "budget_amount": total_budget,
+                })
+                rec.sudo().write({"expense_bucket_id": bucket.id})
+            else:
+                bucket = rec.expense_bucket_id.sudo()
+                if bucket.work_order_id != rec:
+                    bucket.write({"work_order_id": rec.id})
+
+            existing_cc_ids = set(bucket.line_ids.mapped("cost_center_id").ids)
+            for analytic in cost_centers:
+                if analytic.id in existing_cc_ids:
+                    continue
+                ExpenseBucketLine.create({
+                    "bucket_id": bucket.id,
+                    "cost_center_id": analytic.id,
+                })
+
+            if sync_budget:
+                bucket.write({"budget_amount": rec.budgeted_cost or total_budget})
 
     def action_acc_approve(self):
         for rec in self:

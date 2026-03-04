@@ -587,6 +587,7 @@ class PetroraqEstimation(models.Model):
                 "section_id": False,
             })
 
+
         for line_vals in self._prepare_work_order_boq_lines(work_order):
             work_order.boq_line_ids.create(line_vals)
 
