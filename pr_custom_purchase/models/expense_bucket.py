@@ -22,7 +22,11 @@ class ExpenseBucket(models.Model):
         tracking=True,
     )
     department_id = fields.Many2one("hr.department", string="Department", tracking=True)
-    work_order_id = fields.Many2one("pr.work.order", string="Work Order", tracking=True)
+    work_order_ref = fields.Reference(
+        selection="_selection_work_order_models",
+        string="Work Order",
+        tracking=True,
+    )
     budget_amount = fields.Float(string="Bucket Budget", required=True, tracking=True)
 
     state = fields.Selection([
@@ -93,16 +97,20 @@ class ExpenseBucket(models.Model):
     def _onchange_scope(self):
         for rec in self:
             if rec.scope == "department":
-                rec.work_order_id = False
+                rec.work_order_ref = False
             else:
                 rec.department_id = False
 
-    @api.constrains("scope", "department_id", "work_order_id")
+    @api.model
+    def _selection_work_order_models(self):
+        return [("pr.work.order", "Work Order")] if "pr.work.order" in self.env else []
+
+    @api.constrains("scope", "department_id", "work_order_ref")
     def _check_scope_target(self):
         for rec in self:
             if rec.scope == "department" and not rec.department_id:
                 raise ValidationError(_("Department is required when scope is Department."))
-            if rec.scope == "project" and not rec.work_order_id:
+            if rec.scope == "project" and not rec.work_order_ref:
                 raise ValidationError(_("Work Order is required when scope is Project."))
 
     @api.constrains("line_ids", "budget_amount")
@@ -115,7 +123,7 @@ class ExpenseBucket(models.Model):
                 ) % (total, rec.budget_amount))
 
     def write(self, vals):
-        protected_fields = {"name", "scope", "expense_type", "department_id", "work_order_id", "budget_amount", "line_ids"}
+        protected_fields = {"name", "scope", "expense_type", "department_id", "work_order_ref", "budget_amount", "line_ids"}
         if any(field in vals for field in protected_fields):
             for rec in self:
                 if rec.state == "approved":
