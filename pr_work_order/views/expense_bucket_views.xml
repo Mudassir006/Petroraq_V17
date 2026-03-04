@@ -23,6 +23,9 @@
                 <field name="work_order_id" invisible="scope != 'project'"
                        required="scope == 'project'" readonly="state == 'approved'"/>
             </xpath>
+            <xpath expr="//sheet/group" position="inside">
+                <field name="allowed_cost_center_ids" invisible="1"/>
+            </xpath>
             <xpath expr="//field[@name='line_ids']/tree/field[@name='cost_center_id']" position="attributes">
                 <attribute name="domain">[('id', 'in', parent.allowed_cost_center_ids), ('budget_type', '=', parent.expense_type)]</attribute>
             </xpath>
