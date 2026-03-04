@@ -22,7 +22,6 @@ class ExpenseBucket(models.Model):
         tracking=True,
     )
     department_id = fields.Many2one("hr.department", string="Department", tracking=True)
-    work_order_id = fields.Many2one("pr.work.order", string="Work Order", tracking=True)
     budget_amount = fields.Float(string="Bucket Budget", required=True, tracking=True)
 
     state = fields.Selection([
@@ -92,18 +91,14 @@ class ExpenseBucket(models.Model):
     @api.onchange("scope")
     def _onchange_scope(self):
         for rec in self:
-            if rec.scope == "department":
-                rec.work_order_id = False
-            else:
+            if rec.scope != "department":
                 rec.department_id = False
 
-    @api.constrains("scope", "department_id", "work_order_id")
+    @api.constrains("scope", "department_id")
     def _check_scope_target(self):
         for rec in self:
             if rec.scope == "department" and not rec.department_id:
                 raise ValidationError(_("Department is required when scope is Department."))
-            if rec.scope == "project" and not rec.work_order_id:
-                raise ValidationError(_("Work Order is required when scope is Project."))
 
     @api.constrains("line_ids", "budget_amount")
     def _check_allocated_budget(self):
@@ -115,7 +110,7 @@ class ExpenseBucket(models.Model):
                 ) % (total, rec.budget_amount))
 
     def write(self, vals):
-        protected_fields = {"name", "scope", "expense_type", "department_id", "work_order_id", "budget_amount",
+        protected_fields = {"name", "scope", "expense_type", "department_id", "budget_amount",
                             "line_ids"}
         if any(field in vals for field in protected_fields):
             for rec in self:
