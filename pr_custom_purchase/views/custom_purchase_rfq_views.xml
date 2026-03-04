@@ -10,7 +10,26 @@
                 <field name="requisition_id"/>
                 <field name="partner_id"/>
                 <field name="requested_by"/>
-                <field name="state" widget="badge"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-danger="state == 'cancel'"
+                       decoration-warning="state == 'sent'"
+                       decoration-muted="state == 'draft'"/>
+                <field name="linked_pr_state" widget="badge"
+                       decoration-success="linked_pr_state == 'purchase'"
+                       decoration-danger="linked_pr_state == 'cancel'"
+                       decoration-warning="linked_pr_state in ('rfq_sent','pending')"
+                       decoration-muted="linked_pr_state in ('draft','missing')"/>
+                <field name="linked_quotation_status" widget="badge"
+                       decoration-success="linked_quotation_status == 'po'"
+                       decoration-info="linked_quotation_status == 'quote'"
+                       decoration-muted="linked_quotation_status == 'missing'"/>
+                <field name="linked_po_state" widget="badge"
+                       decoration-success="linked_po_state in ('purchase','done')"
+                       decoration-danger="linked_po_state == 'cancel'"
+                       decoration-warning="linked_po_state == 'pending'"
+                       decoration-info="linked_po_state in ('draft','sent')"
+                       decoration-muted="linked_po_state == 'missing'"/>
                 <field name="quotation_count"/>
             </tree>
         </field>
@@ -28,6 +47,7 @@
                     <button name="action_reset_to_draft" type="object" string="Reset to Draft" class="btn-secondary"
                             invisible="state == 'draft'" groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,done,cancel"/>
+                    <field name="linked_pr_state" widget="badge" decoration-success="linked_pr_state == 'purchase'" decoration-danger="linked_pr_state == 'cancel'" decoration-warning="linked_pr_state in ('rfq_sent','pending')" decoration-muted="linked_pr_state in ('draft','missing')"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -47,6 +67,9 @@
                             <field name="date_planned"/>
                             <field name="requested_by" readonly="1"/>
                             <field name="department" readonly="1"/>
+                            <field name="linked_pr_state" invisible="1"/>
+                            <field name="linked_quotation_status" invisible="1"/>
+                            <field name="linked_po_state" invisible="1"/>
                         </group>
                     </group>
                     <notebook>
@@ -63,6 +86,30 @@
                                 </tree>
                             </field>
                         </page>
+                        <page string="Linked Status">
+                            <group>
+                                <group>
+                                    <field name="linked_pr_state" widget="badge"
+                                           decoration-success="linked_pr_state == 'purchase'"
+                                           decoration-danger="linked_pr_state == 'cancel'"
+                                           decoration-warning="linked_pr_state in ('rfq_sent','pending')"
+                                           decoration-muted="linked_pr_state in ('draft','missing')"/>
+                                    <field name="linked_quotation_status" widget="badge"
+                                           decoration-success="linked_quotation_status == 'po'"
+                                           decoration-info="linked_quotation_status == 'quote'"
+                                           decoration-muted="linked_quotation_status == 'missing'"/>
+                                </group>
+                                <group>
+                                    <field name="linked_po_state" widget="badge"
+                                           decoration-success="linked_po_state in ('purchase','done')"
+                                           decoration-danger="linked_po_state == 'cancel'"
+                                           decoration-warning="linked_po_state == 'pending'"
+                                           decoration-info="linked_po_state in ('draft','sent')"
+                                           decoration-muted="linked_po_state == 'missing'"/>
+                                </group>
+                            </group>
+                        </page>
+
                     </notebook>
                 </sheet>
             </form>
