@@ -289,6 +289,26 @@ class CustomPR(models.Model):
             }
         }
 
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            linked_pos = self.env["purchase.order"].sudo().search([("pr_name", "=", rec.name)])
+            if linked_pos.filtered(lambda po: po.state in ("purchase", "done")):
+                raise ValidationError(_("Cannot reset PR %s because it already has a confirmed Purchase Order.") % rec.name)
+
+            linked_pos.sudo().unlink()
+            linked_rfqs = self.env["custom.purchase.rfq"].sudo().search([("pr_name", "=", rec.name)])
+            linked_rfqs.unlink()
+            linked_reqs = self.env["purchase.requisition"].sudo().search([("name", "=", rec.name)])
+            linked_reqs.unlink()
+
+            rec.write({
+                "state": "draft",
+                "approval": "pending",
+                "rejection_reason": False,
+                "pr_created": False,
+            })
+
     def action_open_budget_requests(self):
         self.ensure_one()
         return {

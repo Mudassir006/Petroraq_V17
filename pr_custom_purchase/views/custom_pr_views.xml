@@ -85,6 +85,11 @@
                                 string="Create PR"
                                 class="btn btn-primary"
                                 invisible="approval == 'approved'"/>
+                        <button name="action_reset_to_draft"
+                                type="object"
+                                string="Reset to Draft"
+                                class="btn btn-secondary"
+                                invisible="state == 'draft'"/>
                         <field name="state" widget="statusbar"
                                statusbar_visible="draft,rfq_sent,pending,purchase,cancel"/>
                     </header>

@@ -88,6 +88,42 @@ class ExpenseBucket(models.Model):
                     or (rec.state == "md_approval" and is_md)
             )
 
+
+    def _notify_group(self, group_xml_ids, summary, note):
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        users = self.env["res.users"]
+        for xmlid in group_xml_ids:
+            group = self.env.ref(xmlid, raise_if_not_found=False)
+            if group:
+                users |= group.users
+        users = users.filtered(lambda u: u.active)
+
+        for rec in self:
+            for user in users:
+                if activity_type:
+                    rec.activity_schedule(
+                        activity_type_id=activity_type.id,
+                        user_id=user.id,
+                        summary=summary,
+                        note=note,
+                    )
+            emails = ",".join(users.filtered(lambda u: u.email).mapped("email"))
+            if emails:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": emails,
+                    "subject": summary,
+                    "body_html": f"<p>{note}</p>",
+                }).send()
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            rec.write({
+                "state": "draft",
+                "rejection_reason": False,
+            })
+            rec.message_post(body=_("Expense Bucket has been reset to draft."))
+
     @api.onchange("scope")
     def _onchange_scope(self):
         for rec in self:
@@ -125,6 +161,7 @@ class ExpenseBucket(models.Model):
             if not rec.line_ids:
                 raise UserError(_("Add at least one cost center line."))
             rec.state = "pm_approval"
+            rec._notify_group(["pr_custom_purchase.project_manager"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for PM approval.") % rec.display_name)
 
     def action_pm_approve(self):
         for rec in self:
@@ -133,6 +170,7 @@ class ExpenseBucket(models.Model):
             if not rec.can_pm_approve:
                 raise UserError(_("Only Project Manager can approve at this stage."))
             rec.state = "accounts_approval"
+            rec._notify_group(["account.group_account_manager", "account.group_account_user"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for Accounts approval.") % rec.display_name)
 
     def action_accounts_approve(self):
         for rec in self:
@@ -141,6 +179,7 @@ class ExpenseBucket(models.Model):
             if not rec.can_accounts_approve:
                 raise UserError(_("Only Accounts can approve at this stage."))
             rec.state = "md_approval"
+            rec._notify_group(["pr_custom_purchase.managing_director"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for Managing Director approval.") % rec.display_name)
 
     def action_md_approve(self):
         for rec in self:

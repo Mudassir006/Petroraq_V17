@@ -40,6 +40,8 @@
                             invisible="state != 'md_approval' or not can_md_approve"/>
                     <button name="action_reject" type="object" string="Reject" class="btn-secondary"
                             invisible="not can_reject"/>
+                    <button name="action_reset_to_draft" type="object" string="Reset to Draft" class="btn-secondary"
+                            invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,pm_approval,accounts_approval,md_approval,approved,rejected"/>
                 </header>

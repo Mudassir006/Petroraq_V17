@@ -29,6 +29,36 @@ class PRWorkOrder(models.Model):
                     "body_html": body_html,
                 }).send()
 
+    def _reset_approval_metadata(self):
+        self.write({
+            "ops_approver_id": False,
+            "ops_approved_date": False,
+            "acc_approver_id": False,
+            "acc_approved_date": False,
+            "final_approver_id": False,
+            "final_approved_date": False,
+            "rejected_by": False,
+            "rejected_date": False,
+            "rejection_reason": False,
+        })
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            if rec.state == "draft":
+                continue
+
+            if rec.expense_bucket_id and rec.expense_bucket_id.state != "approved":
+                linked_pr_count = self.env["custom.pr"].sudo().search_count([
+                    ("expense_bucket_id", "=", rec.expense_bucket_id.id)
+                ])
+                if not linked_pr_count:
+                    rec.expense_bucket_id.sudo().unlink()
+                    rec.expense_bucket_id = False
+
+            rec.write({"state": "draft"})
+            rec._reset_approval_metadata()
+            rec.message_post(body=_("Work Order has been reset to draft."))
+
     name = fields.Char(
         string="Work Order",
         required=True,
@@ -646,14 +676,13 @@ class PRWorkOrderRejectWizard(models.TransientModel):
             "rejection_reason": self.reason,
             "rejected_by": self.env.user.id,
             "rejected_date": fields.Datetime.now(),
+        })
 
-            # reset approvals
-            "ops_approver_id": False,
-            "ops_approved_date": False,
-            "acc_approver_id": False,
-            "acc_approved_date": False,
-            "final_approver_id": False,
-            "final_approved_date": False,
+        wo._reset_approval_metadata()
+        wo.write({
+            "rejection_reason": self.reason,
+            "rejected_by": self.env.user.id,
+            "rejected_date": fields.Datetime.now(),
         })
 
         wo.message_post(

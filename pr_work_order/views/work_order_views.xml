@@ -101,6 +101,11 @@
                             groups="pr_custom_purchase.group_custom_pr_end_user"
                             invisible="state not in ['acc_approval', 'final_approval', 'approved', 'in_progress', 'done']"/>
 
+                    <button name="action_reset_to_draft" type="object" string="Reset to Draft"
+                            class="btn-secondary"
+                            groups="pr_work_order.custom_group_work_order_user,pr_work_order.custom_group_work_order_operations,pr_work_order.custom_group_work_order_accounts,pr_work_order.custom_group_work_order_management"
+                            invisible="state == 'draft'"/>
+
 
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,ops_approval,acc_approval,final_approval,approved,in_progress,done,cancel"/>

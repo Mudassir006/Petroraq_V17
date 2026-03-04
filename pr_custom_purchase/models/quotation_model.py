@@ -291,7 +291,7 @@ class PurchaseQuotation(models.Model):
 
         for group_xml_id in group_xml_ids:
             group = self.env.ref(group_xml_id)
-            for user in group.users:
+            for user in group.users.filtered(lambda u: u.active):
                 self.env["mail.activity"].create(
                     {
                         "res_model_id": self.env["ir.model"]._get("purchase.order").id,
@@ -567,7 +567,7 @@ class PurchaseOrder(models.Model):
         group = self.env.ref(group_xml_id, raise_if_not_found=False)
         if not group:
             return
-        for user in group.users:
+        for user in group.users.filtered(lambda u: u.active):
             self.activity_schedule(
                 "mail.mail_activity_data_todo",
                 summary=summary,
@@ -714,6 +714,35 @@ class PurchaseOrder(models.Model):
             order.show_md_approved = order.state == "pending" and user.has_group(
                 "pr_custom_purchase.managing_director"
             )
+
+
+    def action_reset_to_draft(self):
+        for order in self:
+            if order.state == "done":
+                raise UserError(_("Locked orders cannot be reset to draft."))
+
+            order.sudo().write({
+                "state": "draft",
+                "pe_approved": False,
+                "pm_approved": False,
+                "od_approved": False,
+                "md_approved": False,
+                "approval_action_user_ids": [(5, 0, 0)],
+            })
+
+            if order.pr_name:
+                custom_pr = self.env["custom.pr"].sudo().search([("name", "=", order.pr_name)], limit=1)
+                if custom_pr:
+                    custom_pr.write({"state": "draft", "approval": "pending", "pr_created": False})
+
+            if order.origin:
+                rfqs = self.env["custom.purchase.rfq"].sudo().search([("name", "=", order.origin)])
+                rfqs.write({"state": "draft"})
+                quotations = self.env["purchase.quotation"].sudo().search([("rfq_origin", "=", order.origin)])
+                quotations.write({"status": "quote"})
+
+            order.message_post(body=_("Purchase Order reset to draft and approvals cleared."))
+        return True
 
     def action_reject(self):
         for order in self:
@@ -903,7 +932,7 @@ class PurchaseOrder(models.Model):
     #         # Find the group
     #         group = self.env.ref("pr_custom_purchase.inventory_data_entry", raise_if_not_found=False)
     #         if group and group.users:
-    #             for user in group.users:
+    #             for user in group.users.filtered(lambda u: u.active):
     #                 order.activity_schedule(
     #                     'mail.mail_activity_data_todo',  # Default TODO activity
     #                     user_id=user.id,
@@ -921,7 +950,7 @@ class PurchaseOrder(models.Model):
     #         # Find the group
     #         group = self.env.ref("pr_custom_purchase.inventory_data_entry", raise_if_not_found=False)
     #         if group and group.users:
-    #             for user in group.users:
+    #             for user in group.users.filtered(lambda u: u.active):
     #                 order.activity_schedule(
     #                     'mail.mail_activity_data_todo',  # Default TODO activity
     #                     user_id=user.id,
@@ -1050,7 +1079,7 @@ class PurchaseOrder(models.Model):
 
             group = self.env.ref("pr_custom_purchase.inventory_data_entry", raise_if_not_found=False)
             if group and group.users:
-                for user in group.users:
+                for user in group.users.filtered(lambda u: u.active):
                     order.activity_schedule(
                         'mail.mail_activity_data_todo',
                         user_id=user.id,
