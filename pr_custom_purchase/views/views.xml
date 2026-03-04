@@ -44,7 +44,7 @@
             </xpath>
             <!-- Hide Confirm button with id 'bid_confirm' -->
             <xpath expr="//header/button[@id='bid_confirm']" position="replace">
-                <!-- Confirm for Project Engineer (≤ 10k) -->
+                <!-- Confirm for Procurement Manager (≤ 10k) -->
                 <button name="action_confirm" type="object" string="Confirm Order" class="btn btn-primary"
         invisible="state != 'pending' or subtotal &gt; 10000 or not can_confirm_order"
         groups="pr_custom_purchase.project_engineer"/>

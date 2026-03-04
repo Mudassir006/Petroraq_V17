@@ -15,7 +15,8 @@ class PurchaseQuotation(models.Model):
     vendor_id = fields.Many2one("res.partner", string="Vendor")
     rfq_origin = fields.Char(string="RFQ Origin")
     custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", ondelete="set null")
-    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", related="custom_rfq_id.requisition_id", store=True, readonly=True)
+    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition",
+                                     related="custom_rfq_id.requisition_id", store=True, readonly=True)
     vendor_ref = fields.Char(string="Vendor Reference")
     pr_name = fields.Char(string="PR Name", readonly=True)
     notes = fields.Text(string="Notes")
@@ -186,7 +187,8 @@ class PurchaseQuotation(models.Model):
             show_button = False
             if rec.status == "quote":
                 origin_name = rec.custom_rfq_id.name or rec.rfq_origin
-                po_exists = self.env["purchase.order"].search_count([("origin", "=", origin_name), ("state", "in", ["pending", "purchase"])])
+                po_exists = self.env["purchase.order"].search_count(
+                    [("origin", "=", origin_name), ("state", "in", ["pending", "purchase"])])
                 show_button = po_exists == 0
             rec.show_create_po_button = show_button
 
@@ -596,12 +598,12 @@ class PurchaseOrder(models.Model):
         if amount <= 10000:
             if not self.pe_approved:
                 self.write({"pe_approved": True})
-                self.message_post(body="Approved by Project Engineer.")
+                self.message_post(body="Approved by Procurement Manager.")
 
         elif amount <= 100000:
             if not self.pe_approved:
                 self.write({"pe_approved": True})
-                self.message_post(body="Approved by Project Engineer.")
+                self.message_post(body="Approved by Procurement Manager.")
                 self._schedule_activity_for_group(
                     "pr_custom_purchase.project_manager",
                     "Review Purchase Order",
@@ -614,7 +616,7 @@ class PurchaseOrder(models.Model):
         elif amount <= 500000:
             if not self.pe_approved:
                 self.write({"pe_approved": True})
-                self.message_post(body="Approved by Project Engineer.")
+                self.message_post(body="Approved by Procurement Manager.")
                 self._schedule_activity_for_group(
                     "pr_custom_purchase.project_manager",
                     "Review Purchase Order",
@@ -635,7 +637,7 @@ class PurchaseOrder(models.Model):
         else:  # Above 500k
             if not self.pe_approved:
                 self.write({"pe_approved": True})
-                self.message_post(body="Approved by Project Engineer.")
+                self.message_post(body="Approved by Procurement Manager.")
                 self._schedule_activity_for_group(
                     "pr_custom_purchase.project_manager",
                     "Review Purchase Order",
@@ -714,7 +716,6 @@ class PurchaseOrder(models.Model):
             order.show_md_approved = order.state == "pending" and user.has_group(
                 "pr_custom_purchase.managing_director"
             )
-
 
     def action_reset_to_draft(self):
         for order in self:

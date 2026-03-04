@@ -5,7 +5,7 @@
             <field name="category_id" ref="base.module_category_hidden"/>
         </record>
         <record id="project_engineer" model="res.groups">
-            <field name="name">Project Engineer</field>
+            <field name="name">Procurement Manager</field>
             <field name="category_id" ref="base.module_category_hidden"/>
         </record>
         <record id="project_manager" model="res.groups">
