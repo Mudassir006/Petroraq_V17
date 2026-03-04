@@ -16,9 +16,15 @@
         <field name="model">pr.expense.bucket</field>
         <field name="inherit_id" ref="pr_custom_purchase.view_pr_expense_bucket_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='expense_type']" position="attributes">
+                <attribute name="readonly">state == 'approved' or scope == 'project'</attribute>
+            </xpath>
             <xpath expr="//field[@name='department_id']" position="after">
                 <field name="work_order_id" invisible="scope != 'project'"
                        required="scope == 'project'" readonly="state == 'approved'"/>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/tree/field[@name='cost_center_id']" position="attributes">
+                <attribute name="domain">[('id', 'in', parent.work_order_id.cost_center_ids.analytic_account_id), ('budget_type', '=', 'capex')]</attribute>
             </xpath>
         </field>
     </record>
