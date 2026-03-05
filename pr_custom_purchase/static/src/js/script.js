@@ -21,6 +21,26 @@ function getTodayIsoDate() {
     return `${y}-${m}-${d}`;
 }
 
+function parseDateAtLocalMidnight(value) {
+    const raw = (value || '').toString().trim();
+    if (!raw) return null;
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10) - 1;
+    const d = parseInt(m[3], 10);
+    const dt = new Date(y, mo, d);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+
+function isDateBeforeToday(value) {
+    const dt = parseDateAtLocalMidnight(value);
+    if (!dt) return false;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return dt.getTime() < today.getTime();
+}
+
 // Expose helpers for inline handlers in template
 let lineIndex = 1;
 function computeRowTotal(row) {
@@ -94,7 +114,14 @@ class QuotationFormPage extends Component {
             const todayIso = getTodayIsoDate();
             ['expected_arrival', 'quotation_valid_till', 'delivery_date'].forEach((name) => {
                 const dateInput = document.querySelector(`input[name="${name}"]`);
-                if (dateInput) dateInput.setAttribute('min', todayIso);
+                if (!dateInput) return;
+                dateInput.setAttribute('min', todayIso);
+                dateInput.addEventListener('change', () => {
+                    if (isDateBeforeToday(dateInput.value)) {
+                        alert('Date cannot be before today.');
+                        dateInput.value = todayIso;
+                    }
+                });
             });
             this.loadRfqs();
             this.loadVendors();
@@ -224,12 +251,14 @@ class QuotationFormPage extends Component {
         if (po.partner_id && po.partner_id[1]) setIfExists('supplier_name', po.partner_id[1]);
         if (po.partner_id && po.partner_id[1]) await this.populateFromVendorName(po.partner_id[1]);
 
+        let headerDatePlanned = po.date_planned || null;
+
         // Expected Arrival: patch from RFQ/PO date_planned in YYYY-MM-DD (with +5h adjustment)
-        setIfExists('expected_arrival', toDateInput(po.date_planned || headerDatePlanned));
+        const expectedArrivalDate = toDateInput(po.date_planned || headerDatePlanned);
+        setIfExists('expected_arrival', isDateBeforeToday(expectedArrivalDate) ? getTodayIsoDate() : expectedArrivalDate);
 
         // Fetch lines from custom RFQ line model
         const lines = [];
-        let headerDatePlanned = po.date_planned || null;
         try {
             if (po.line_ids && po.line_ids.length) {
                 const rfqLines = await this.rpc('/web/dataset/call_kw', {
@@ -371,13 +400,12 @@ class QuotationFormPage extends Component {
         addCheck((fd.get('expected_arrival') || '').toString().trim().length > 0, 'Quotation Date (Expected Arrival) is required');
         addCheck((fd.get('quotation_valid_till') || '').toString().trim().length > 0, 'Quotation Valid Till is required');
 
-        const todayIso = getTodayIsoDate();
         const expectedArrival = (fd.get('expected_arrival') || '').toString();
         const quotationValidTill = (fd.get('quotation_valid_till') || '').toString();
         const deliveryDate = (fd.get('delivery_date') || '').toString();
-        addCheck(!expectedArrival || expectedArrival >= todayIso, 'Quotation Date cannot be before today');
-        addCheck(!quotationValidTill || quotationValidTill >= todayIso, 'Quotation Valid Till cannot be before today');
-        addCheck(!deliveryDate || deliveryDate >= todayIso, 'Delivery Date Expected cannot be before today');
+        addCheck(!isDateBeforeToday(expectedArrival), 'Quotation Date cannot be before today');
+        addCheck(!isDateBeforeToday(quotationValidTill), 'Quotation Valid Till cannot be before today');
+        addCheck(!isDateBeforeToday(deliveryDate), 'Delivery Date Expected cannot be before today');
 
         // Terms: now exactly one selection per group
         const paymentCount = ['terms_net','terms_30days','terms_advance','terms_delivery','terms_other'].reduce((n, k) => n + (fd.has(k) ? 1 : 0), 0);
