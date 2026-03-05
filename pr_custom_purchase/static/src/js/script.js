@@ -13,6 +13,14 @@ function normalizeType(raw) {
     return "material";
 }
 
+function getTodayIsoDate() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 // Expose helpers for inline handlers in template
 let lineIndex = 1;
 function computeRowTotal(row) {
@@ -83,6 +91,11 @@ class QuotationFormPage extends Component {
             const firstRow = document.querySelector('#quotation_lines_body tr');
             if (firstRow) wireRowEvents(firstRow);
             updateTotalAmount();
+            const todayIso = getTodayIsoDate();
+            ['expected_arrival', 'quotation_valid_till', 'delivery_date'].forEach((name) => {
+                const dateInput = document.querySelector(`input[name="${name}"]`);
+                if (dateInput) dateInput.setAttribute('min', todayIso);
+            });
             this.loadRfqs();
             this.loadVendors();
             // Enforce exclusive selections and conditional enables
@@ -357,6 +370,14 @@ class QuotationFormPage extends Component {
         addCheck((fd.get('quotation_ref') || '').toString().trim().length > 0, 'Quotation Ref No is required');
         addCheck((fd.get('expected_arrival') || '').toString().trim().length > 0, 'Quotation Date (Expected Arrival) is required');
         addCheck((fd.get('quotation_valid_till') || '').toString().trim().length > 0, 'Quotation Valid Till is required');
+
+        const todayIso = getTodayIsoDate();
+        const expectedArrival = (fd.get('expected_arrival') || '').toString();
+        const quotationValidTill = (fd.get('quotation_valid_till') || '').toString();
+        const deliveryDate = (fd.get('delivery_date') || '').toString();
+        addCheck(!expectedArrival || expectedArrival >= todayIso, 'Quotation Date cannot be before today');
+        addCheck(!quotationValidTill || quotationValidTill >= todayIso, 'Quotation Valid Till cannot be before today');
+        addCheck(!deliveryDate || deliveryDate >= todayIso, 'Delivery Date Expected cannot be before today');
 
         // Terms: now exactly one selection per group
         const paymentCount = ['terms_net','terms_30days','terms_advance','terms_delivery','terms_other'].reduce((n, k) => n + (fd.has(k) ? 1 : 0), 0);
