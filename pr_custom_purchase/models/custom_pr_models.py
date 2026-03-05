@@ -142,7 +142,7 @@ class CustomPR(models.Model):
             requisition = self.env['purchase.requisition'].sudo().search([('name', '=', rec.name)], limit=1)
             rec.linked_requisition_status = requisition.approval if requisition else 'missing'
 
-            rfqs = self.env['custom.purchase.rfq'].sudo().search([('pr_name', '=', rec.name)])
+            rfqs = self.env['purchase.order'].sudo().search([('pr_name', '=', rec.name)])
             if rfqs:
                 best_rfq = max(rfqs, key=lambda rfq: rfq_priority.get(rfq.state, 0))
                 rec.linked_rfq_status = best_rfq.state
@@ -370,7 +370,7 @@ class CustomPR(models.Model):
                 raise ValidationError(_("Cannot reset PR %s because it already has a confirmed Purchase Order.") % rec.name)
 
             linked_pos.sudo().unlink()
-            linked_rfqs = self.env["custom.purchase.rfq"].sudo().search([("pr_name", "=", rec.name)])
+            linked_rfqs = self.env["purchase.order"].sudo().search([("pr_name", "=", rec.name)])
             linked_rfqs.unlink()
             linked_reqs = self.env["purchase.requisition"].sudo().search([("name", "=", rec.name)])
             linked_reqs.unlink()

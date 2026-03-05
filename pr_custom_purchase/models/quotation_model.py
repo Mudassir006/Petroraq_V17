@@ -14,7 +14,7 @@ class PurchaseQuotation(models.Model):
     # Basic Info
     vendor_id = fields.Many2one("res.partner", string="Vendor")
     rfq_origin = fields.Char(string="RFQ Origin")
-    custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", ondelete="set null")
+    custom_rfq_id = fields.Many2one("purchase.order", string="RFQ", ondelete="set null")
     requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition",
                                      related="custom_rfq_id.requisition_id", store=True, readonly=True)
     vendor_ref = fields.Char(string="Vendor Reference")
@@ -423,6 +423,32 @@ class PurchaseQuotationLine(models.Model):
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
+    requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
+    quotation_ids = fields.One2many("purchase.quotation", "custom_rfq_id", string="Submitted Quotations", readonly=True)
+    line_ids = fields.One2many("purchase.order.custom.line", "order_id", string="RFQ Lines")
+    linked_pr_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "Draft"),
+        ("rfq_sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("cancel", "Cancelled"),
+    ], string="PR Status", compute="_compute_linked_statuses")
+    linked_po_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "RFQ"),
+        ("sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("done", "Locked"),
+        ("cancel", "Cancelled"),
+    ], string="PO Status", compute="_compute_linked_statuses")
+    linked_quotation_status = fields.Selection([
+        ("missing", "Not Submitted"),
+        ("quote", "Quote"),
+        ("po", "Purchase"),
+    ], string="Quotation Status", compute="_compute_linked_statuses")
+
     quotation_count = fields.Integer(
         string="Quotations",
         compute="_compute_quotation_count",
@@ -516,6 +542,19 @@ class PurchaseOrder(models.Model):
                 domain = [("custom_rfq_id.requisition_id", "=", req.id)]
             order.quotation_count = self.env["purchase.quotation"].search_count(domain)
 
+    def _compute_linked_statuses(self):
+        po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
+        quotation_priority = {"quote": 1, "po": 2}
+        for rec in self:
+            pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
+            rec.linked_pr_state = pr.state if pr else "missing"
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status, 0)).status if rec.quotation_ids else "missing"
+
+    def action_view_quotations(self):
+        return self.action_view_rfq_quotations()
+
     def action_view_rfq_quotations(self):
         self.ensure_one()
         req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
@@ -544,7 +583,7 @@ class PurchaseOrder(models.Model):
             raise UserError(_("No quotations are available for this RFQ yet."))
         req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
         if req:
-            any_rfq = self.env["custom.purchase.rfq"].search([("requisition_id", "=", req.id)], limit=1)
+            any_rfq = self.env["purchase.order"].search([("requisition_id", "=", req.id)], limit=1)
             if any_rfq:
                 wizard = self.env['rfq.comparison.wizard'].create_for_custom_rfq(any_rfq)
             else:
@@ -775,7 +814,7 @@ class PurchaseOrder(models.Model):
                     custom_pr.write({"state": "draft", "approval": "pending", "pr_created": False})
 
             if order.origin:
-                rfqs = self.env["custom.purchase.rfq"].sudo().search([("name", "=", order.origin)])
+                rfqs = self.env["purchase.order"].sudo().search([("name", "=", order.origin)])
                 rfqs.write({"state": "draft"})
                 quotations = self.env["purchase.quotation"].sudo().search([("rfq_origin", "=", order.origin)])
                 quotations.write({"status": "quote"})

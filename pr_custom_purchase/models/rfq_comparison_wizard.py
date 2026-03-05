@@ -9,7 +9,7 @@ class RFQComparisonWizard(models.TransientModel):
     _description = "RFQ Quotation Comparison"
 
     rfq_id = fields.Many2one("purchase.order", string="RFQ (Legacy)", readonly=True)
-    custom_rfq_id = fields.Many2one("custom.purchase.rfq", string="RFQ", readonly=True)
+    custom_rfq_id = fields.Many2one("purchase.order", string="RFQ", readonly=True)
     requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", readonly=True)
     line_ids = fields.One2many(
         "rfq.comparison.wizard.line",

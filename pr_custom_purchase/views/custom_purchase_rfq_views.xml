@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <record id="view_custom_purchase_rfq_tree" model="ir.ui.view">
-        <field name="name">custom.purchase.rfq.tree</field>
-        <field name="model">custom.purchase.rfq</field>
+        <field name="name">purchase.order.tree</field>
+        <field name="model">purchase.order</field>
         <field name="arch" type="xml">
             <tree>
                 <field name="name"/>
@@ -40,10 +40,10 @@
     </record>
 
     <record id="view_custom_purchase_rfq_form" model="ir.ui.view">
-        <field name="name">custom.purchase.rfq.form</field>
-        <field name="model">custom.purchase.rfq</field>
+        <field name="name">purchase.order.form</field>
+        <field name="model">purchase.order</field>
         <field name="arch" type="xml">
-            <form string="Custom RFQ">
+            <form string="RFQ">
                 <header>
                     <button name="action_rfq_send" type="object" string="Send by Email" class="btn-primary"
                             invisible="state not in ('draft', 'sent')"/>
@@ -60,7 +60,7 @@
                     <button name="action_open_rfq_comparison" type="object" string="Compare Quotations"
                             class="btn-secondary"
                             groups="pr_custom_purchase.procurement_admin"/>
-                    <button name="action_reset_to_draft" type="object" string="Reset Custom RFQ" class="btn-secondary"
+                    <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
                             invisible="state == 'draft'"
                             groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,pending,purchase,done,cancel"/>
@@ -90,7 +90,7 @@
                         </group>
                     </group>
 
-                    <group string="Custom RFQ Details">
+                    <group string="RFQ Details">
                         <group>
                             <field name="pr_name" readonly="1"/>
                             <field name="requisition_id" readonly="1"/>
@@ -152,8 +152,9 @@
 
     <record id="action_custom_purchase_rfq" model="ir.actions.act_window">
         <field name="name">RFQs</field>
-        <field name="res_model">custom.purchase.rfq</field>
+        <field name="res_model">purchase.order</field>
         <field name="view_mode">tree,form</field>
+        <field name="domain">[('state','in',['draft','sent'])]</field>
     </record>
 
     <menuitem id="menu_custom_purchase_rfq_root"

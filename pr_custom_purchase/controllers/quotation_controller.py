@@ -7,19 +7,66 @@ _logger = logging.getLogger(__name__)
 
 class PortalRFQ(http.Controller):
 
+    def _resolve_rfq(self, rfq_id):
+        """Resolve RFQ against purchase.order first, then legacy custom.purchase.rfq.
+
+        This prevents FK violations on purchase.quotation.custom_rfq_id when old
+        links still pass a legacy custom RFQ id.
+        """
+        PurchaseOrder = request.env["purchase.order"].sudo()
+        rfq = PurchaseOrder.browse(rfq_id).exists()
+        if rfq:
+            return rfq
+
+        legacy_rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id).exists()
+        if not legacy_rfq:
+            return PurchaseOrder.browse()
+
+        mapped_rfq = PurchaseOrder.search([("name", "=", legacy_rfq.name)], limit=1)
+        if mapped_rfq:
+            return mapped_rfq
+
+        mapped_rfq = PurchaseOrder.create({
+            "name": legacy_rfq.name,
+            "origin": legacy_rfq.origin,
+            "partner_id": legacy_rfq.partner_id.id,
+            "pr_name": legacy_rfq.pr_name,
+            "requisition_id": legacy_rfq.requisition_id.id,
+            "date_planned": legacy_rfq.date_planned,
+            "date_request": legacy_rfq.date_request,
+            "requested_by": legacy_rfq.requested_by,
+            "department": legacy_rfq.department,
+            "supervisor": legacy_rfq.supervisor,
+            "supervisor_partner_id": legacy_rfq.supervisor_partner_id,
+            "project_id": legacy_rfq.project_id.id,
+            "state": legacy_rfq.state if legacy_rfq.state in ["draft", "sent", "pending", "purchase", "done", "cancel"] else "draft",
+            "custom_line_ids": [
+                (0, 0, {
+                    "name": line.name,
+                    "quantity": line.quantity,
+                    "type": line.type,
+                    "unit": line.unit,
+                    "price_unit": line.price_unit,
+                    "cost_center_id": line.cost_center_id.id,
+                })
+                for line in legacy_rfq.line_ids
+            ],
+        })
+        return mapped_rfq
+
     @http.route("/my/rfq", type="http", auth="user", website=True)
     def my_rfq(self):
         partner = request.env.user.partner_id
 
         rfqs_vendor = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search(
                 [("partner_id", "=", partner.id), ("state", "in", ["draft", "sent"])]
             )
         )
         rfqs_following = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search(
                 [
@@ -39,7 +86,9 @@ class PortalRFQ(http.Controller):
         "/my/rfq/<int:rfq_id>/quotation", type="http", auth="user", website=True
     )
     def portal_create_rfq_quotation(self, rfq_id, **kw):
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = self._resolve_rfq(rfq_id)
+        if not rfq:
+            return request.redirect("/my/rfq")
         rfq.line_ids  # ensure it’s loaded
         company_registry = rfq.partner_id.company_registry
         return request.render(
@@ -51,7 +100,7 @@ class PortalRFQ(http.Controller):
         partner = request.env.user.partner_id
 
         rfqs_following = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search([
                 ("message_follower_ids.partner_id", "=", partner.id),
@@ -66,7 +115,9 @@ class PortalRFQ(http.Controller):
     @http.route("/my/rfqs/<int:rfq_id>", type="http", auth="user", website=True)
     def portal_rfq_view(self, rfq_id, **kw):
         partner = request.env.user.partner_id
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = self._resolve_rfq(rfq_id)
+        if not rfq:
+            return request.redirect("/my")
 
         # Security check: only followers or vendor can see
         if partner not in rfq.message_follower_ids.mapped("partner_id") and partner.id != rfq.partner_id.id:
@@ -94,7 +145,9 @@ class PortalRFQ(http.Controller):
         csrf=True,
     )
     def submit_rfq_quotation(self, rfq_id, **post):
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = self._resolve_rfq(rfq_id)
+        if not rfq:
+            return request.redirect("/my/rfq")
         partner = request.env.user.partner_id
 
         # Create quotation record in your custom model
