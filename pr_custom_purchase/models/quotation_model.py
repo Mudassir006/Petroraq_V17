@@ -180,37 +180,52 @@ class PurchaseQuotation(models.Model):
             record.vat_amount = total_excl * 0.15
             record.total_incl_vat = total_excl + record.vat_amount
 
-    @api.depends("custom_rfq_id", "rfq_origin", "total_excl_vat")
+    @api.depends("custom_rfq_id", "requisition_id", "pr_name", "rfq_origin", "total_excl_vat")
     def _compute_is_best(self):
-        """Ensure only the quotation with the lowest total_excl_vat per RFQ is marked as best."""
-        # Fetch all relevant rfq_origin values in current batch
-        rfq_origins = self.mapped("rfq_origin")
-        if not rfq_origins:
+        """Ensure only one quotation is best across all RFQs of the same PR."""
+        if not self:
             return
 
-        # Fetch all quotations sharing those RFQs (even outside current batch)
-        all_quotations = self.env["purchase.quotation"].search([("rfq_origin", "in", rfq_origins)])
+        # Build domains for all impacted PR buckets from the current compute batch.
+        domains = []
+        requisition_ids = self.mapped("requisition_id").ids
+        pr_names = [name for name in self.mapped("pr_name") if name]
+        rfq_origins = [origin for origin in self.mapped("rfq_origin") if origin]
 
-        # Group them by rfq_origin
-        rfq_groups = {}
+        if requisition_ids:
+            domains.append([("requisition_id", "in", requisition_ids)])
+        if pr_names:
+            domains.append([("pr_name", "in", pr_names)])
+        if rfq_origins:
+            domains.append([("rfq_origin", "in", rfq_origins), ("pr_name", "=", False), ("requisition_id", "=", False)])
+
+        if not domains:
+            for rec in self:
+                rec.is_best = False
+            return
+
+        search_domain = domains[0]
+        for extra_domain in domains[1:]:
+            search_domain = ["|"] + search_domain + extra_domain
+
+        all_quotations = self.env["purchase.quotation"].search(search_domain)
+
+        grouped = {}
         for rec in all_quotations:
-            rfq_groups.setdefault(rec.rfq_origin, []).append(rec)
+            if rec.requisition_id:
+                key = ("requisition", rec.requisition_id.id)
+            elif rec.pr_name:
+                key = ("pr_name", rec.pr_name)
+            else:
+                key = ("rfq_origin", rec.rfq_origin)
+            grouped.setdefault(key, []).append(rec)
 
-        # Determine the best for each group
-        for group in rfq_groups.values():
-            valid_records = [r for r in group if r.total_excl_vat > 0]
-            if not valid_records:
-                continue
-
-            # Find the one with minimum total_excl_vat
-            min_rec = min(valid_records, key=lambda r: r.total_excl_vat)
-
-            # Reset all to False first
-            for r in group:
-                r.is_best = False
-
-            # Then mark only the minimum one as True
-            min_rec.is_best = True
+        for group in grouped.values():
+            for record in group:
+                record.is_best = False
+            valid_records = [record for record in group if record.total_excl_vat > 0]
+            if valid_records:
+                min(valid_records, key=lambda record: (record.total_excl_vat, record.id)).is_best = True
 
     @api.depends("is_best")
     def _compute_is_best_badge(self):
