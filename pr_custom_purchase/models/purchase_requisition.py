@@ -504,7 +504,6 @@ class PurchaseRequisition(models.Model):
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
                 "line_ids": [],
-                "order_line": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
                 "department": pr.department,
@@ -521,14 +520,6 @@ class PurchaseRequisition(models.Model):
                     "unit": line.unit,
                     "price_unit": 0,
                     "cost_center_id": line.cost_center_id.id,
-                }))
-                rfq_vals["order_line"].append((0, 0, {
-                    "product_id": line.description.id,
-                    "name": line.description.display_name,
-                    "product_qty": line.quantity,
-                    "product_uom": line.description.uom_po_id.id or line.description.uom_id.id,
-                    "price_unit": line.unit_price,
-                    "date_planned": pr.required_date or fields.Date.context_today(self),
                 }))
 
             rfq = CustomRFQ.sudo().create(rfq_vals)

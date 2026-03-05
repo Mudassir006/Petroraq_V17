@@ -103,21 +103,6 @@
 
                     <notebook>
                         <page string="Products">
-                            <field name="order_line" context="{'default_date_planned': date_planned}">
-                                <tree editable="bottom">
-                                    <field name="product_id"/>
-                                    <field name="name"/>
-                                    <field name="product_qty"/>
-                                    <field name="product_uom_category_id" column_invisible="1"/>
-                                    <field name="product_uom"/>
-                                    <field name="price_unit"/>
-                                    <field name="taxes_id" widget="many2many_tags"/>
-                                    <field name="date_planned"/>
-                                    <field name="price_subtotal"/>
-                                </tree>
-                            </field>
-                        </page>
-                        <page string="Custom RFQ Lines">
                             <field name="line_ids" readonly="1">
                                 <tree>
                                     <field name="name"/>
