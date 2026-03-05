@@ -180,37 +180,34 @@ class PurchaseQuotation(models.Model):
             record.vat_amount = total_excl * 0.15
             record.total_incl_vat = total_excl + record.vat_amount
 
-    @api.depends("custom_rfq_id", "rfq_origin", "total_excl_vat")
+    @api.depends("custom_rfq_id", "rfq_origin", "pr_name", "total_excl_vat", "status")
     def _compute_is_best(self):
-        """Ensure only the quotation with the lowest total_excl_vat per RFQ is marked as best."""
-        # Fetch all relevant rfq_origin values in current batch
-        rfq_origins = self.mapped("rfq_origin")
-        if not rfq_origins:
+        """Mark only one best quotation per PR (fallback RFQ) using the lowest total."""
+        group_keys = {(rec.pr_name, rec.rfq_origin) for rec in self if rec.pr_name or rec.rfq_origin}
+        if not group_keys:
+            for rec in self:
+                rec.is_best = False
             return
 
-        # Fetch all quotations sharing those RFQs (even outside current batch)
-        all_quotations = self.env["purchase.quotation"].search([("rfq_origin", "in", rfq_origins)])
+        domain = [
+            "|",
+            ("pr_name", "in", [pr for pr, _rfq in group_keys if pr]),
+            ("rfq_origin", "in", [rfq for _pr, rfq in group_keys if rfq]),
+        ]
+        all_quotations = self.env["purchase.quotation"].search(domain)
 
-        # Group them by rfq_origin
-        rfq_groups = {}
+        grouped = {}
         for rec in all_quotations:
-            rfq_groups.setdefault(rec.rfq_origin, []).append(rec)
+            group_key = rec.pr_name or rec.rfq_origin
+            grouped.setdefault(group_key, self.env["purchase.quotation"])
+            grouped[group_key] |= rec
 
-        # Determine the best for each group
-        for group in rfq_groups.values():
-            valid_records = [r for r in group if r.total_excl_vat > 0]
-            if not valid_records:
-                continue
-
-            # Find the one with minimum total_excl_vat
-            min_rec = min(valid_records, key=lambda r: r.total_excl_vat)
-
-            # Reset all to False first
-            for r in group:
-                r.is_best = False
-
-            # Then mark only the minimum one as True
-            min_rec.is_best = True
+        for group in grouped.values():
+            valid_records = group.filtered(lambda r: r.total_excl_vat > 0 and r.status == "quote")
+            group.is_best = False
+            if valid_records:
+                best_rec = min(valid_records, key=lambda r: (r.total_excl_vat, r.id))
+                best_rec.is_best = True
 
     @api.depends("is_best")
     def _compute_is_best_badge(self):
