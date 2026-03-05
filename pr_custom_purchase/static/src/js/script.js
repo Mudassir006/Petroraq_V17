@@ -149,7 +149,7 @@ class QuotationFormPage extends Component {
     async loadRfqs() {
         try {
             const rfqs = await this.rpc('/web/dataset/call_kw', {
-                model: 'custom.purchase.rfq',
+                model: 'purchase.order',
                 method: 'search_read',
                 args: [[['state', 'in', ['draft', 'sent']]]],
                 kwargs: { fields: ['id', 'name'], limit: 200 },
@@ -180,7 +180,7 @@ class QuotationFormPage extends Component {
         if (!rfqName) return null;
         try {
             const recs = await this.rpc('/web/dataset/call_kw', {
-                model: 'custom.purchase.rfq',
+                model: 'purchase.order',
                 method: 'search_read',
                 args: [[['name', '=', rfqName]]],
                 kwargs: {
@@ -204,7 +204,7 @@ class QuotationFormPage extends Component {
         let po;
         try {
             const recs = await this.rpc('/web/dataset/call_kw', {
-                model: 'custom.purchase.rfq',
+                model: 'purchase.order',
                 method: 'search_read',
                 args: [[['name', '=', rfqName]]],
                 kwargs: { fields: ['id','name','partner_id','origin','date_planned','line_ids','project_id','pr_name','requested_by','department','supervisor','supervisor_partner_id'], limit: 1 },
@@ -262,7 +262,7 @@ class QuotationFormPage extends Component {
         try {
             if (po.line_ids && po.line_ids.length) {
                 const rfqLines = await this.rpc('/web/dataset/call_kw', {
-                    model: 'custom.purchase.rfq.line',
+                    model: 'purchase.order.custom.line',
                     method: 'read',
                     args: [po.line_ids, ['name','quantity','unit','type','price_unit','cost_center_id']],
                     kwargs: {},

@@ -88,7 +88,7 @@ class PurchaseRequisition(models.Model):
     line_ids = fields.One2many(
         "purchase.requisition.line", "requisition_id", string="Line Items"
     )
-    rfq_ids = fields.One2many("custom.purchase.rfq", "requisition_id", string="RFQs")
+    rfq_ids = fields.One2many("purchase.order", "requisition_id", string="RFQs")
     rfq_count = fields.Integer(string="RFQ Count", compute="_compute_rfq_metrics")
     rfq_sent_count = fields.Integer(string="RFQ Sent Count", compute="_compute_rfq_metrics")
 
@@ -461,7 +461,7 @@ class PurchaseRequisition(models.Model):
         return {
             "type": "ir.actions.act_window",
             "name": "RFQs",
-            "res_model": "custom.purchase.rfq",
+            "res_model": "purchase.order",
             "view_mode": "tree,form",
             "domain": [("requisition_id", "=", self.id)],
             "context": {
@@ -472,7 +472,7 @@ class PurchaseRequisition(models.Model):
 
     def action_create_rfq(self):
         """Create Custom RFQ from this PR and keep PO sequencing independent."""
-        CustomRFQ = self.env["custom.purchase.rfq"]
+        CustomRFQ = self.env["purchase.order"]
 
         rfq = False
         for pr in self:
@@ -533,7 +533,7 @@ class PurchaseRequisition(models.Model):
         return {
             "type": "ir.actions.act_window",
             "name": _("Custom RFQ"),
-            "res_model": "custom.purchase.rfq",
+            "res_model": "purchase.order",
             "res_id": rfq.id,
             "view_mode": "form",
             "target": "current",

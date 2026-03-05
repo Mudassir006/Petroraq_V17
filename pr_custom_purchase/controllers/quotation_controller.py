@@ -12,14 +12,14 @@ class PortalRFQ(http.Controller):
         partner = request.env.user.partner_id
 
         rfqs_vendor = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search(
                 [("partner_id", "=", partner.id), ("state", "in", ["draft", "sent"])]
             )
         )
         rfqs_following = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search(
                 [
@@ -39,7 +39,7 @@ class PortalRFQ(http.Controller):
         "/my/rfq/<int:rfq_id>/quotation", type="http", auth="user", website=True
     )
     def portal_create_rfq_quotation(self, rfq_id, **kw):
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
         rfq.line_ids  # ensure it’s loaded
         company_registry = rfq.partner_id.company_registry
         return request.render(
@@ -51,7 +51,7 @@ class PortalRFQ(http.Controller):
         partner = request.env.user.partner_id
 
         rfqs_following = (
-            request.env["custom.purchase.rfq"]
+            request.env["purchase.order"]
             .sudo()
             .search([
                 ("message_follower_ids.partner_id", "=", partner.id),
@@ -66,7 +66,7 @@ class PortalRFQ(http.Controller):
     @http.route("/my/rfqs/<int:rfq_id>", type="http", auth="user", website=True)
     def portal_rfq_view(self, rfq_id, **kw):
         partner = request.env.user.partner_id
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
 
         # Security check: only followers or vendor can see
         if partner not in rfq.message_follower_ids.mapped("partner_id") and partner.id != rfq.partner_id.id:
@@ -94,7 +94,7 @@ class PortalRFQ(http.Controller):
         csrf=True,
     )
     def submit_rfq_quotation(self, rfq_id, **post):
-        rfq = request.env["custom.purchase.rfq"].sudo().browse(rfq_id)
+        rfq = request.env["purchase.order"].sudo().browse(rfq_id)
         partner = request.env.user.partner_id
 
         # Create quotation record in your custom model
