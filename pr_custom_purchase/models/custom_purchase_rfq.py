@@ -8,6 +8,17 @@ class CustomPurchaseRFQ(models.Model):
     _inherit = "purchase.order"
     _order = "id desc"
 
+    # In classical inheritance, explicit Many2many relation names from purchase.order
+    # must be redefined to avoid table/column collisions on the child model.
+    approval_action_user_ids = fields.Many2many(
+        "res.users",
+        "custom_purchase_rfq_approval_action_user_rel",
+        "rfq_id",
+        "user_id",
+        string="Users Who Acted",
+        copy=False,
+    )
+
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
     pr_name = fields.Char(string="PR Number", readonly=True)
     date_request = fields.Date(string="Date of Request")
