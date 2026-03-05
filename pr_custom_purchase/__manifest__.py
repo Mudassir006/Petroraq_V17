@@ -31,6 +31,7 @@
         'views/portal_pr_form_template.xml',
         'views/quotation.xml',
         'views/custom_purchase_rfq_views.xml',
+        'views/custom_purchase_rfq_report.xml',
         'views/cash_odoo_ui.xml',
         'views/pr_odoo_ui.xml',
         'views/portal_quotation.xml',

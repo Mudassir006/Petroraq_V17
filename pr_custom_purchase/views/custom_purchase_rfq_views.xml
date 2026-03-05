@@ -45,10 +45,10 @@
         <field name="arch" type="xml">
             <form string="Custom RFQ">
                 <header>
-                    <button name="action_rfq_send" type="object" string="Send by Email" class="btn-primary"
+                    <button name="action_send_rfq_email" type="object" string="Send by Email" class="btn-primary"
                             invisible="state not in ('draft', 'sent')"/>
                     <button name="button_confirm" type="object" string="Confirm Order" class="btn-primary"
-                            invisible="state not in ('draft', 'sent', 'pending')"
+                            invisible="1"
                             groups="purchase.group_purchase_user"/>
                     <button name="button_cancel" type="object" string="Cancel" class="btn-secondary"
                             invisible="state in ('cancel', 'done')"/>

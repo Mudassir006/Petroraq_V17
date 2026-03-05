@@ -1,4 +1,5 @@
 from odoo import api, fields, models, _
+import base64
 from odoo.exceptions import UserError, ValidationError
 
 
@@ -87,7 +88,51 @@ class CustomPurchaseRFQ(models.Model):
         self.ensure_one()
         if not self.partner_id:
             raise UserError(_("Please set a vendor before sending RFQ."))
-        return self.action_rfq_send()
+
+        template = self.env.ref("pr_custom_purchase.email_template_custom_purchase_rfq", raise_if_not_found=False)
+        compose_form = self.env.ref("mail.email_compose_message_wizard_form")
+
+        attachment_ids = []
+        report_action = self.env.ref("pr_custom_purchase.action_report_custom_purchase_rfq", raise_if_not_found=False)
+        if report_action:
+            try:
+                pdf_content, _ = report_action._render_qweb_pdf(self.ids)
+                if pdf_content:
+                    attachment = self.env["ir.attachment"].sudo().create({
+                        "name": f"{self.name or 'RFQ'}.pdf",
+                        "type": "binary",
+                        "datas": base64.b64encode(pdf_content),
+                        "mimetype": "application/pdf",
+                        "res_model": "custom.purchase.rfq",
+                        "res_id": self.id,
+                    })
+                    attachment_ids = [attachment.id]
+            except Exception:
+                attachment_ids = []
+
+        ctx = {
+            "default_model": "custom.purchase.rfq",
+            "default_res_ids": self.ids,
+            "default_composition_mode": "comment",
+            "default_template_id": template.id if template else False,
+            "default_use_template": bool(template),
+            "default_email_layout_xmlid": "mail.mail_notification_light",
+            "default_partner_ids": self.partner_id.ids,
+            "default_attachment_ids": [(6, 0, attachment_ids)] if attachment_ids else [],
+            "force_email": True,
+        }
+
+        if self.state == "draft":
+            self.state = "sent"
+
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "mail.compose.message",
+            "view_mode": "form",
+            "view_id": compose_form.id,
+            "target": "new",
+            "context": ctx,
+        }
 
 
 
