@@ -5,20 +5,8 @@ from odoo.exceptions import UserError, ValidationError
 class CustomPurchaseRFQ(models.Model):
     _name = "custom.purchase.rfq"
     _description = "Custom RFQ"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = "purchase.order"
     _order = "id desc"
-
-    name = fields.Char(string="RFQ Number", readonly=True, copy=False, default="New", tracking=True)
-    origin = fields.Char(string="Origin", tracking=True)
-    partner_id = fields.Many2one("res.partner", string="Vendor", tracking=True)
-    date_planned = fields.Date(string="Expected Arrival")
-    state = fields.Selection([
-        ("draft", "Draft"),
-        ("sent", "RFQ Sent"),
-        ("done", "Locked"),
-        ("cancel", "Cancelled"),
-    ], default="draft", tracking=True)
-    project_id = fields.Many2one("project.project", string="Project")
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
     pr_name = fields.Char(string="PR Number", readonly=True)
@@ -86,24 +74,9 @@ class CustomPurchaseRFQ(models.Model):
 
     def action_send_rfq_email(self):
         self.ensure_one()
-        if not self.partner_id or not self.partner_id.email:
-            raise UserError(_("Please set a vendor with an email before sending RFQ."))
-
-        self.env["mail.mail"].sudo().create({
-            "subject": _("RFQ %s") % (self.name or ""),
-            "body_html": _(
-                "<p>Dear %(vendor)s,</p>"
-                "<p>Please submit your quotation for RFQ <b>%(rfq)s</b>.</p>"
-                "<p>Regards,<br/>Procurement Team</p>"
-            ) % {
-                "vendor": self.partner_id.display_name,
-                "rfq": self.name,
-            },
-            "email_to": self.partner_id.email,
-        }).send()
-
-        self.write({"state": "sent"})
-        self.message_post(body=_("RFQ email sent to %s.") % self.partner_id.display_name)
+        if not self.partner_id:
+            raise UserError(_("Please set a vendor before sending RFQ."))
+        return self.action_rfq_send()
 
 
 
