@@ -54,9 +54,11 @@
                             invisible="state in ('cancel', 'done')"/>
                     <button name="button_draft" type="object" string="Reset to RFQ" class="btn-secondary"
                             invisible="state != 'cancel'"/>
-                    <button name="action_view_quotations" type="object" string="Submitted Quotations" class="btn-primary"
+                    <button name="action_view_quotations" type="object" string="Submitted Quotations"
+                            class="btn-primary"
                             groups="pr_custom_purchase.procurement_admin"/>
-                    <button name="action_open_rfq_comparison" type="object" string="Compare Quotations" class="btn-secondary"
+                    <button name="action_open_rfq_comparison" type="object" string="Compare Quotations"
+                            class="btn-secondary"
                             groups="pr_custom_purchase.procurement_admin"/>
                     <button name="action_reset_to_draft" type="object" string="Reset Custom RFQ" class="btn-secondary"
                             invisible="state == 'draft'"
@@ -103,21 +105,7 @@
 
                     <notebook>
                         <page string="Products">
-                            <field name="order_line" context="{'default_date_planned': date_planned}">
-                                <tree editable="bottom">
-                                    <field name="product_id"/>
-                                    <field name="name"/>
-                                    <field name="product_qty"/>
-                                    <field name="product_uom_category_id" column_invisible="1"/>
-                                    <field name="product_uom"/>
-                                    <field name="price_unit"/>
-                                    <field name="taxes_id" widget="many2many_tags"/>
-                                    <field name="date_planned"/>
-                                    <field name="price_subtotal"/>
-                                </tree>
-                            </field>
-                        </page>
-                        <page string="Custom RFQ Lines">
+
                             <field name="line_ids" readonly="1">
                                 <tree>
                                     <field name="name"/>

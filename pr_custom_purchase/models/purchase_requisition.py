@@ -514,7 +514,7 @@ class PurchaseRequisition(models.Model):
 
             for line in pr.line_ids:
                 rfq_vals["line_ids"].append((0, 0, {
-                    "name": line.description.name,
+                    "name": line.description.display_name,
                     "quantity": line.quantity,
                     "type": line.type,
                     "unit": line.unit,
