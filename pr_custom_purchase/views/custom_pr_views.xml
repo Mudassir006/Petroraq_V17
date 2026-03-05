@@ -59,6 +59,26 @@
                            decoration-warning="state == 'rfq_sent'"
                            decoration-muted="state == 'draft'"
                            decoration-info="state == 'pending'"/>
+                    <field name="linked_requisition_status" widget="badge"
+                           decoration-success="linked_requisition_status == 'approved'"
+                           decoration-danger="linked_requisition_status == 'rejected'"
+                           decoration-warning="linked_requisition_status == 'pending'"
+                           decoration-muted="linked_requisition_status == 'missing'"/>
+                    <field name="linked_rfq_status" widget="badge"
+                           decoration-success="linked_rfq_status == 'done'"
+                           decoration-danger="linked_rfq_status == 'cancel'"
+                           decoration-warning="linked_rfq_status == 'sent'"
+                           decoration-muted="linked_rfq_status in ('draft','missing')"/>
+                    <field name="linked_quotation_status" widget="badge"
+                           decoration-success="linked_quotation_status == 'po'"
+                           decoration-info="linked_quotation_status == 'quote'"
+                           decoration-muted="linked_quotation_status == 'missing'"/>
+                    <field name="linked_po_status" widget="badge"
+                           decoration-success="linked_po_status in ('purchase','done')"
+                           decoration-danger="linked_po_status == 'cancel'"
+                           decoration-warning="linked_po_status == 'pending'"
+                           decoration-info="linked_po_status in ('draft','sent')"
+                           decoration-muted="linked_po_status == 'missing'"/>
                     <field name="approval" widget="badge"
                            decoration-success="approval == 'approved'"
                            decoration-danger="approval == 'rejected'"
@@ -92,6 +112,10 @@
                                 invisible="state == 'draft'"/>
                         <field name="state" widget="statusbar"
                                statusbar_visible="draft,rfq_sent,pending,purchase,cancel"/>
+                        <field name="approval" widget="badge"
+                               decoration-success="approval == 'approved'"
+                               decoration-danger="approval == 'rejected'"
+                               decoration-info="approval == 'pending'"/>
                     </header>
                     <sheet>
                         <field name="wo_variance_requires_approval" invisible="1"/>
@@ -114,6 +138,10 @@
                         <group>
                             <group>
                                 <field name="approval" invisible='1'/>
+                                <field name="linked_requisition_status" invisible="1"/>
+                                <field name="linked_rfq_status" invisible="1"/>
+                                <field name="linked_quotation_status" invisible="1"/>
+                                <field name="linked_po_status" invisible="1"/>
                                 <field name="show_request_budget_increase_button" invisible="1"/>
                                 <field name="pr_created" invisible='1'/>
                                 <field name="name" invisible='1'/>
@@ -162,6 +190,34 @@
                                 <group>
                                     <field name="rejection_reason" placeholder="Enter Reason for Rejection"
                                            groups="pr_custom_purchase.group_custom_pr_end_user" readonly="1"/>
+                                </group>
+                            </page>
+                            <page string="Linked Status">
+                                <group>
+                                    <group>
+                                        <field name="linked_requisition_status" widget="badge"
+                                               decoration-success="linked_requisition_status == 'approved'"
+                                               decoration-danger="linked_requisition_status == 'rejected'"
+                                               decoration-warning="linked_requisition_status == 'pending'"
+                                               decoration-muted="linked_requisition_status == 'missing'"/>
+                                        <field name="linked_rfq_status" widget="badge"
+                                               decoration-success="linked_rfq_status == 'done'"
+                                               decoration-danger="linked_rfq_status == 'cancel'"
+                                               decoration-warning="linked_rfq_status == 'sent'"
+                                               decoration-muted="linked_rfq_status in ('draft','missing')"/>
+                                    </group>
+                                    <group>
+                                        <field name="linked_quotation_status" widget="badge"
+                                               decoration-success="linked_quotation_status == 'po'"
+                                               decoration-info="linked_quotation_status == 'quote'"
+                                               decoration-muted="linked_quotation_status == 'missing'"/>
+                                        <field name="linked_po_status" widget="badge"
+                                               decoration-success="linked_po_status in ('purchase','done')"
+                                               decoration-danger="linked_po_status == 'cancel'"
+                                               decoration-warning="linked_po_status == 'pending'"
+                                               decoration-info="linked_po_status in ('draft','sent')"
+                                               decoration-muted="linked_po_status == 'missing'"/>
+                                    </group>
                                 </group>
                             </page>
                         </notebook>

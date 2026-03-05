@@ -106,6 +106,31 @@ class PurchaseQuotation(models.Model):
         string="Status",
     )
 
+    linked_rfq_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "Draft"),
+        ("sent", "RFQ Sent"),
+        ("done", "Locked"),
+        ("cancel", "Cancelled"),
+    ], string="RFQ Status", compute="_compute_linked_statuses")
+    linked_pr_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "Draft"),
+        ("rfq_sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("cancel", "Cancelled"),
+    ], string="PR Status", compute="_compute_linked_statuses")
+    linked_po_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "RFQ"),
+        ("sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("done", "Locked"),
+        ("cancel", "Cancelled"),
+    ], string="PO Status", compute="_compute_linked_statuses")
+
     show_create_po_button = fields.Boolean(
         compute="_compute_button_visibility", store=False
     )
@@ -119,6 +144,19 @@ class PurchaseQuotation(models.Model):
     line_ids = fields.One2many(
         "purchase.quotation.line", "quotation_id", string="Quotation Lines"
     )
+
+    def _compute_linked_statuses(self):
+        po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
+        for rec in self:
+            rec.linked_rfq_state = rec.custom_rfq_id.state if rec.custom_rfq_id else "missing"
+            pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
+            rec.linked_pr_state = pr.state if pr else "missing"
+
+            domain = [("pr_name", "=", rec.pr_name)] if rec.pr_name else []
+            if rec.vendor_id:
+                domain.append(("partner_id", "=", rec.vendor_id.id))
+            linked_pos = self.env["purchase.order"].sudo().search(domain) if domain else self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
 
     @api.depends("budget_type", "budget_code")
     def _compute_cost_center(self):

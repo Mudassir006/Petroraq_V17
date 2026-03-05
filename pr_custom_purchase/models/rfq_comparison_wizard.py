@@ -162,6 +162,8 @@ class RFQComparisonWizard(models.TransientModel):
             purchase_orders |= self.env["purchase.order"].sudo().create(po_vals)
 
         selected_lines.mapped("quotation_id").write({"status": "po"})
+        if self.custom_rfq_id:
+            self.custom_rfq_id.sudo().write({"state": "done"})
 
         action = {
             "type": "ir.actions.act_window",

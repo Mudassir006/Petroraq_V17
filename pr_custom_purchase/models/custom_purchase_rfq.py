@@ -31,6 +31,48 @@ class CustomPurchaseRFQ(models.Model):
     quotation_count = fields.Integer(compute="_compute_quotation_count")
     line_ids = fields.One2many("custom.purchase.rfq.line", "rfq_id", string="RFQ Lines")
 
+    linked_pr_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "Draft"),
+        ("rfq_sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("cancel", "Cancelled"),
+    ], string="PR Status", compute="_compute_linked_statuses")
+    linked_po_state = fields.Selection([
+        ("missing", "Not Created"),
+        ("draft", "RFQ"),
+        ("sent", "RFQ Sent"),
+        ("pending", "Pending"),
+        ("purchase", "Purchase Order"),
+        ("done", "Locked"),
+        ("cancel", "Cancelled"),
+    ], string="PO Status", compute="_compute_linked_statuses")
+    linked_quotation_status = fields.Selection([
+        ("missing", "Not Submitted"),
+        ("quote", "Quote"),
+        ("po", "Purchase"),
+    ], string="Quotation Status", compute="_compute_linked_statuses")
+
+    def _compute_linked_statuses(self):
+        po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
+        quotation_priority = {"quote": 1, "po": 2}
+
+        for rec in self:
+            pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
+            rec.linked_pr_state = pr.state if pr else "missing"
+
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
+            if linked_pos:
+                rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state
+            else:
+                rec.linked_po_state = "missing"
+
+            if rec.quotation_ids:
+                rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status, 0)).status
+            else:
+                rec.linked_quotation_status = "missing"
+
     @api.depends("quotation_ids")
     def _compute_quotation_count(self):
         for rec in self:

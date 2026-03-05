@@ -457,18 +457,10 @@ class PurchaseRequisition(models.Model):
     #     }
     def action_view_related_rfqs(self):
         self.ensure_one()
-
-        return {
-            "type": "ir.actions.act_window",
-            "name": "RFQs",
-            "res_model": "custom.purchase.rfq",
-            "view_mode": "tree,form",
-            "domain": [("requisition_id", "=", self.id)],
-            "context": {
-                "default_requisition_id": self.id,
-                "default_pr_name": self.name,
-            },
-        }
+        action = self.env.ref("pr_custom_purchase.action_custom_purchase_rfq").read()[0]
+        action["domain"] = [("requisition_id", "=", self.id)]
+        action["context"] = {"default_requisition_id": self.id, "default_pr_name": self.name}
+        return action
 
     def action_create_rfq(self):
         """Create Custom RFQ from this PR and keep PO sequencing independent."""

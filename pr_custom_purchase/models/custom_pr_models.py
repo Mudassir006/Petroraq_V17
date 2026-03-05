@@ -89,6 +89,79 @@ class CustomPR(models.Model):
     show_request_budget_increase_button = fields.Boolean(
         compute="_compute_show_request_budget_increase_button"
     )
+    linked_requisition_status = fields.Selection(
+        [
+            ('missing', 'Not Created'),
+            ('pending', 'Pending Approval'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+        ],
+        string="PR Approval Status",
+        compute="_compute_linked_document_statuses",
+    )
+    linked_rfq_status = fields.Selection(
+        [
+            ('missing', 'Not Created'),
+            ('draft', 'Draft'),
+            ('sent', 'RFQ Sent'),
+            ('done', 'Locked'),
+            ('cancel', 'Cancelled'),
+        ],
+        string="RFQ Status",
+        compute="_compute_linked_document_statuses",
+    )
+    linked_quotation_status = fields.Selection(
+        [
+            ('missing', 'Not Submitted'),
+            ('quote', 'Quote'),
+            ('po', 'Purchase'),
+        ],
+        string="Quotation Status",
+        compute="_compute_linked_document_statuses",
+    )
+    linked_po_status = fields.Selection(
+        [
+            ('missing', 'Not Created'),
+            ('draft', 'RFQ'),
+            ('sent', 'RFQ Sent'),
+            ('pending', 'Pending'),
+            ('purchase', 'Purchase Order'),
+            ('done', 'Locked'),
+            ('cancel', 'Cancelled'),
+        ],
+        string="Purchase Order Status",
+        compute="_compute_linked_document_statuses",
+    )
+
+    def _compute_linked_document_statuses(self):
+        rfq_priority = {'draft': 1, 'sent': 2, 'done': 3, 'cancel': 4}
+        po_priority = {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'done': 5, 'cancel': 6}
+        quotation_priority = {'quote': 1, 'po': 2}
+
+        for rec in self:
+            requisition = self.env['purchase.requisition'].sudo().search([('name', '=', rec.name)], limit=1)
+            rec.linked_requisition_status = requisition.approval if requisition else 'missing'
+
+            rfqs = self.env['custom.purchase.rfq'].sudo().search([('pr_name', '=', rec.name)])
+            if rfqs:
+                best_rfq = max(rfqs, key=lambda rfq: rfq_priority.get(rfq.state, 0))
+                rec.linked_rfq_status = best_rfq.state
+            else:
+                rec.linked_rfq_status = 'missing'
+
+            quotations = self.env['purchase.quotation'].sudo().search([('pr_name', '=', rec.name)])
+            if quotations:
+                best_quotation = max(quotations, key=lambda quote: quotation_priority.get(quote.status, 0))
+                rec.linked_quotation_status = best_quotation.status
+            else:
+                rec.linked_quotation_status = 'missing'
+
+            purchase_orders = self.env['purchase.order'].sudo().search([('pr_name', '=', rec.name)])
+            if purchase_orders:
+                best_po = max(purchase_orders, key=lambda po: po_priority.get(po.state, 0))
+                rec.linked_po_status = best_po.state
+            else:
+                rec.linked_po_status = 'missing'
 
     def _compute_budget_increase_request_count(self):
         Request = self.env['budget.increase.request'].sudo()
