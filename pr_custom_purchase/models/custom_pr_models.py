@@ -698,4 +698,4 @@ class PurchaseOrder(models.Model):
 
     def print_quotation(self):
         """Override Print RFQ to use custom PetroRaq Draft Invoice report"""
-        return self.env.ref('pr_custom_purchase.action_report_petroraq_draft_invoice').report_action(self)
+        return self.env.ref('pr_custom_purchase.petroraq_purchase_order_action_id').report_action(self)
