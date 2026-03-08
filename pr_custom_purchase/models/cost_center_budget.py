@@ -7,7 +7,7 @@ class AccountAnalyticAccount(models.Model):
 
     expense_bucket_id = fields.Many2one(
         "pr.expense.bucket",
-        string="Expense Bucket",
+        string="Expense",
         help="Expense bucket (Capex/Opex for Department/Project) this cost center belongs to.",
     )
 

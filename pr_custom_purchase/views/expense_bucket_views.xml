@@ -84,7 +84,7 @@
         <field name="name">pr.expense.bucket.reject.wizard.form</field>
         <field name="model">pr.expense.bucket.reject.wizard</field>
         <field name="arch" type="xml">
-            <form string="Reject Expense Bucket">
+            <form string="Reject Expense">
                 <group>
                     <field name="bucket_id" readonly="1"/>
                     <field name="rejection_reason"/>
@@ -104,7 +104,7 @@
     </record>
 
     <menuitem id="menu_pr_expense_bucket"
-              name="Expense Buckets"
+              name="Expenses"
               parent="pr_custom_purchase.menu_purchase_requisition"
               action="action_pr_expense_bucket"
               sequence="30"/>

@@ -4,7 +4,7 @@ from odoo.exceptions import UserError, ValidationError
 
 class ExpenseBucket(models.Model):
     _name = "pr.expense.bucket"
-    _description = "PR Expense Bucket"
+    _description = "PR Expense "
     _inherit = ["mail.thread", "mail.activity.mixin"]
 
     name = fields.Char(required=True, tracking=True)
@@ -22,11 +22,11 @@ class ExpenseBucket(models.Model):
         tracking=True,
     )
     department_id = fields.Many2one("hr.department", string="Department", tracking=True)
-    budget_amount = fields.Float(string="Bucket Budget", required=True, tracking=True)
+    budget_amount = fields.Float(string=" Budget", required=True, tracking=True)
 
     state = fields.Selection([
         ("draft", "Draft"),
-        ("pm_approval", "Pending Project Manager"),
+        ("pm_approval", "Pending Department/Project Manager"),
         ("accounts_approval", "Pending Accounts"),
         ("md_approval", "Pending Managing Director"),
         ("approved", "Approved"),
@@ -74,20 +74,30 @@ class ExpenseBucket(models.Model):
     @api.depends_context("uid")
     def _compute_role_flags(self):
         user = self.env.user
-        is_pm = user.has_group("pr_custom_purchase.project_manager")
+        is_project_manager = user.has_group("pr_custom_purchase.project_manager")
         is_accounts = user.has_group("account.group_account_manager") or user.has_group("account.group_account_user")
         is_md = user.has_group("pr_custom_purchase.managing_director")
         for rec in self:
-            rec.can_pm_approve = is_pm
+            is_department_manager = bool(
+                rec.scope == "department"
+                and rec.department_id.manager_id.user_id
+                and rec.department_id.manager_id.user_id == user
+            )
+            rec.can_pm_approve = is_department_manager or (rec.scope == "project" and is_project_manager)
             rec.can_accounts_approve = is_accounts
             rec.can_md_approve = is_md
             rec.can_reject = (
                     (rec.state == "draft")
-                    or (rec.state == "pm_approval" and is_pm)
+                    or (rec.state == "pm_approval" and rec.can_pm_approve)
                     or (rec.state == "accounts_approval" and is_accounts)
                     or (rec.state == "md_approval" and is_md)
             )
 
+
+    def _get_department_manager_users(self):
+        self.ensure_one()
+        manager_user = self.department_id.manager_id.user_id
+        return manager_user if manager_user and manager_user.active else self.env["res.users"]
 
     def _notify_group(self, group_xml_ids, summary, note):
         activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
@@ -116,13 +126,34 @@ class ExpenseBucket(models.Model):
                     "body_html": f"<p>{note}</p>",
                 }).send()
 
+    def _notify_users(self, users, summary, note):
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        users = users.filtered(lambda u: u.active)
+        for rec in self:
+            for user in users:
+                if activity_type:
+                    rec.activity_schedule(
+                        activity_type_id=activity_type.id,
+                        user_id=user.id,
+                        summary=summary,
+                        note=note,
+                    )
+            emails = ",".join(users.filtered(lambda u: u.email).mapped("email"))
+            if emails:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": emails,
+                    "subject": summary,
+                    "body_html": f"<p>{note}</p>",
+                }).send()
+
     def action_reset_to_draft(self):
         for rec in self:
             rec.write({
                 "state": "draft",
                 "rejection_reason": False,
             })
-            rec.message_post(body=_("Expense Bucket has been reset to draft."))
+            rec.message_post(body=_("Expense  has been reset to draft."))
 
     @api.onchange("scope")
     def _onchange_scope(self):
@@ -160,17 +191,34 @@ class ExpenseBucket(models.Model):
                 continue
             if not rec.line_ids:
                 raise UserError(_("Add at least one cost center line."))
+
+            if rec.scope == "department" and not rec._get_department_manager_users():
+                raise UserError(_("Please set a Department Manager user for the selected department before submitting."))
+
             rec.state = "pm_approval"
-            rec._notify_group(["pr_custom_purchase.project_manager"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for PM approval.") % rec.display_name)
+            if rec.scope == "department":
+                rec._notify_users(
+                    rec._get_department_manager_users(),
+                    _("Expense  Approval Needed"),
+                    _("Expense  <b>%s</b> is waiting for Department Manager approval.") % rec.display_name,
+                )
+            else:
+                rec._notify_group(
+                    ["pr_custom_purchase.project_manager"],
+                    _("Expense  Approval Needed"),
+                    _("Expense  <b>%s</b> is waiting for Project Manager approval.") % rec.display_name,
+                )
 
     def action_pm_approve(self):
         for rec in self:
             if rec.state != "pm_approval":
                 continue
             if not rec.can_pm_approve:
+                if rec.scope == "department":
+                    raise UserError(_("Only Department Manager can approve at this stage."))
                 raise UserError(_("Only Project Manager can approve at this stage."))
             rec.state = "accounts_approval"
-            rec._notify_group(["account.group_account_manager", "account.group_account_user"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for Accounts approval.") % rec.display_name)
+            rec._notify_group(["account.group_account_manager", "account.group_account_user"], _("Expense  Approval Needed"), _("Expense  <b>%s</b> is waiting for Accounts approval.") % rec.display_name)
 
     def action_accounts_approve(self):
         for rec in self:
@@ -179,7 +227,7 @@ class ExpenseBucket(models.Model):
             if not rec.can_accounts_approve:
                 raise UserError(_("Only Accounts can approve at this stage."))
             rec.state = "md_approval"
-            rec._notify_group(["pr_custom_purchase.managing_director"], _("Expense Bucket Approval Needed"), _("Expense Bucket <b>%s</b> is waiting for Managing Director approval.") % rec.display_name)
+            rec._notify_group(["pr_custom_purchase.managing_director"], _("Expense  Approval Needed"), _("Expense  <b>%s</b> is waiting for Managing Director approval.") % rec.display_name)
 
     def action_md_approve(self):
         for rec in self:
@@ -195,7 +243,7 @@ class ExpenseBucket(models.Model):
             raise UserError(_("You cannot reject this request at the current stage."))
         return {
             "type": "ir.actions.act_window",
-            "name": _("Reject Expense Bucket"),
+            "name": _("Reject Expense "),
             "res_model": "pr.expense.bucket.reject.wizard",
             "view_mode": "form",
             "target": "new",
@@ -205,7 +253,7 @@ class ExpenseBucket(models.Model):
 
 class ExpenseBucketLine(models.Model):
     _name = "pr.expense.bucket.line"
-    _description = "PR Expense Bucket Line"
+    _description = "PR Expense  Line"
 
     bucket_id = fields.Many2one("pr.expense.bucket", required=True, ondelete="cascade")
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
@@ -264,7 +312,7 @@ class ExpenseBucketLine(models.Model):
 
 class ExpenseBucketRejectWizard(models.TransientModel):
     _name = "pr.expense.bucket.reject.wizard"
-    _description = "Expense Bucket Reject Wizard"
+    _description = "Expense  Reject Wizard"
 
     bucket_id = fields.Many2one("pr.expense.bucket", required=True)
     rejection_reason = fields.Text(required=True)
