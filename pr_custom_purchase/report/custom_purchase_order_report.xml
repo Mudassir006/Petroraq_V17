@@ -21,20 +21,20 @@
             <field name="name">Petroraq Purchase Order Report</field>
             <field name="model">purchase.order</field>
             <field name="report_type">qweb-pdf</field>
-            <field name="report_name">pr_purchase.petroraq_purchase_order_temp_id</field>
-            <field name="report_file">pr_purchase.petroraq_purchase_order_temp_id</field>
+            <field name="report_name">pr_custom_purchase.petroraq_purchase_order_temp_id</field>
+            <field name="report_file">pr_custom_purchase.petroraq_purchase_order_temp_id</field>
             <field name="print_report_name">(object._get_report_base_filename())</field>
             <field name="binding_model_id" ref="purchase.model_purchase_order"/>
             <field name="binding_type">report</field>
-            <field name="paperformat_id" ref="pr_purchase.paperformat_petroraq_invoice_report_sheet"/>
+            <field name="paperformat_id" ref="pr_custom_purchase.paperformat_petroraq_invoice_report_sheet"/>
         </record>
 
 
     <!--Template for VAT invoice report-->
-    <template id="pr_purchase.petroraq_purchase_order_temp_id">
+    <template id="pr_custom_purchase.petroraq_purchase_order_temp_id">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <t t-call="pr_purchase.custom_invoice_bridge_layout" style="margin: 0 !important;padding: 0 !important;width: 100% !important;">
+                <t t-call="pr_custom_purchase.custom_invoice_bridge_layout" style="margin: 0 !important;padding: 0 !important;width: 100% !important;">
 <!--                <t t-call="web.internal_layout">-->
                     <link href='https://fonts.googleapis.com/css?family=Arabic sans serif Fonts'
                               rel="stylesheet"/>

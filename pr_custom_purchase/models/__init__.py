@@ -14,3 +14,4 @@ from . import budget_increase_request
 from . import rfq_comparison_wizard
 
 from . import custom_purchase_rfq
+from . import models
