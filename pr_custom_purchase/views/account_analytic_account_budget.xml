@@ -8,6 +8,7 @@
             <xpath expr="//sheet/group" position="inside">
                 <group string="Budget">
                     <field name="expense_bucket_id"/>
+                    <field name="department_id"/>
                     <field name="budget_type"/>
                     <field name="budget_code"/>
                     <field name="budget_allowance"/>

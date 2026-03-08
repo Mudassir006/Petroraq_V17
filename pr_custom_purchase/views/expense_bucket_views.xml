@@ -30,6 +30,7 @@
                     <field name="can_accounts_approve" invisible="1"/>
                     <field name="can_md_approve" invisible="1"/>
                     <field name="can_reject" invisible="1"/>
+                    <field name="can_reset_to_draft" invisible="1"/>
                     <button name="action_submit" type="object" string="Submit" class="btn-primary"
                             invisible="state != 'draft'"/>
                     <button name="action_pm_approve" type="object" string="Approve" class="btn-primary"
@@ -41,21 +42,21 @@
                     <button name="action_reject" type="object" string="Reject" class="btn-secondary"
                             invisible="not can_reject"/>
                     <button name="action_reset_to_draft" type="object" string="Reset to Draft" class="btn-secondary"
-                            invisible="state == 'draft'"/>
+                            invisible="state == 'draft' or not can_reset_to_draft"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,pm_approval,accounts_approval,md_approval,approved,rejected"/>
                 </header>
                 <sheet>
                     <group>
                         <group>
-                            <field name="name" readonly="state == 'approved'"/>
-                            <field name="scope" readonly="state == 'approved'"/>
-                            <field name="expense_type" readonly="state == 'approved'"/>
+                            <field name="name" readonly="state != 'draft'"/>
+                            <field name="scope" readonly="state != 'draft'"/>
+                            <field name="expense_type" readonly="state != 'draft'"/>
                             <field name="department_id" invisible="scope != 'department'"
-                                   required="scope == 'department'" readonly="state == 'approved'"/>
+                                   required="scope == 'department'" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="budget_amount" readonly="state == 'approved'"/>
+                            <field name="budget_amount" readonly="state != 'draft'"/>
                             <field name="cost_center_budget_total" readonly="1"/>
                             <field name="budget_left" readonly="1"/>
                             <field name="rejection_reason" readonly="1" invisible="not rejection_reason"/>
@@ -63,13 +64,13 @@
                     </group>
                     <notebook>
                         <page string="Cost Centers">
-                            <field name="line_ids" readonly="state == 'approved'">
+                            <field name="line_ids" readonly="state != 'draft'">
                                 <tree editable="bottom">
-                                    <field name="cost_center_id"/>
+                                    <field name="cost_center_id" domain="[('expense_bucket_id','in',[False,parent.id]), ('department_id','=?', parent.department_id)]"/>
                                     <field name="budget_code" readonly="1"/>
                                     <field name="budget_type" readonly="1"/>
-                                    <field name="budget_allowance" readonly="1"/>
-                                    <field name="budget_left" readonly="1"/>
+                                    <field name="current_budget_remaining" readonly="1"/>
+                                    <field name="requested_budget" readonly="parent.state != 'draft'"/>
                                 </tree>
                             </field>
                         </page>
