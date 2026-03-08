@@ -10,6 +10,10 @@
 
     "application": False,
     "installable": True,
-    "depends": ["sale_management"],
-    "data": ["data/ir_sequence_data.xml", "views/sales_config.xml"],
+    "depends": ["sale_management", "purchase"],
+    "data": [
+        "data/ir_sequence_data.xml",
+        "views/sales_config.xml",
+        "views/purchase_config.xml",
+    ],
 }

@@ -14,7 +14,11 @@
                 <field name="contract_amount"/>
                 <!--                <field name="actual_cost"/>-->
                 <!--                <field name="actual_margin"/>-->
-                <field name="state"/>
+                <field name="state" widget="badge"
+                       decoration-success="state in ('approved', 'done')"
+                       decoration-danger="state in ('rejected', 'cancel')"
+                       decoration-warning="state in ('draft', 'ops_approval', 'acc_approval', 'final_approval')"
+                       decoration-info="state in ('in_progress', 'pm_approval', 'accounts_approval', 'md_approval')"/>
             </tree>
         </field>
     </record>
@@ -89,6 +93,13 @@
                             class="btn-danger"
                             groups="pr_work_order.custom_group_work_order_management"
                             invisible="state != 'final_approval'"/>
+
+                    <button name="action_open_create_pr_wizard"
+                            type="object"
+                            string="Create PR"
+                            class="btn-primary"
+                            groups="pr_custom_purchase.group_custom_pr_end_user"
+                            invisible="state not in ['acc_approval', 'final_approval', 'approved', 'in_progress', 'done']"/>
 
 
                     <field name="state" widget="statusbar"
