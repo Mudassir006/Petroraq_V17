@@ -10,12 +10,6 @@ class AccountAnalyticAccount(models.Model):
         string="Expense",
         help="Expense bucket (Capex/Opex for Department/Project) this cost center belongs to.",
     )
-    department_id = fields.Many2one(
-        "hr.department",
-        string="Department",
-        help="Department mapped to this cost center.",
-    )
-
     budget_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")],
         string="Budget Type",
