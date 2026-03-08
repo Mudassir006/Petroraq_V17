@@ -2,6 +2,7 @@ from odoo import models
 from datetime import datetime, date, timedelta
 import base64
 from io import BytesIO
+from reportlab.lib.units import mm
 
 
 class PurchaseOrder(models.Model):
@@ -212,10 +213,11 @@ class PurchaseOrder(models.Model):
         """Create email PDF with existing custom content and purchase-report style header/footer."""
         try:
             from odoo.modules.module import get_module_resource
-            from reportlab.lib.pagesizes import A4
             from reportlab.lib import colors
             from reportlab.lib.styles import getSampleStyleSheet
             from reportlab.lib.utils import ImageReader
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
         except Exception:
             return b''
@@ -223,9 +225,22 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         terms = self._get_terms_section()
 
+        # Match module report paper format (250mm x 370mm)
+        page_width = 250 * mm
+        page_height = 370 * mm
+
         # Resolve static assets used by report header/footer templates
         header_img = get_module_resource('pr_custom_purchase', 'static', 'src', 'img', 'white_header.jpg')
         footer_img = get_module_resource('pr_custom_purchase', 'static', 'src', 'img', 'blue_footer.jpeg')
+        arabic_font_path = get_module_resource(
+            'pr_custom_purchase',
+            'static',
+            'src',
+            'font',
+            'droid-arabic-naskh-regular',
+            'Droid Arabic Naskh Regular',
+            'Droid Arabic Naskh Regular.ttf',
+        )
 
         try:
             header_reader = ImageReader(header_img) if header_img else None
@@ -236,16 +251,26 @@ class PurchaseOrder(models.Model):
         except Exception:
             footer_reader = None
 
-        page_width, page_height = A4
-        top_margin = 105
-        bottom_margin = 120
+        arabic_font = None
+        try:
+            if arabic_font_path:
+                arabic_font = 'DroidArabicNaskh'
+                pdfmetrics.registerFont(TTFont(arabic_font, arabic_font_path))
+        except Exception:
+            arabic_font = None
+
+        # Keep body area clear from larger branded header/footer
+        left_margin = 18 * mm
+        right_margin = 18 * mm
+        top_margin = 70 * mm
+        bottom_margin = 52 * mm
 
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
-            pagesize=A4,
-            leftMargin=36,
-            rightMargin=36,
+            pagesize=(page_width, page_height),
+            leftMargin=left_margin,
+            rightMargin=right_margin,
             topMargin=top_margin,
             bottomMargin=bottom_margin,
         )
@@ -255,9 +280,9 @@ class PurchaseOrder(models.Model):
         def _draw_header_footer(canvas, _doc):
             canvas.saveState()
 
-            # Header image like custom_invoice_header_layout
+            # Header image like custom_invoice_header_layout (full width, taller)
             if header_reader:
-                header_h = 65
+                header_h = 42 * mm
                 canvas.drawImage(
                     header_reader,
                     0,
@@ -268,42 +293,45 @@ class PurchaseOrder(models.Model):
                     mask='auto',
                 )
 
-            # Footer line + disclaimer text similar to custom_invoice_footer_layout
-            disclaimer_y = 58
+            # Footer disclaimer block similar to custom_invoice_footer_layout
+            disclaimer_y = 27 * mm
             canvas.setStrokeColorRGB(0.19, 0.31, 0.51)
             canvas.setLineWidth(0.8)
-            canvas.line(36, disclaimer_y + 22, page_width - 36, disclaimer_y + 22)
+            canvas.line(left_margin, disclaimer_y + 11 * mm, page_width - right_margin, disclaimer_y + 11 * mm)
 
             canvas.setFillColorRGB(0, 0, 0)
             canvas.setFont('Helvetica', 8)
-            canvas.drawString(36, disclaimer_y + 8, 'This is computer generated document, no signature and stamp required')
+            en_text = 'This is computer generated document, no signature and stamp required'
+            canvas.drawString(left_margin, disclaimer_y + 7 * mm, en_text)
 
-            arabic_text = 'هذه وثيقة تم إنشاؤها بواسطة الكمبيوتر، ولا تتطلب توقيعًا أو ختمًا'
-            try:
-                tw = canvas.stringWidth(arabic_text, 'Helvetica', 8)
-                canvas.drawString(page_width - 36 - tw, disclaimer_y + 8, arabic_text)
-            except Exception:
-                pass
+            ar_text = 'هذه وثيقة تم إنشاؤها بواسطة الكمبيوتر، ولا تتطلب توقيعًا أو ختمًا'
+            if arabic_font:
+                try:
+                    canvas.setFont(arabic_font, 8)
+                    tw = canvas.stringWidth(ar_text, arabic_font, 8)
+                    canvas.drawString(page_width - right_margin - tw, disclaimer_y + 7 * mm, ar_text)
+                except Exception:
+                    pass
 
-            # Footer image
+            # Footer image as full-width band
             if footer_reader:
-                footer_h = 34
+                footer_h = 17 * mm
                 canvas.drawImage(
                     footer_reader,
                     0,
-                    18,
+                    8 * mm,
                     width=page_width,
                     height=footer_h,
                     preserveAspectRatio=False,
                     mask='auto',
                 )
 
-            # Page counter at very bottom center
+            # Page counter centered at bottom
             canvas.setFillColorRGB(0.07, 0.19, 0.38)
             canvas.setFont('Helvetica', 8)
             page_txt = f'Page: {canvas.getPageNumber()}'
             tw = canvas.stringWidth(page_txt, 'Helvetica', 8)
-            canvas.drawString((page_width - tw) / 2.0, 8, page_txt)
+            canvas.drawString((page_width - tw) / 2.0, 4 * mm, page_txt)
 
             canvas.restoreState()
 
