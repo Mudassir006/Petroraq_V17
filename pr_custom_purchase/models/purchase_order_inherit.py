@@ -32,10 +32,6 @@ class PurchaseOrder(models.Model):
         project_name = getattr(self, 'project_id', False) and self.project_id.display_name or ''
         budget_type = getattr(self, 'budget_type', '') or ''
         budget_code = getattr(self, 'budget_code', '') or ''
-        pr_name = getattr(self, 'pr_name', '') or ''
-        requested_by = getattr(self, 'requested_by', '') or ''
-        department = getattr(self, 'department', '') or ''
-        supervisor = getattr(self, 'supervisor', '') or ''
 
         total_amount = getattr(self, 'amount_total', 0.0)
 
@@ -58,19 +54,7 @@ class PurchaseOrder(models.Model):
           <tr>
             <td><strong>Project</strong></td>
             <td>{project_name}</td>
-            <td><strong>PR Name</strong></td>
-            <td>{pr_name}</td>
-          </tr>
-          <tr>
-            <td><strong>Requested By</strong></td>
-            <td>{requested_by}</td>
-            <td><strong>Department</strong></td>
-            <td>{department}</td>
-          </tr>
-          <tr>
-            <td><strong>Supervisor</strong></td>
-            <td>{supervisor}</td>
-             <td><strong>Quotation Ref No</strong></td>
+            <td><strong>Quotation Ref No</strong></td>
             <td>{rfq_origin}</td>
           </tr>
         </table>
@@ -351,9 +335,7 @@ class PurchaseOrder(models.Model):
             ['Vendor', _val(self.partner_id.display_name or ''), 'Vendor Ref', _val(self.partner_ref or '')],
             ['RFQ Origin', _val(self.name), 'Expected Arrival', _val(
                 self._format_expected_arrival(self._get_expected_arrival_from_quotation() or self.date_planned or ''))],
-            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'PR Name', _val(getattr(self, 'pr_name', ''))],
-            ['Requested By', _val(getattr(self, 'requested_by', '')), 'Department', _val(getattr(self, 'department', ''))],
-            ['Supervisor', _val(getattr(self, 'supervisor', '')), 'Quotation Ref No', _val(self.name)],
+            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'Quotation Ref No', _val(self.name)],
         ]
         t_summary = Table(data_summary, colWidths=[90, 170, 110, 170])
         t_summary.setStyle(TableStyle([
