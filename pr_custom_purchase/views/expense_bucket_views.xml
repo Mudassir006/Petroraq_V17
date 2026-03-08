@@ -54,6 +54,7 @@
                             <field name="expense_type" readonly="state != 'draft'"/>
                             <field name="department_id" invisible="scope != 'department'"
                                    required="scope == 'department'" readonly="state != 'draft'"/>
+                            <field name="cost_center_department_id" invisible="scope != 'department'" required="scope == 'department'" readonly="state != 'draft'"/>
                         </group>
                         <group>
                             <field name="budget_amount" readonly="state != 'draft'"/>
@@ -66,7 +67,7 @@
                         <page string="Cost Centers">
                             <field name="line_ids" readonly="state != 'draft'">
                                 <tree editable="bottom">
-                                    <field name="cost_center_id" domain="[('expense_bucket_id','in',[False,parent.id]), ('department_id','=?', parent.department_id)]"/>
+                                    <field name="cost_center_id" domain="[('expense_bucket_id','in',[False,parent.id]), ('department_id','=?', parent.cost_center_department_id)]"/>
                                     <field name="budget_code" readonly="1"/>
                                     <field name="budget_type" readonly="1"/>
                                     <field name="current_budget_remaining" readonly="1"/>

@@ -22,6 +22,13 @@ class ExpenseBucket(models.Model):
         tracking=True,
     )
     department_id = fields.Many2one("hr.department", string="Department", tracking=True)
+    cost_center_department_id = fields.Many2one(
+        "account.analytic.account",
+        string="Cost Center Department",
+        domain=[("analytic_plan_type", "=", "department")],
+        tracking=True,
+        help="Department node used to filter selectable cost centers.",
+    )
     budget_amount = fields.Float(string=" Budget", required=True, tracking=True)
 
     state = fields.Selection([
@@ -166,6 +173,7 @@ class ExpenseBucket(models.Model):
         for rec in self:
             if rec.scope != "department":
                 rec.department_id = False
+                rec.cost_center_department_id = False
 
     @api.constrains("scope", "department_id")
     def _check_scope_target(self):
@@ -183,7 +191,7 @@ class ExpenseBucket(models.Model):
                 ) % (total, rec.budget_amount))
 
     def write(self, vals):
-        protected_fields = {"name", "scope", "expense_type", "department_id", "budget_amount",
+        protected_fields = {"name", "scope", "expense_type", "department_id", "cost_center_department_id", "budget_amount",
                             "line_ids"}
         if any(field in vals for field in protected_fields):
             for rec in self:
