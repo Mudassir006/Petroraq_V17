@@ -40,7 +40,8 @@
                     <button name="action_request_budget_increase"
                             type="object"
                             string="Request Budget Increase"
-                            class="btn-secondary"/>
+                            class="btn-secondary"
+                            invisible="not show_request_budget_increase_button"/>
                     <button name="action_create_rfq"
                             type="object"
                             string="Create RFQ"
@@ -64,6 +65,7 @@
                     <field name="wo_variance_requires_approval" invisible="1"/>
                     <field name="rfq_count" invisible="1"/>
                     <field name="rfq_sent_count" invisible="1"/>
+                    <field name="show_request_budget_increase_button" invisible="1"/>
 
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_related_rfqs"

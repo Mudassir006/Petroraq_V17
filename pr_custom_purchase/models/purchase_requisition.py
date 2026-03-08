@@ -99,6 +99,9 @@ class PurchaseRequisition(models.Model):
     show_create_po_button = fields.Boolean(
         compute="_compute_button_visibility", store=False
     )
+    show_request_budget_increase_button = fields.Boolean(
+        compute="_compute_show_request_budget_increase_button", store=False
+    )
     project_id = fields.Many2one("project.project", string="Project")
     expense_bucket_id = fields.Many2one("pr.expense.bucket", string="Expense")
     expense_scope = fields.Selection(
@@ -254,6 +257,21 @@ class PurchaseRequisition(models.Model):
                     break
             rec.wo_variance_requires_approval = variance_found
 
+    @api.depends("line_ids.total_price", "line_ids.cost_center_id", "line_ids.cost_center_id.budget_left")
+    def _compute_show_request_budget_increase_button(self):
+        for rec in self:
+            amount_by_cost_center = {}
+            for line in rec.line_ids:
+                line_cc = line.cost_center_id
+                if not line_cc:
+                    continue
+                amount_by_cost_center.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
+                amount_by_cost_center[line_cc.id]["amount"] += line.total_price
+
+            rec.show_request_budget_increase_button = any(
+                item["amount"] > item["cc"].budget_left for item in amount_by_cost_center.values()
+            )
+
     def action_request_budget_increase(self):
         self.ensure_one()
         line_amounts = {}
@@ -263,6 +281,15 @@ class PurchaseRequisition(models.Model):
                 continue
             line_amounts.setdefault(line_cc.id, {"cc": line_cc, "amount": 0.0})
             line_amounts[line_cc.id]["amount"] += line.total_price
+
+        exceeded_cost_centers = [
+            item for item in line_amounts.values() if item["amount"] > item["cc"].budget_left
+        ]
+
+        if not exceeded_cost_centers:
+            raise ValidationError(
+                _("All cost center lines are within budget. Budget increase request is not required.")
+            )
 
         custom_pr = self.env["custom.pr"].sudo().search([("name", "=", self.name)], limit=1)
 
@@ -275,7 +302,7 @@ class PurchaseRequisition(models.Model):
                     "cost_center_id": item["cc"].id,
                     "requested_increase": max(item["amount"] - item["cc"].budget_left, 1.0),
                 })
-                for item in line_amounts.values()
+                for item in exceeded_cost_centers
             ],
         })
 
