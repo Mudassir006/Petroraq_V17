@@ -477,18 +477,6 @@ class PurchaseOrder(models.Model):
     show_pm_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
     show_od_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
     show_md_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    # Track which users already acted (approved/rejected) so we can hide buttons for them only
-    approval_action_user_ids = fields.Many2many(
-        "res.users",
-        "purchase_order_approval_action_user_rel",
-        "order_id",
-        "user_id",
-        string="Users Who Acted",
-        copy=False,
-    )
-    current_user_has_acted = fields.Boolean(
-        compute="_compute_current_user_has_acted", store=False
-    )
     subtotal = fields.Float(
         string="Subtotal", compute="_compute_amount_untaxed_custom", store=True
     )
@@ -658,16 +646,10 @@ class PurchaseOrder(models.Model):
                     "body_html": f"<p>{note}</p>",
                 }).send()
 
-    def _compute_current_user_has_acted(self):
-        uid = self.env.user.id
-        for order in self:
-            order.current_user_has_acted = bool(order.approval_action_user_ids.filtered(lambda u: u.id == uid))
-
     # main approval logic
     def action_approve(self):
         self.ensure_one()
         amount = self.subtotal
-        acting_user_id = self.env.user.id
 
         if amount <= 10000:
             if not self.pe_approved:
@@ -737,8 +719,6 @@ class PurchaseOrder(models.Model):
                 self.write({"md_approved": True})
                 self.message_post(body="Approved by Managing Director.")
 
-        # Mark current user as having acted so their buttons hide
-        self.sudo().write({"approval_action_user_ids": [(4, acting_user_id)]})
         return self._reload_action()
 
     # confirm order button visibility
@@ -802,7 +782,6 @@ class PurchaseOrder(models.Model):
                 "pm_approved": False,
                 "od_approved": False,
                 "md_approved": False,
-                "approval_action_user_ids": [(5, 0, 0)],
             })
 
             if order.pr_name:
@@ -831,9 +810,6 @@ class PurchaseOrder(models.Model):
                 order.origin,
                 rejecting_user.name,
             )
-
-            # Record action for current user to hide buttons for them only
-            order.sudo().write({"approval_action_user_ids": [(4, self.env.user.id)]})
 
             # Step 1: Find the PO with this origin
             parent_po = self.env["purchase.order"].search(
