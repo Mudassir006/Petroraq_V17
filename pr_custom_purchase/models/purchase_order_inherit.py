@@ -161,13 +161,7 @@ class PurchaseOrder(models.Model):
         # Generate and attach PO PDF (pure Python using reportlab)
         attachment_ids = []
         try:
-            pdf_bytes = self._build_email_pdf_bytes(
-                vendor_name=vendor_name,
-                summary_html=summary_html,
-                custom_lines=self.custom_line_ids,
-                currency_name=getattr(self, 'currency_id', False) and self.currency_id.name or '',
-                terms=terms
-            )
+            pdf_bytes = self._build_email_pdf_bytes()
             if pdf_bytes:
                 Attachment = self.env['ir.attachment'].sudo()
                 filename = f"{self.name}.pdf"
@@ -214,64 +208,137 @@ class PurchaseOrder(models.Model):
             'context': ctx,
         }
 
-    def _build_email_pdf_bytes(self, vendor_name, summary_html, custom_lines, currency_name, terms):
-        """Create a PDF in-memory with the same info as the email body using reportlab.
-        Returns raw PDF bytes or b'' if reportlab is not available.
-        """
+    def _build_email_pdf_bytes(self):
+        """Create email PDF with existing custom content and purchase-report style header/footer."""
         try:
+            from odoo.modules.module import get_module_resource
             from reportlab.lib.pagesizes import A4
             from reportlab.lib import colors
             from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib.utils import ImageReader
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
         except Exception:
             return b''
 
+        self.ensure_one()
+        terms = self._get_terms_section()
+
+        # Resolve static assets used by report header/footer templates
+        header_img = get_module_resource('pr_custom_purchase', 'static', 'src', 'img', 'white_header.jpg')
+        footer_img = get_module_resource('pr_custom_purchase', 'static', 'src', 'img', 'blue_footer.jpeg')
+
+        try:
+            header_reader = ImageReader(header_img) if header_img else None
+        except Exception:
+            header_reader = None
+        try:
+            footer_reader = ImageReader(footer_img) if footer_img else None
+        except Exception:
+            footer_reader = None
+
+        page_width, page_height = A4
+        top_margin = 105
+        bottom_margin = 120
+
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=36,
+            rightMargin=36,
+            topMargin=top_margin,
+            bottomMargin=bottom_margin,
+        )
         styles = getSampleStyleSheet()
         elements = []
+
+        def _draw_header_footer(canvas, _doc):
+            canvas.saveState()
+
+            # Header image like custom_invoice_header_layout
+            if header_reader:
+                header_h = 65
+                canvas.drawImage(
+                    header_reader,
+                    0,
+                    page_height - header_h,
+                    width=page_width,
+                    height=header_h,
+                    preserveAspectRatio=False,
+                    mask='auto',
+                )
+
+            # Footer line + disclaimer text similar to custom_invoice_footer_layout
+            disclaimer_y = 58
+            canvas.setStrokeColorRGB(0.19, 0.31, 0.51)
+            canvas.setLineWidth(0.8)
+            canvas.line(36, disclaimer_y + 22, page_width - 36, disclaimer_y + 22)
+
+            canvas.setFillColorRGB(0, 0, 0)
+            canvas.setFont('Helvetica', 8)
+            canvas.drawString(36, disclaimer_y + 8, 'This is computer generated document, no signature and stamp required')
+
+            arabic_text = 'هذه وثيقة تم إنشاؤها بواسطة الكمبيوتر، ولا تتطلب توقيعًا أو ختمًا'
+            try:
+                tw = canvas.stringWidth(arabic_text, 'Helvetica', 8)
+                canvas.drawString(page_width - 36 - tw, disclaimer_y + 8, arabic_text)
+            except Exception:
+                pass
+
+            # Footer image
+            if footer_reader:
+                footer_h = 34
+                canvas.drawImage(
+                    footer_reader,
+                    0,
+                    18,
+                    width=page_width,
+                    height=footer_h,
+                    preserveAspectRatio=False,
+                    mask='auto',
+                )
+
+            # Page counter at very bottom center
+            canvas.setFillColorRGB(0.07, 0.19, 0.38)
+            canvas.setFont('Helvetica', 8)
+            page_txt = f'Page: {canvas.getPageNumber()}'
+            tw = canvas.stringWidth(page_txt, 'Helvetica', 8)
+            canvas.drawString((page_width - tw) / 2.0, 8, page_txt)
+
+            canvas.restoreState()
 
         title = Paragraph(f"Your Purchase Order <b>{self.name}</b>", styles['Title'])
         elements.append(title)
         elements.append(Spacer(1, 12))
 
-        greeting = Paragraph(f"Dear {'Vendor' or ''},", styles['Normal'])
-        elements.append(greeting)
+        elements.append(Paragraph("Dear Vendor,", styles['Normal']))
         elements.append(Spacer(1, 8))
-
-        intro = Paragraph(f"Please find below the details of Purchase Order <b>{self.name}</b>:", styles['Normal'])
-        elements.append(intro)
+        elements.append(Paragraph(f"Please find below the details of Purchase Order <b>{self.name}</b>:", styles['Normal']))
         elements.append(Spacer(1, 12))
 
-        # Summary table (four columns)
         def _val(v):
             return v if v is not None else ''
 
         data_summary = [
-            ['Vendor', _val(vendor_name), 'Vendor Ref', _val(self.partner_ref or '')],
+            ['Vendor', _val(self.partner_id.display_name or ''), 'Vendor Ref', _val(self.partner_ref or '')],
             ['RFQ Origin', _val(self.name), 'Expected Arrival', _val(
                 self._format_expected_arrival(self._get_expected_arrival_from_quotation() or self.date_planned or ''))],
-            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'PR Name',
-             _val(getattr(self, 'pr_name', ''))],
-            ['Requested By', _val(getattr(self, 'requested_by', '')), 'Department',
-             _val(getattr(self, 'department', ''))],
+            ['Project', _val(getattr(self.project_id, 'display_name', '')), 'PR Name', _val(getattr(self, 'pr_name', ''))],
+            ['Requested By', _val(getattr(self, 'requested_by', '')), 'Department', _val(getattr(self, 'department', ''))],
             ['Supervisor', _val(getattr(self, 'supervisor', '')), 'Quotation Ref No', _val(self.name)],
         ]
         t_summary = Table(data_summary, colWidths=[90, 170, 110, 170])
         t_summary.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.black),
-            ('TEXTCOLOR', (2, 0), (2, -1), colors.black),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(Paragraph('Summary', styles['Heading2']))
         elements.append(t_summary)
         elements.append(Spacer(1, 12))
 
-        # Quotation lines table
         rows = [['Description', 'Quantity', 'Type', 'Unit', 'Unit Price']]
-        source_lines = custom_lines or self.order_line
+        source_lines = getattr(self, 'custom_line_ids', False) or self.order_line
         subtotal_sum = 0.0
         for ln in source_lines:
             desc = getattr(ln, 'name', '')
@@ -297,36 +364,29 @@ class PurchaseOrder(models.Model):
         ]))
         elements.append(Paragraph('Quotation Lines', styles['Heading2']))
         elements.append(t_lines)
-        # Subtotal footer under table
-        try:
-            symbol = getattr(self.currency_id, 'symbol', '') or ''
-        except Exception:
-            symbol = ''
+
+        symbol = getattr(getattr(self, 'currency_id', False), 'symbol', '') or ''
         subtotal_str = f"{symbol} {subtotal_sum:,.2f}".strip()
         elements.append(Spacer(1, 6))
         elements.append(Paragraph(f"<para align='right'><b>Subtotal</b>  {subtotal_str}</para>", styles['Normal']))
-        elements.append(Spacer(1, 12))
 
-        # Terms & Conditions
         if terms and terms.get('items'):
             elements.append(Spacer(1, 12))
             elements.append(Paragraph('Terms and Conditions', styles['Heading2']))
-            data_tc = []
-            for label, value in terms['items']:
-                data_tc.append([label, value])
+            data_tc = [[label, value] for label, value in terms['items']]
             t_tc = Table(data_tc, colWidths=[180, 360])
             t_tc.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
             elements.append(t_tc)
 
+        elements.append(Spacer(1, 12))
         elements.append(Paragraph(f"Regards,<br/>{self.env.user.name}", styles['Normal']))
 
-        doc.build(elements)
+        doc.build(elements, onFirstPage=_draw_header_footer, onLaterPages=_draw_header_footer)
         return buffer.getvalue()
 
     def _get_expected_arrival_from_quotation(self):
