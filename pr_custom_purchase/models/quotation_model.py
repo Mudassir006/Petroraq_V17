@@ -613,7 +613,10 @@ class PurchaseOrder(models.Model):
         for order in self:
             # Preserve native confirm to keep purchase↔stock linkage
             if not order.name or order.name in ("/", "New") or order.name.startswith("RFQ"):
-                order.name = self.env["ir.sequence"].next_by_code("purchase.order") or _("New")
+                po_seq = self.env["ir.sequence"].with_company(order.company_id).next_by_code("purchase.custom.order")
+                if not po_seq:
+                    raise UserError(_("Missing sequence: purchase.custom.order for company %s") % order.company_id.display_name)
+                order.name = po_seq
 
             if order.state == "pending":
                 order.write({"state": "purchase"})

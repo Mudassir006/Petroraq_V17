@@ -9,7 +9,7 @@
     'version': '17.0.1.0.0',
     'license': 'LGPL-3',
     'depends': ['base', 'portal', 'product', 'hr', 'mail', 'web', 'purchase', 'purchase_stock', 'stock', 'bus',
-                'project', 'account', ],
+                'project', 'account', 'sale_quotation_number'],
     'data': [
         'security/custom_pr_groups.xml',
         'security/user_portal_groups.xml',
@@ -45,7 +45,6 @@
         'views/rfq_comparison_wizard.xml',
         'views/res_users_supervisor.xml',
         'data/custom_pr_ir_sequence_data.xml',
-        'data/custom_purchase_rfq_sequence.xml',
         'data/budget_increase_sequence.xml',
         'data/user_portal_ir_sequence_data.xml',
         'data/mail_template.xml',
