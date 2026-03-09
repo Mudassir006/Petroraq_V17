@@ -77,12 +77,6 @@ class CustomPurchaseRFQ(models.Model):
         for rec in self:
             rec.quotation_count = len(rec.quotation_ids)
 
-    @api.model
-    def create(self, vals):
-        if not vals.get("name") or vals.get("name") == "New":
-            vals["name"] = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
-        return super().create(vals)
-
     def action_send_rfq_email(self):
         self.ensure_one()
         if not self.partner_id:
