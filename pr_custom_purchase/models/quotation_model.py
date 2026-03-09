@@ -256,6 +256,7 @@ class PurchaseQuotation(models.Model):
 
             # Purchase Order values
             po_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or _("New"),
                 "origin": quotation.custom_rfq_id.name or quotation.rfq_origin,
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
