@@ -6,9 +6,8 @@ from odoo.exceptions import UserError
 
 class RFQComparisonWizard(models.TransientModel):
     _name = "rfq.comparison.wizard"
-    _description = "RFQ Quotation Comparison"
+    _description = "RFQ Comparison"
 
-    rfq_id = fields.Many2one("purchase.order", string="RFQ (Legacy)", readonly=True)
     custom_rfq_id = fields.Many2one("purchase.order", string="RFQ", readonly=True)
     requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition", readonly=True)
     line_ids = fields.One2many(
@@ -16,13 +15,6 @@ class RFQComparisonWizard(models.TransientModel):
         "wizard_id",
         string="Comparison Lines",
     )
-
-    @api.model
-    def create_for_rfq(self, rfq):
-        """Legacy: build comparison from a purchase.order RFQ."""
-        wizard = self.create({"rfq_id": rfq.id})
-        wizard.write({"line_ids": wizard._prepare_comparison_lines()})
-        return wizard
 
     @api.model
     def create_for_custom_rfq(self, rfq):
@@ -36,73 +28,58 @@ class RFQComparisonWizard(models.TransientModel):
 
     def _prepare_comparison_lines(self):
         self.ensure_one()
+        related_rfqs = self.env["purchase.order"]
         if self.requisition_id:
-            quotations = self.env["purchase.quotation"].search([
-                ("custom_rfq_id.requisition_id", "=", self.requisition_id.id)
-            ])
+            related_rfqs = self.env["purchase.order"].search([("requisition_id", "=", self.requisition_id.id)])
             label = self.requisition_id.name
+        elif self.custom_rfq_id and self.custom_rfq_id.requisition_id:
+            related_rfqs = self.env["purchase.order"].search([("requisition_id", "=", self.custom_rfq_id.requisition_id.id)])
+            label = self.custom_rfq_id.requisition_id.name
         elif self.custom_rfq_id:
-            quotations = self.env["purchase.quotation"].search([
-                ("custom_rfq_id", "=", self.custom_rfq_id.id)
-            ])
+            related_rfqs = self.custom_rfq_id
             label = self.custom_rfq_id.name
-        elif self.rfq_id:
-            quotations = self.env["purchase.quotation"].search([
-                ("rfq_origin", "=", self.rfq_id.name)
-            ])
-            label = self.rfq_id.name
         else:
-            quotations = self.env["purchase.quotation"]
             label = _("Unknown")
 
-        if not quotations:
-            raise UserError(_("No quotations were found for %s.") % label)
+        candidate_rfqs = related_rfqs.filtered(lambda r: r.id != self.custom_rfq_id.id and r.line_ids and r.partner_id)
+        if not candidate_rfqs:
+            raise UserError(_("No RFQ lines were found for %s.") % label)
 
         all_offer_lines = []
         grouped_prices = defaultdict(list)
-        for quotation in quotations:
-            for line in quotation.line_ids:
-                product_key = (line.name or line.description or "").strip()
-                if not (product_key and quotation.vendor_id):
+        for rfq in candidate_rfqs:
+            for line in rfq.line_ids:
+                product_key = (line.name or "").strip()
+                if not product_key:
                     continue
                 grouped_prices[product_key].append(line.price_unit)
-                all_offer_lines.append((product_key, quotation, line))
+                all_offer_lines.append((product_key, rfq, line))
 
         if not all_offer_lines:
-            raise UserError(_("No quotation lines are available for comparison."))
+            raise UserError(_("No RFQ lines are available for comparison."))
 
         line_commands = []
-        for product_key, quotation, line in all_offer_lines:
+        for product_key, rfq, line in all_offer_lines:
             min_price = min(grouped_prices[product_key]) if grouped_prices.get(product_key) else line.price_unit
             is_best = line.price_unit == min_price
-            line_commands.append(
-                (
-                    0,
-                    0,
-                    {
-                        "product_key": product_key,
-                        "product_name": product_key,
-                        "quotation_id": quotation.id,
-                        "vendor_id": quotation.vendor_id.id,
-                        "quantity": line.quantity,
-                        "unit": line.unit,
-                        "type": line.type,
-                        "cost_center_id": line.cost_center_id.id,
-                        "unit_price": line.price_unit,
-                        "is_best_line": is_best,
-                        "is_selected": is_best,
-                    },
-                )
-            )
+            line_commands.append((0, 0, {
+                "product_key": product_key,
+                "product_name": product_key,
+                "rfq_id": rfq.id,
+                "vendor_id": rfq.partner_id.id,
+                "quantity": line.quantity,
+                "unit": line.unit,
+                "type": line.type,
+                "cost_center_id": line.cost_center_id.id,
+                "unit_price": line.price_unit,
+                "is_best_line": is_best,
+                "is_selected": is_best,
+            }))
         return line_commands
 
     @api.model
     def default_get(self, fields_list):
         defaults = super().default_get(fields_list)
-        rfq_id = self.env.context.get("default_rfq_id")
-        if rfq_id:
-            wizard = self.new({"rfq_id": rfq_id})
-            defaults["line_ids"] = wizard._prepare_comparison_lines()
         return defaults
 
     def action_create_selected_purchase_orders(self):
@@ -131,18 +108,18 @@ class RFQComparisonWizard(models.TransientModel):
 
         purchase_orders = self.env["purchase.order"]
         for vendor, vendor_lines in grouped_by_vendor.items():
-            source_rfq = self.custom_rfq_id or False
+            source_rfq = self.custom_rfq_id
             po_vals = {
-                "origin": (source_rfq.name if source_rfq else (self.rfq_id.name if self.rfq_id else "")),
+                "origin": source_rfq.name if source_rfq else "",
                 "partner_id": vendor.id,
-                "partner_ref": (source_rfq.origin if source_rfq else (self.rfq_id.partner_ref if self.rfq_id else "")),
+                "partner_ref": source_rfq.origin if source_rfq else "",
                 "date_planned": fields.Datetime.now(),
                 "state": "pending",
-                "pr_name": (source_rfq.pr_name if source_rfq else (self.rfq_id.pr_name if self.rfq_id else "")),
-                "requested_by": (source_rfq.requested_by if source_rfq else (self.rfq_id.requested_by if self.rfq_id else "")),
-                "department": (source_rfq.department if source_rfq else (self.rfq_id.department if self.rfq_id else "")),
-                "supervisor": (source_rfq.supervisor if source_rfq else (self.rfq_id.supervisor if self.rfq_id else "")),
-                "supervisor_partner_id": (source_rfq.supervisor_partner_id if source_rfq else (self.rfq_id.supervisor_partner_id if self.rfq_id else "")),
+                "pr_name": source_rfq.pr_name if source_rfq else "",
+                "requested_by": source_rfq.requested_by if source_rfq else "",
+                "department": source_rfq.department if source_rfq else "",
+                "supervisor": source_rfq.supervisor if source_rfq else "",
+                "supervisor_partner_id": source_rfq.supervisor_partner_id if source_rfq else "",
                 "custom_line_ids": [
                     (
                         0,
@@ -161,7 +138,6 @@ class RFQComparisonWizard(models.TransientModel):
             }
             purchase_orders |= self.env["purchase.order"].sudo().create(po_vals)
 
-        selected_lines.mapped("quotation_id").write({"status": "po"})
         if self.custom_rfq_id:
             self.custom_rfq_id.sudo().write({"state": "done"})
 
@@ -186,7 +162,7 @@ class RFQComparisonWizardLine(models.TransientModel):
     is_selected = fields.Boolean(string="Select")
     product_key = fields.Char(string="Product Key", readonly=True)
     product_name = fields.Char(string="Product", readonly=True)
-    quotation_id = fields.Many2one("purchase.quotation", string="Quotation", readonly=True)
+    rfq_id = fields.Many2one("purchase.order", string="RFQ", readonly=True)
     vendor_id = fields.Many2one("res.partner", string="Vendor", readonly=True)
     quantity = fields.Float(string="Qty", readonly=True)
     unit = fields.Char(string="Unit", readonly=True)

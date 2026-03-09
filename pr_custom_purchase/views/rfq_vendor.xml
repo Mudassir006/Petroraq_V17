@@ -48,23 +48,11 @@
                                         <t t-esc="rfq.date_request"/>
                                     </td>
                                     <td class="text-start">
-                                        <t t-set="has_quotation"
-                                        t-value="request.env['purchase.quotation'].sudo().search_count([
-                                                ('custom_rfq_id', '=', rfq.id),
-                                                ('email_address', '=', request.env.user.email)
-                                        ]) > 0"/>
-                                        <t t-if="not has_quotation">
-                                            <a t-att-href="'/my/rfq/%s/quotation' % rfq.id"
-                                            class="btn btn-sm btn-primary"
-                                            style="background-color: #122AA0 !important; border-color: #122AA0 !important;">
-                                                Create Quotation
-                                            </a>
-                                        </t>
-                                        <t t-else="">
-                                            <button class="btn btn-sm btn-secondary" disabled="true">
-                                                Quotation Submitted
-                                            </button>
-                                        </t>
+                                        <a t-att-href="'/my/rfqs/%s' % rfq.id"
+                                           class="btn btn-sm btn-primary"
+                                           style="background-color: #122AA0 !important; border-color: #122AA0 !important;">
+                                            View RFQ
+                                        </a>
                                     </td>
                                 </tr>
                             </t>
@@ -90,14 +78,9 @@
                             <strong>Vendor:</strong>
                             <t t-esc="rfq.partner_id.name"/>
                         </p>
-                        <t t-set="has_quotation"
-                            t-value="request.env['purchase.quotation'].sudo().search_count([
-                                    ('custom_rfq_id', '=', rfq.id),
-                                    ('email_address', '=', request.env.user.email)
-                            ]) > 0"/>
                         <p>
                             <strong>Status:</strong>
-                            <span t-if="has_quotation" class="badge bg-success">Sent</span>
+                            <span t-if="rfq.state in ('sent', 'pending', 'purchase', 'done')" class="badge bg-success">Sent</span>
                             <span t-else="" class="badge bg-warning text-dark">Pending</span>
                         </p>
                         <p>

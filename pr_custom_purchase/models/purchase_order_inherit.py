@@ -16,7 +16,7 @@ class PurchaseOrder(models.Model):
         vendor_name = self.partner_id.display_name or ''
         vendor_ref = self.partner_ref or ''
         rfq_origin = self.name or ''
-        # Prefer Expected Arrival from related purchase.quotation, fallback to PO date_planned
+        # Expected Arrival from PO planning date
         planned_val = self._get_expected_arrival_from_quotation() or self.date_planned or ''
         planned = self._format_expected_arrival(planned_val)
 
@@ -117,7 +117,7 @@ class PurchaseOrder(models.Model):
         # )
         po_lines_html = ""
 
-        # Terms & conditions: fetch from related purchase.quotation (by origin)
+        # Terms & conditions from purchase order fields
         terms = self._get_terms_section()
         terms_html = terms.get('html', '')
 
@@ -400,20 +400,8 @@ class PurchaseOrder(models.Model):
         return buffer.getvalue()
 
     def _get_expected_arrival_from_quotation(self):
-        """Fetch expected_arrival from related purchase.quotation if available."""
-        Quotation = self.env['purchase.quotation'].sudo()
-        quotation = False
-        if self.origin:
-            quotation = Quotation.search([('rfq_origin', '=', self.origin)], limit=1)
-        if not quotation and self.name:
-            quotation = Quotation.search([('rfq_origin', '=', self.name)], limit=1)
-        if not quotation and getattr(self, 'pr_name', False):
-            quotation = Quotation.search([('pr_name', '=', self.pr_name)], limit=1)
-        if not quotation:
-            return False
-        # Try expected_arrival first, fallback to delivery_date used elsewhere
-        val = getattr(quotation, 'expected_arrival', False) or getattr(quotation, 'delivery_date', False)
-        return val
+        """Return expected arrival from PO planning date."""
+        return self.date_planned or False
 
     def _format_expected_arrival(self, value):
         """Return a YYYY-MM-DD string with +5h adjustment for datetimes, similar to client JS."""
@@ -456,102 +444,12 @@ class PurchaseOrder(models.Model):
         return False
 
     def _get_terms_section(self):
-        """Return a dict with 'html' and 'items' for Terms and Conditions based on
-        fields defined on purchase.quotation related to this PO (origin).
-        """
-
-        def yes(v):
-            return 'Yes' if v else 'No'
-
-        Quotation = self.env['purchase.quotation'].sudo()
-        quotation = False
-        # 1) Typical linkage used in this module: PO.origin stores the RFQ origin
-        if self.origin:
-            quotation = Quotation.search([('rfq_origin', '=', self.origin)], limit=1)
-        # 2) Some flows may set rfq_origin to the PO number instead
-        if not quotation and self.name:
-            quotation = Quotation.search([('rfq_origin', '=', self.name)], limit=1)
-        # 3) Fallback: match by PR name copied on the PO
-        if not quotation and getattr(self, 'pr_name', False):
-            quotation = Quotation.search([('pr_name', '=', self.pr_name)], limit=1)
-        if not quotation:
-            return {'html': '', 'items': []}
-
-        # Build items list (label, value)
+        """Return terms and conditions derived from purchase order fields."""
         items = []
-        # Payment Terms
-        pt_parts = []
-        if quotation.terms_net:
-            pt_parts.append('Net')
-        if quotation.terms_30days:
-            pt_parts.append('30 Days')
-        if quotation.terms_advance:
-            adv = quotation.terms_advance_specify or '% Advance'
-            pt_parts.append(adv)
-        if quotation.terms_delivery:
-            pt_parts.append('On Delivery')
-        if quotation.terms_other:
-            other = quotation.terms_others_specify or 'Other'
-            pt_parts.append(other)
-        if pt_parts:
-            items.append(('Payment Terms', ', '.join(pt_parts)))
-
-        # Production / Material Availability
-        prod_parts = []
-        if quotation.ex_stock:
-            prod_parts.append('Ex-Stock')
-        if quotation.required_days:
-            txt = quotation.production_days or 'Production Required'
-            prod_parts.append(txt)
-        if prod_parts:
-            items.append(('Production / Availability', ', '.join(prod_parts)))
-
-        # Delivery Terms
-        deliv_terms = []
-        if quotation.ex_work:
-            deliv_terms.append('Ex-Works')
-        if quotation.delivery_site:
-            deliv_terms.append('Site Delivery')
-        if deliv_terms:
-            items.append(('Delivery Terms', ', '.join(deliv_terms)))
-
-        # Delivery Date Expected
-        if quotation.delivery_date:
-            items.append(('Delivery Date Expected', str(quotation.delivery_date)))
-
-        # Delivery Method
-        deliv_methods = []
-        if quotation.delivery_courier:
-            deliv_methods.append('Courier')
-        if quotation.delivery_pickup:
-            deliv_methods.append('Pickup')
-        if quotation.delivery_freight:
-            deliv_methods.append('Freight')
-        if quotation.delivery_others:
-            other = quotation.delivery_others_specify or 'Other'
-            deliv_methods.append(other)
-        if deliv_methods:
-            items.append(('Delivery Method', ', '.join(deliv_methods)))
-
-        # Partial Order Acceptance
-        if quotation.partial_yes or quotation.partial_no:
-            label_val = 'Yes' if quotation.partial_yes else 'No'
-            items.append(('Partial Order Acceptable', label_val))
-
-        # Notes / Additional information
-        notes_val = getattr(quotation, 'notes', False)
-        if notes_val:
-            items.append(('Additional Information / Notes', notes_val))
-
-        if not items:
-            return {'html': '', 'items': []}
-
-        # Build HTML block
-        row_html = ''.join(
-            [f"<tr><td style='width:30%;'><strong>{label}</strong></td><td>{value}</td></tr>" for label, value in
-             items])
-        html = f"""
-        <h3 style=\"margin-top:24px;\">Terms and Conditions</h3>
-        <table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse; width:100%;\">{row_html}</table>
-        """
-        return {'html': html, 'items': items}
+        if self.payment_term_id:
+            items.append(('Payment Terms', self.payment_term_id.display_name))
+        if self.incoterm_id:
+            items.append(('Delivery Terms', self.incoterm_id.display_name))
+        if self.partner_ref:
+            items.append(('Vendor Reference', self.partner_ref))
+        return {'html': '', 'items': items}

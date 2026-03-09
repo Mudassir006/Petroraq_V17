@@ -26,7 +26,11 @@ class CustomPurchaseRFQ(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="Supervisor Partner")
-    quotation_ids = fields.One2many("purchase.quotation", "custom_rfq_id", string="Submitted Quotations", readonly=True)
+    related_rfq_ids = fields.One2many(
+        "purchase.order",
+        compute="_compute_related_rfqs",
+        string="Related RFQs",
+    )
     quotation_count = fields.Integer(compute="_compute_quotation_count")
     line_ids = fields.One2many("custom.purchase.rfq.line", "rfq_id", string="RFQ Lines")
 
@@ -55,7 +59,7 @@ class CustomPurchaseRFQ(models.Model):
 
     def _compute_linked_statuses(self):
         po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
-        quotation_priority = {"quote": 1, "po": 2}
+        rfq_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
 
         for rec in self:
             pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
@@ -67,15 +71,27 @@ class CustomPurchaseRFQ(models.Model):
             else:
                 rec.linked_po_state = "missing"
 
-            if rec.quotation_ids:
-                rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status, 0)).status
+            related_rfqs = rec.related_rfq_ids.filtered(lambda r: r.id != rec.id)
+            if related_rfqs:
+                max_state = max(related_rfqs, key=lambda r: rfq_priority.get(r.state, 0)).state
+                rec.linked_quotation_status = "po" if max_state in ("pending", "purchase", "done") else "quote"
             else:
                 rec.linked_quotation_status = "missing"
 
-    @api.depends("quotation_ids")
+    @api.depends("requisition_id")
+    def _compute_related_rfqs(self):
+        for rec in self:
+            if rec.requisition_id:
+                rec.related_rfq_ids = self.env["purchase.order"].sudo().search([
+                    ("requisition_id", "=", rec.requisition_id.id),
+                ])
+            else:
+                rec.related_rfq_ids = self.env["purchase.order"]
+
+    @api.depends("related_rfq_ids")
     def _compute_quotation_count(self):
         for rec in self:
-            rec.quotation_count = len(rec.quotation_ids)
+            rec.quotation_count = len(rec.related_rfq_ids.filtered(lambda r: r.id != rec.id))
 
     @api.model
     def create(self, vals):
@@ -100,20 +116,15 @@ class CustomPurchaseRFQ(models.Model):
             if linked_po:
                 raise UserError(_("Cannot reset RFQ %s because a confirmed Purchase Order already exists.") % rec.name)
 
-            rec.quotation_ids.sudo().filtered(lambda q: q.status != "po").unlink()
             rec.write({"state": "draft"})
             rec.message_post(body=_("RFQ reset to draft."))
 
     def action_open_rfq_comparison(self):
         self.ensure_one()
-        if self.requisition_id:
-            quotations = self.env["purchase.quotation"].search([("custom_rfq_id.requisition_id", "=", self.requisition_id.id)])
-            label = self.requisition_id.name or self.pr_name
-        else:
-            quotations = self.env["purchase.quotation"].search([("custom_rfq_id", "=", self.id)])
-            label = self.name
-        if not quotations:
-            raise UserError(_("No quotations are available for %s yet.") % label)
+        comparable_rfqs = self.related_rfq_ids.filtered(lambda rfq: rfq.id != self.id and rfq.line_ids)
+        if not comparable_rfqs:
+            label = self.requisition_id.name or self.pr_name or self.name
+            raise UserError(_("No comparable RFQs are available for %s yet.") % label)
         wizard = self.env["rfq.comparison.wizard"].create_for_custom_rfq(self)
         return {
             "type": "ir.actions.act_window",
@@ -126,19 +137,10 @@ class CustomPurchaseRFQ(models.Model):
 
     def action_view_quotations(self):
         self.ensure_one()
-        action = self.env.ref("pr_custom_purchase.action_purchase_quotation_list").read()[0]
-        domain = [("custom_rfq_id", "=", self.id)]
-        if self.requisition_id:
-            domain = [("custom_rfq_id.requisition_id", "=", self.requisition_id.id)]
+        action = self.env.ref("purchase.purchase_rfq").read()[0]
+        domain = [("id", "in", self.related_rfq_ids.filtered(lambda r: r.id != self.id).ids)]
         action["domain"] = domain
         action["context"] = {
-            "default_custom_rfq_id": self.id,
-            "default_rfq_origin": self.name,
-            "default_pr_name": self.pr_name,
-            "default_requested_by": self.requested_by,
-            "default_department": self.department,
-            "default_supervisor": self.supervisor,
-            "default_supervisor_partner_id": self.supervisor_partner_id,
             "group_by": "requisition_id",
         }
         return action
