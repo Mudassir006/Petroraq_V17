@@ -77,11 +77,20 @@ class CustomPurchaseRFQ(models.Model):
         for rec in self:
             rec.quotation_count = len(rec.quotation_ids)
 
-    @api.model
-    def create(self, vals):
-        if not vals.get("name") or vals.get("name") == "New":
-            vals["name"] = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
-        return super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("name") and vals.get("name") not in ("New", "/"):
+                continue
+
+            company = self.env["res.company"].browse(vals.get("company_id")) if vals.get("company_id") else self.env.company
+            sequence_model = self.env["ir.sequence"].sudo().with_company(company)
+            seq = sequence_model.next_by_code("purchase.quotation") or sequence_model.next_by_code("custom.purchase.rfq")
+            if not seq:
+                raise UserError(_("Missing sequence: purchase.quotation for company %s") % company.display_name)
+            vals["name"] = seq
+
+        return super().create(vals_list)
 
     def action_send_rfq_email(self):
         self.ensure_one()

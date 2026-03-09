@@ -611,11 +611,12 @@ class PurchaseOrder(models.Model):
 
     def button_confirm(self):
         for order in self:
-            # Preserve native confirm to keep purchase↔stock linkage
-            if order.name.startswith("RFQ"):
-                order.name = (
-                        self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
-                )
+            # Keep RFQ and PO sequences aligned with sale_quotation_number logic.
+            if order.name and ("/RFQ/" in order.name or "PEC-RFQ-" in order.name):
+                po_seq = self.env["ir.sequence"].with_company(order.company_id).next_by_code("purchase.custom.order")
+                if po_seq:
+                    rfq_ref = (order.origin + ", " if order.origin else "") + order.name
+                    order.write({"origin": rfq_ref, "name": po_seq})
 
             if order.state == "pending":
                 order.write({"state": "purchase"})
