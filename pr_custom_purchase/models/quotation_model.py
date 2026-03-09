@@ -421,14 +421,14 @@ class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
     @api.model
-    def _next_sequence_or_error(self, company, sequence_code, *, fallback_code=None):
-        seq_model = self.env["ir.sequence"].with_company(company).sudo()
+    def _next_sequence_or_error(self, sequence_code, *, fallback_code=None):
+        seq_model = self.env["ir.sequence"].sudo()
         sequence = seq_model.next_by_code(sequence_code)
         if not sequence and fallback_code:
             sequence = seq_model.next_by_code(fallback_code)
         if not sequence:
             missing_code = fallback_code or sequence_code
-            raise UserError(_("Missing sequence: %s for company %s") % (missing_code, company.display_name))
+            raise UserError(_("Missing sequence: %s") % missing_code)
         return sequence
 
     @api.model
@@ -443,9 +443,7 @@ class PurchaseOrder(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if self._is_empty_name(vals.get("name")):
-                company = self.env["res.company"].browse(vals.get("company_id")) if vals.get("company_id") else self.env.company
                 vals["name"] = self._next_sequence_or_error(
-                    company,
                     "purchase.order.rfq",
                     fallback_code="purchase.order",
                 )
@@ -644,7 +642,7 @@ class PurchaseOrder(models.Model):
         for order in self:
             # Preserve native confirm to keep purchase↔stock linkage
             if self._is_empty_name(order.name) or self._is_rfq_name(order.name):
-                order.name = self._next_sequence_or_error(order.company_id, "purchase.order")
+                order.name = self._next_sequence_or_error("purchase.order")
 
             if order.state == "pending":
                 order.write({"state": "purchase"})
