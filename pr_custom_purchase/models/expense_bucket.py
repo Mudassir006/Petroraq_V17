@@ -55,16 +55,17 @@ class ExpenseBucket(models.Model):
     can_accounts_approve = fields.Boolean(compute="_compute_role_flags")
     can_md_approve = fields.Boolean(compute="_compute_role_flags")
     can_reject = fields.Boolean(compute="_compute_role_flags")
+    can_reset_to_draft = fields.Boolean(compute="_compute_role_flags")
 
     @api.depends("line_ids", "line_ids.cost_center_id")
     def _compute_cost_center_ids(self):
         for rec in self:
             rec.cost_center_ids = rec.line_ids.mapped("cost_center_id")
 
-    @api.depends("line_ids", "line_ids.cost_center_id", "line_ids.cost_center_id.budget_allowance")
+    @api.depends("line_ids", "line_ids.requested_budget_allowance")
     def _compute_cost_center_budget_total(self):
         for rec in self:
-            rec.cost_center_budget_total = sum(rec.line_ids.mapped("cost_center_id.budget_allowance"))
+            rec.cost_center_budget_total = sum(rec.line_ids.mapped("requested_budget_allowance"))
 
     @api.depends("budget_amount", "cost_center_budget_total")
     def _compute_budget_left(self):
@@ -92,6 +93,7 @@ class ExpenseBucket(models.Model):
                     or (rec.state == "accounts_approval" and is_accounts)
                     or (rec.state == "md_approval" and is_md)
             )
+            rec.can_reset_to_draft = rec.can_pm_approve or is_accounts or is_md
 
 
     def _get_department_manager_users(self):
@@ -170,10 +172,10 @@ class ExpenseBucket(models.Model):
     @api.constrains("line_ids", "budget_amount")
     def _check_allocated_budget(self):
         for rec in self:
-            total = sum(rec.line_ids.mapped("cost_center_id.budget_allowance"))
+            total = sum(rec.line_ids.mapped("requested_budget_allowance"))
             if total > rec.budget_amount:
                 raise ValidationError(_(
-                    "Total cost center budget (%s) cannot exceed bucket budget (%s)."
+                    "Total requested budget allowance (%s) cannot exceed bucket budget (%s)."
                 ) % (total, rec.budget_amount))
 
     def write(self, vals):
@@ -181,8 +183,8 @@ class ExpenseBucket(models.Model):
                             "line_ids"}
         if any(field in vals for field in protected_fields):
             for rec in self:
-                if rec.state == "approved":
-                    raise UserError(_("Approved expense bucket cannot be edited."))
+                if rec.state != "draft":
+                    raise UserError(_("Submitted expense bucket cannot be edited. Reset to draft first."))
         return super().write(vals)
 
     def action_submit(self):
@@ -235,6 +237,8 @@ class ExpenseBucket(models.Model):
                 continue
             if not rec.can_md_approve:
                 raise UserError(_("Only Managing Director can approve at this stage."))
+            for line in rec.line_ids:
+                line.cost_center_id.budget_allowance = line.resulting_budget_allowance
             rec.state = "approved"
 
     def action_reject(self):
@@ -259,8 +263,12 @@ class ExpenseBucketLine(models.Model):
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     budget_code = fields.Char(related="cost_center_id.budget_code", readonly=True)
     budget_type = fields.Selection(related="cost_center_id.budget_type", readonly=True)
-    budget_allowance = fields.Float(related="cost_center_id.budget_allowance", readonly=True)
-    budget_left = fields.Float(related="cost_center_id.budget_left", readonly=True)
+    budget_left = fields.Float(string="Current Budget Remaining", related="cost_center_id.budget_left", readonly=True)
+    requested_budget_allowance = fields.Float(string="Budget Allowance")
+    resulting_budget_allowance = fields.Float(
+        string="Total Budget After Allowance",
+        compute="_compute_resulting_budget_allowance",
+    )
 
     _sql_constraints = [
         ("expense_bucket_line_unique", "unique(bucket_id, cost_center_id)",
@@ -273,22 +281,33 @@ class ExpenseBucketLine(models.Model):
             if rec.cost_center_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.bucket_id:
                 raise ValidationError(_("This cost center already belongs to another expense bucket."))
 
+    @api.depends("budget_left", "requested_budget_allowance")
+    def _compute_resulting_budget_allowance(self):
+        for rec in self:
+            rec.resulting_budget_allowance = (rec.budget_left or 0.0) + (rec.requested_budget_allowance or 0.0)
+
+    @api.constrains("requested_budget_allowance")
+    def _check_requested_budget_allowance(self):
+        for rec in self:
+            if rec.requested_budget_allowance < 0:
+                raise ValidationError(_("Budget allowance must be zero or greater."))
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             bucket = self.env["pr.expense.bucket"].browse(vals.get("bucket_id"))
-            if bucket and bucket.state == "approved":
-                raise UserError(_("Approved expense bucket cannot be edited."))
+            if bucket and bucket.state != "draft":
+                raise UserError(_("Submitted expense bucket cannot be edited. Reset to draft first."))
         records = super().create(vals_list)
         for rec in records:
             rec.cost_center_id.expense_bucket_id = rec.bucket_id.id
         return records
 
     def write(self, vals):
-        if any(field in vals for field in ["bucket_id", "cost_center_id"]):
+        if any(field in vals for field in ["bucket_id", "cost_center_id", "requested_budget_allowance"]):
             for rec in self:
-                if rec.bucket_id.state == "approved":
-                    raise UserError(_("Approved expense bucket cannot be edited."))
+                if rec.bucket_id.state != "draft":
+                    raise UserError(_("Submitted expense bucket cannot be edited. Reset to draft first."))
         previous = {rec.id: rec.cost_center_id.id for rec in self}
         res = super().write(vals)
         for rec in self:
@@ -303,8 +322,8 @@ class ExpenseBucketLine(models.Model):
 
     def unlink(self):
         for rec in self:
-            if rec.bucket_id.state == "approved":
-                raise UserError(_("Approved expense bucket cannot be edited."))
+            if rec.bucket_id.state != "draft":
+                raise UserError(_("Submitted expense bucket cannot be edited. Reset to draft first."))
             if rec.cost_center_id and rec.cost_center_id.expense_bucket_id == rec.bucket_id:
                 rec.cost_center_id.expense_bucket_id = False
         return super().unlink()

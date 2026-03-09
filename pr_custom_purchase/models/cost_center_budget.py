@@ -70,9 +70,9 @@ class AccountAnalyticAccount(models.Model):
             if not rec.expense_bucket_id:
                 continue
             bucket = rec.expense_bucket_id
-            total = sum(bucket.line_ids.mapped("cost_center_id.budget_allowance"))
+            total = sum(bucket.line_ids.mapped("requested_budget_allowance"))
             if total > bucket.budget_amount:
                 raise ValidationError(
-                    _("Total cost center budget (%s) cannot exceed bucket budget (%s).")
+                    _("Total requested budget allowance (%s) cannot exceed bucket budget (%s).")
                     % (total, bucket.budget_amount)
                 )
