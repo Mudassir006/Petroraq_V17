@@ -21,25 +21,25 @@
 
         </record>
         <!-- RFQ Sequence -->
-<!--        <record id="seq_purchase_rfq" model="ir.sequence">-->
-<!--            <field name="name">Request for Quotation</field>-->
-<!--            <field name="code">purchase.order.rfq</field>-->
-<!--            &lt;!&ndash; <field name="prefix">RFQ</field> &ndash;&gt;-->
-<!--            <field name="prefix">PEC-RFQ-%(year)s-</field>-->
-<!--            <field name="padding">4</field>-->
-<!--            <field name="implementation">no_gap</field>-->
-<!--            <field name="company_id" eval="False"/>-->
+        <record id="seq_purchase_rfq" model="ir.sequence">
+            <field name="name">Request for Quotation</field>
+            <field name="code">purchase.order.rfq</field>
+            <!-- <field name="prefix">RFQ</field> -->
+            <field name="prefix">PEC-RFQ-%(year)s-</field>
+            <field name="padding">4</field>
+            <field name="implementation">no_gap</field>
+            <field name="company_id" eval="False"/>
 
-<!--        </record>-->
-<!--        &lt;!&ndash; Purchase Order Sequence &ndash;&gt;-->
-<!--        <record id="seq_purchase_order" model="ir.sequence">-->
-<!--            <field name="name">Purchase Order</field>-->
-<!--            <field name="code">purchase.order</field>-->
-<!--            <field name="prefix">PEC-PO-%(year)s-</field>-->
-<!--            <field name="padding">4</field>-->
-<!--            <field name="implementation">no_gap</field>-->
-<!--            <field name="company_id" eval="False"/>-->
+        </record>
+        <!-- Purchase Order Sequence -->
+        <record id="seq_purchase_order" model="ir.sequence">
+            <field name="name">Purchase Order</field>
+            <field name="code">purchase.order</field>
+            <field name="prefix">PEC-PO-%(year)s-</field>
+            <field name="padding">4</field>
+            <field name="implementation">no_gap</field>
+            <field name="company_id" eval="False"/>
 
-<!--        </record>-->
+        </record>
     </data>
 </odoo>
