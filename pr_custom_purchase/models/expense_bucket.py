@@ -264,6 +264,13 @@ class ExpenseBucketLine(models.Model):
     budget_code = fields.Char(related="cost_center_id.budget_code", readonly=True)
     budget_type = fields.Selection(related="cost_center_id.budget_type", readonly=True)
     budget_left = fields.Float(string="Current Budget Remaining", related="cost_center_id.budget_left", readonly=True)
+    # Backward-compatible alias for older views/onchange payloads that still
+    # reference `current_budget_remaining`.
+    current_budget_remaining = fields.Float(
+        string="Current Budget Remaining",
+        related="cost_center_id.budget_left",
+        readonly=True,
+    )
     requested_budget_allowance = fields.Float(string="Budget Allowance")
     resulting_budget_allowance = fields.Float(
         string="Total Budget After Allowance",
