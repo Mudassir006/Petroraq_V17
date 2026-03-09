@@ -10,6 +10,7 @@ class GrnSes(models.Model):
     name = fields.Char(string="Reference", required=True)
     partner_id = fields.Many2one("res.partner", string="Vendor")
     purchase_order_id = fields.Many2one("purchase.order", string="Purchase Order", readonly=True)
+    company_id = fields.Many2one("res.company", string="Company", default=lambda self: self.env.company, required=True, readonly=True)
     partner_ref = fields.Char(string="Vendor Reference")
     date_order = fields.Date(string="Order Date")
     date_planned = fields.Date(string="Planned Date")
@@ -82,12 +83,14 @@ class GrnSes(models.Model):
                     )
 
     def _get_expense_account(self, product=False):
+        self.ensure_one()
         account = False
         if product:
             account = product.property_account_expense_id or product.categ_id.property_account_expense_categ_id
+        company = self.company_id or self.env.company
         if not account:
             account = self.env["account.account"].sudo().search([
-                ("company_id", "=", self.company_id.id),
+                ("company_id", "=", company.id),
                 ("account_type", "=", "expense"),
                 ("deprecated", "=", False),
             ], limit=1)
@@ -126,10 +129,14 @@ class GrnSes(models.Model):
             if product:
                 vals["product_id"] = product.id
             else:
-                vals["account_id"] = self._get_expense_account().id
+                vals["account_id"] = self._get_expense_account(product=product).id
             invoice_lines.append((0, 0, vals))
 
-        purchase_journal = self.env["account.journal"].sudo().search([("type", "=", "purchase")], limit=1)
+        company = self.company_id or self.env.company
+        purchase_journal = self.env["account.journal"].sudo().search([
+            ("type", "=", "purchase"),
+            ("company_id", "=", company.id),
+        ], limit=1)
         if not purchase_journal:
             raise UserError(_("Please configure a purchase journal to create vendor bills."))
 
@@ -142,6 +149,7 @@ class GrnSes(models.Model):
             "invoice_line_ids": invoice_lines,
             "grn_ses_id": self.id,
             "journal_id": purchase_journal.id,
+            "company_id": company.id,
         })
 
         self.message_post(body=_("Vendor Bill %s created from %s.") % (bill.name or bill.id, self.name))
@@ -231,6 +239,7 @@ class GrnSesWizard(models.TransientModel):
             "supervisor": order.supervisor,
             "origin": order.origin,
             "date_request": order.date_request,
+            "company_id": order.company_id.id,
         }
 
         if material_lines:
