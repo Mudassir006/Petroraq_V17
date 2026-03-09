@@ -525,6 +525,7 @@ class PurchaseRequisition(models.Model):
                     )
 
             rfq_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order.rfq") or _("New"),
                 "origin": pr.name,
                 "requisition_id": pr.id,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,

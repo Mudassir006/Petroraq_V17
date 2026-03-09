@@ -156,7 +156,8 @@ class PurchaseQuotation(models.Model):
             if rec.vendor_id:
                 domain.append(("partner_id", "=", rec.vendor_id.id))
             linked_pos = self.env["purchase.order"].sudo().search(domain) if domain else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            rec.linked_po_state = max(linked_pos,
+                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
 
     @api.depends("budget_type", "budget_code")
     def _compute_cost_center(self):
@@ -256,6 +257,7 @@ class PurchaseQuotation(models.Model):
 
             # Purchase Order values
             po_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or _("New"),
                 "origin": quotation.custom_rfq_id.name or quotation.rfq_origin,
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
@@ -440,7 +442,7 @@ class PurchaseOrder(models.Model):
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="PO Status", compute="_compute_linked_statuses")
-    current_user_has_acted = fields.Boolean("Current User Has Acted",)
+    current_user_has_acted = fields.Boolean("Current User Has Acted", )
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
         ("quote", "Quote"),
@@ -534,9 +536,12 @@ class PurchaseOrder(models.Model):
         for rec in self:
             pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
             rec.linked_pr_state = pr.state if pr else "missing"
-            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
-            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status, 0)).status if rec.quotation_ids else "missing"
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else \
+            self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos,
+                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status,
+                                                                                                      0)).status if rec.quotation_ids else "missing"
 
     def action_view_quotations(self):
         return self.action_view_rfq_quotations()

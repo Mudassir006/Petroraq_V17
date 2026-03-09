@@ -90,7 +90,7 @@
                                 <p style="font-size:25px;text-align:center;color:#000000;">
                                     <strong style="font-weight: bold;">
                                         <h2 style="font-size:25px;text-align:center;color:#000000;font-size: 32px !important;" t-if="o.state in ['draft', 'sent', 'to approve','done']">Request for Quotation #<span t-field="o.name"/></h2>
-                                        <h2 style="font-size:25px;text-align:center;color:#000000;font-size: 32px !important;" t-if="o.state in ['purchase']">Purchase Order #<span t-field="o.name"/></h2>
+                                        <h2 style="font-size:25px;text-align:center;color:#000000;font-size: 32px !important;" t-if="o.state in ['purchase',]">Purchase Order #<span t-field="o.name"/></h2>
                                         <h2 style="font-size:25px;text-align:center;color:#000000;font-size: 32px !important;" t-if="o.state == 'cancel'">Cancelled Purchase Order #<span t-field="o.name"/></h2>
                                     </strong>
                                 </p>
