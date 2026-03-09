@@ -612,10 +612,8 @@ class PurchaseOrder(models.Model):
     def button_confirm(self):
         for order in self:
             # Preserve native confirm to keep purchase↔stock linkage
-            if order.name.startswith("RFQ"):
-                order.name = (
-                        self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
-                )
+            if not order.name or order.name in ("/", "New") or order.name.startswith("RFQ"):
+                order.name = self.env["ir.sequence"].next_by_code("purchase.order") or _("New")
 
             if order.state == "pending":
                 order.write({"state": "purchase"})

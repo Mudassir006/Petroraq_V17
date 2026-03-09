@@ -79,8 +79,8 @@ class CustomPurchaseRFQ(models.Model):
 
     @api.model
     def create(self, vals):
-        if not vals.get("name") or vals.get("name") == "New":
-            vals["name"] = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or "CRFQ0001"
+        if not vals.get("name") or vals.get("name") in ("New", "/"):
+            vals["name"] = self.env["ir.sequence"].sudo().next_by_code("custom.purchase.rfq") or _("New")
         return super().create(vals)
 
     def action_send_rfq_email(self):
