@@ -20,20 +20,4 @@
 
         <field name="company_id" eval="False"/>
     </record>
-
-    <record id="seq_purchase_quotation" model="ir.sequence">
-        <field name="name">Request for Quotation</field>
-        <field name="code">purchase.quotation</field>
-        <field name="prefix">PEC/RFQ/%(year)s/</field>
-        <field name="padding">4</field>
-        <field name="company_id" eval="False"/>
-    </record>
-
-    <record id="seq_purchase_order_custom" model="ir.sequence">
-        <field name="name">Purchase Order Custom</field>
-        <field name="code">purchase.custom.order</field>
-        <field name="prefix">PEC/PO/%(year)s/</field>
-        <field name="padding">4</field>
-        <field name="company_id" eval="False"/>
-    </record>
 </odoo>

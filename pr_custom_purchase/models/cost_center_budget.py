@@ -7,7 +7,7 @@ class AccountAnalyticAccount(models.Model):
 
     expense_bucket_id = fields.Many2one(
         "pr.expense.bucket",
-        string="Expense Bucket",
+        string="Expense",
         help="Expense bucket (Capex/Opex for Department/Project) this cost center belongs to.",
     )
 
@@ -70,7 +70,7 @@ class AccountAnalyticAccount(models.Model):
             if not rec.expense_bucket_id:
                 continue
             bucket = rec.expense_bucket_id
-            total = sum(bucket.line_ids.mapped("cost_center_id.budget_allowance"))
+            total = sum(bucket.line_ids.mapped("budget_allowance"))
             if total > bucket.budget_amount:
                 raise ValidationError(
                     _("Total cost center budget (%s) cannot exceed bucket budget (%s).")

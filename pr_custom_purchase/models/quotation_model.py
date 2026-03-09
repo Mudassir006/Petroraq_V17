@@ -156,7 +156,8 @@ class PurchaseQuotation(models.Model):
             if rec.vendor_id:
                 domain.append(("partner_id", "=", rec.vendor_id.id))
             linked_pos = self.env["purchase.order"].sudo().search(domain) if domain else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            rec.linked_po_state = max(linked_pos,
+                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
 
     @api.depends("budget_type", "budget_code")
     def _compute_cost_center(self):
@@ -256,6 +257,7 @@ class PurchaseQuotation(models.Model):
 
             # Purchase Order values
             po_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or _("New"),
                 "origin": quotation.custom_rfq_id.name or quotation.rfq_origin,
                 "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
                 "partner_ref": quotation.vendor_ref or "",
@@ -440,6 +442,7 @@ class PurchaseOrder(models.Model):
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="PO Status", compute="_compute_linked_statuses")
+    current_user_has_acted = fields.Boolean("Current User Has Acted", )
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
         ("quote", "Quote"),
@@ -477,18 +480,6 @@ class PurchaseOrder(models.Model):
     show_pm_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
     show_od_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
     show_md_approved = fields.Boolean(compute="_compute_show_approvals", store=False)
-    # Track which users already acted (approved/rejected) so we can hide buttons for them only
-    approval_action_user_ids = fields.Many2many(
-        "res.users",
-        "purchase_order_approval_action_user_rel",
-        "order_id",
-        "user_id",
-        string="Users Who Acted",
-        copy=False,
-    )
-    current_user_has_acted = fields.Boolean(
-        compute="_compute_current_user_has_acted", store=False
-    )
     subtotal = fields.Float(
         string="Subtotal", compute="_compute_amount_untaxed_custom", store=True
     )
@@ -545,9 +536,12 @@ class PurchaseOrder(models.Model):
         for rec in self:
             pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
             rec.linked_pr_state = pr.state if pr else "missing"
-            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
-            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status, 0)).status if rec.quotation_ids else "missing"
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else \
+            self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos,
+                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status,
+                                                                                                      0)).status if rec.quotation_ids else "missing"
 
     def action_view_quotations(self):
         return self.action_view_rfq_quotations()
@@ -658,16 +652,10 @@ class PurchaseOrder(models.Model):
                     "body_html": f"<p>{note}</p>",
                 }).send()
 
-    def _compute_current_user_has_acted(self):
-        uid = self.env.user.id
-        for order in self:
-            order.current_user_has_acted = bool(order.approval_action_user_ids.filtered(lambda u: u.id == uid))
-
     # main approval logic
     def action_approve(self):
         self.ensure_one()
         amount = self.subtotal
-        acting_user_id = self.env.user.id
 
         if amount <= 10000:
             if not self.pe_approved:
@@ -737,8 +725,6 @@ class PurchaseOrder(models.Model):
                 self.write({"md_approved": True})
                 self.message_post(body="Approved by Managing Director.")
 
-        # Mark current user as having acted so their buttons hide
-        self.sudo().write({"approval_action_user_ids": [(4, acting_user_id)]})
         return self._reload_action()
 
     # confirm order button visibility
@@ -802,7 +788,6 @@ class PurchaseOrder(models.Model):
                 "pm_approved": False,
                 "od_approved": False,
                 "md_approved": False,
-                "approval_action_user_ids": [(5, 0, 0)],
             })
 
             if order.pr_name:
@@ -831,9 +816,6 @@ class PurchaseOrder(models.Model):
                 order.origin,
                 rejecting_user.name,
             )
-
-            # Record action for current user to hide buttons for them only
-            order.sudo().write({"approval_action_user_ids": [(4, self.env.user.id)]})
 
             # Step 1: Find the PO with this origin
             parent_po = self.env["purchase.order"].search(
