@@ -769,8 +769,8 @@ class PurchaseOrder(models.Model):
 
     #     return True
     def action_confirm(self):
-        """Use standard purchase confirmation flow."""
-        return super().action_confirm()
+        """Compatibility wrapper for buttons calling action_confirm on purchase orders."""
+        return self.button_confirm()
 
     def _create_and_validate_receipt_from_custom_lines(self):
         """Deprecated custom receipt flow."""
