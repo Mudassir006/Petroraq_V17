@@ -41,14 +41,14 @@ class RFQComparisonWizard(models.TransientModel):
         else:
             label = _("Unknown")
 
-        candidate_rfqs = related_rfqs.filtered(lambda r: r.id != self.custom_rfq_id.id and r.line_ids and r.partner_id)
+        candidate_rfqs = related_rfqs.filtered(lambda r: r.id != self.custom_rfq_id.id and r.order_line and r.partner_id)
         if not candidate_rfqs:
             raise UserError(_("No RFQ lines were found for %s.") % label)
 
         all_offer_lines = []
         grouped_prices = defaultdict(list)
         for rfq in candidate_rfqs:
-            for line in rfq.line_ids:
+            for line in rfq.order_line:
                 product_key = (line.name or "").strip()
                 if not product_key:
                     continue
@@ -67,10 +67,10 @@ class RFQComparisonWizard(models.TransientModel):
                 "product_name": product_key,
                 "rfq_id": rfq.id,
                 "vendor_id": rfq.partner_id.id,
-                "quantity": line.quantity,
-                "unit": line.unit,
-                "type": line.type,
-                "cost_center_id": line.cost_center_id.id,
+                "quantity": line.product_qty,
+                "unit": line.product_uom.name if line.product_uom else "",
+                "type": "service" if (line.product_id and line.product_id.type == "service") else "material",
+                "cost_center_id": False,
                 "unit_price": line.price_unit,
                 "is_best_line": is_best,
                 "is_selected": is_best,

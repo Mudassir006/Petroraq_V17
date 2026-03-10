@@ -121,7 +121,7 @@ class CustomPurchaseRFQ(models.Model):
 
     def action_open_rfq_comparison(self):
         self.ensure_one()
-        comparable_rfqs = self.related_rfq_ids.filtered(lambda rfq: rfq.id != self.id and rfq.line_ids)
+        comparable_rfqs = self.related_rfq_ids.filtered(lambda rfq: rfq.id != self.id and rfq.order_line)
         if not comparable_rfqs:
             label = self.requisition_id.name or self.pr_name or self.name
             raise UserError(_("No comparable RFQs are available for %s yet.") % label)

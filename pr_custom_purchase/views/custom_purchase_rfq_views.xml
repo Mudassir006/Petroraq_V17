@@ -111,15 +111,14 @@
                     <notebook>
                         <page string="Products">
 
-                            <field name="line_ids" readonly="1">
+                            <field name="order_line" readonly="1">
                                 <tree>
+                                    <field name="product_id"/>
                                     <field name="name"/>
-                                    <field name="type"/>
-                                    <field name="cost_center_id"/>
-                                    <field name="quantity"/>
-                                    <field name="unit"/>
+                                    <field name="product_qty"/>
+                                    <field name="product_uom"/>
                                     <field name="price_unit"/>
-                                    <field name="subtotal"/>
+                                    <field name="price_subtotal"/>
                                 </tree>
                             </field>
                         </page>
