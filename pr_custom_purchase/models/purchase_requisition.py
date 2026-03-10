@@ -431,7 +431,7 @@ class PurchaseRequisition(models.Model):
     #             "date_planned": pr.required_date,
     #             "budget_type": pr.budget_type,
     #             "budget_code": pr.budget_details,
-    #             "custom_line_ids": [],  # Populate custom tab instead
+    #             "order_line": [],  # Populate custom tab instead
     #             "date_request": pr.date_request,
     #             "requested_by": pr.requested_by,
     #             "department": pr.department,
@@ -530,7 +530,7 @@ class PurchaseRequisition(models.Model):
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "pr_name": pr.name,
                 "date_planned": pr.required_date,
-                "line_ids": [],
+                "order_line": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
                 "department": pr.department,
@@ -540,13 +540,12 @@ class PurchaseRequisition(models.Model):
             }
 
             for line in pr.line_ids:
-                rfq_vals["line_ids"].append((0, 0, {
+                rfq_vals["order_line"].append((0, 0, {
                     "name": line.description.display_name,
-                    "quantity": line.quantity,
-                    "type": line.type,
-                    "unit": line.unit,
-                    "price_unit": 0,
-                    "cost_center_id": line.cost_center_id.id,
+                    "product_id": line.description.id,
+                    "product_qty": line.quantity,
+                    "price_unit": line.unit_price or 0.0,
+                    "date_planned": fields.Datetime.now(),
                 }))
 
             rfq = CustomRFQ.sudo().create(rfq_vals)
@@ -600,7 +599,7 @@ class PurchaseRequisition(models.Model):
                 "origin": pr.name,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date,
-                "custom_line_ids": [],
+                "order_line": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
                 "department": pr.department,
@@ -615,15 +614,14 @@ class PurchaseRequisition(models.Model):
                     0,
                     {
                         # "name": line.description.display_name,
-                        "name": line.description.name,
-                        "quantity": line.quantity,
-                        "type": line.type,
-                        "unit": line.unit,
+                        "name": line.description.display_name,
+                        "product_id": line.description.id,
+                        "product_qty": line.quantity,
                         "price_unit": line.unit_price,
-                        "cost_center_id": line.cost_center_id.id,
+                        "date_planned": fields.Datetime.now(),
                     },
                 )
-                po_vals["custom_line_ids"].append(line_vals)
+                po_vals["order_line"].append(line_vals)
 
             # Create Purchase Order
             po = PurchaseOrder.sudo().create(po_vals)

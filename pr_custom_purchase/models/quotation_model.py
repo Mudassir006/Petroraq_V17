@@ -11,7 +11,6 @@ class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
-    line_ids = fields.One2many("purchase.order.custom.line", "order_id", string="RFQ Lines")
     linked_pr_state = fields.Selection([
         ("missing", "Not Created"),
         ("draft", "Draft"),
@@ -83,9 +82,7 @@ class PurchaseOrder(models.Model):
         store=False,
     )
     vendor_ids = fields.Many2many("res.partner", string="All Vendors")
-    custom_line_ids = fields.One2many(
-        "purchase.order.custom.line", "order_id", string="Custom Lines"
-    )
+    custom_line_ids = fields.One2many("purchase.order.custom.line", "order_id", string="Custom Lines")
     date_request = fields.Date(
         string="Date of Request", default=fields.Date.context_today
     )
@@ -93,16 +90,7 @@ class PurchaseOrder(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    grn_ses_button_type = fields.Selection(
-        [
-            ("grn", "GRN"),
-            ("ses", "SES"),
-            ("both", "GRN/SES"),
-        ],
-        string="GRN/SES Button Type",
-        compute="_compute_grn_ses_button_type",
-        store=False,
-    )
+    grn_ses_button_type = fields.Selection([("grn", "GRN"), ("ses", "SES"), ("both", "GRN/SES")], string="GRN/SES Button Type", compute="_compute_grn_ses_button_type", store=False)
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
 
@@ -146,14 +134,14 @@ class PurchaseOrder(models.Model):
         return action
 
     def action_create_po_from_rfq(self):
-        """Select current RFQ as the winning offer and confirm it as Purchase Order."""
+        """Select current RFQ as winning offer and move it to approval (pending)."""
         self.ensure_one()
 
         if self.state not in ("draft", "sent", "pending"):
-            raise UserError(_("Only RFQs in Draft/Sent/Pending can be converted to Purchase Order."))
+            raise UserError(_("Only RFQs in Draft/Sent/Pending can be selected for Purchase Order."))
 
-        if not (self.custom_line_ids or self.order_line):
-            raise UserError(_("This RFQ has no lines to confirm."))
+        if not self.order_line:
+            raise UserError(_("This RFQ has no order lines."))
 
         sibling_rfqs = self.env["purchase.order"].sudo().search([
             ("requisition_id", "=", self.requisition_id.id),
@@ -161,14 +149,53 @@ class PurchaseOrder(models.Model):
             ("state", "in", ["draft", "sent"]),
         ]) if self.requisition_id else self.env["purchase.order"]
 
-        # Confirm selected RFQ using standard flow
-        self.button_confirm()
+        self.write({
+            "state": "pending",
+            "pe_approved": False,
+            "pm_approved": False,
+            "od_approved": False,
+            "md_approved": False,
+        })
+
+        amount = self.subtotal
+        if amount <= 10000:
+            self._schedule_activity_for_group(
+                "pr_custom_purchase.project_engineer",
+                "Review Purchase Order",
+                f"PO {self.name} selected from RFQ. Please review.",
+            )
+        elif amount <= 100000:
+            self._schedule_activity_for_group(
+                "pr_custom_purchase.project_engineer",
+                "Review Purchase Order",
+                f"PO {self.name} selected from RFQ. Please review.",
+            )
+            self._schedule_activity_for_group(
+                "pr_custom_purchase.project_manager",
+                "Review Purchase Order",
+                f"PO {self.name} selected from RFQ. Please review.",
+            )
+        elif amount <= 500000:
+            for group_xml_id in [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+                "pr_custom_purchase.operations_director",
+            ]:
+                self._schedule_activity_for_group(group_xml_id, "Review Purchase Order", f"PO {self.name} selected from RFQ. Please review.")
+        else:
+            for group_xml_id in [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+                "pr_custom_purchase.operations_director",
+                "pr_custom_purchase.managing_director",
+            ]:
+                self._schedule_activity_for_group(group_xml_id, "Review Purchase Order", f"PO {self.name} selected from RFQ. Please review.")
 
         if sibling_rfqs:
             sibling_rfqs.write({"state": "cancel"})
             sibling_rfqs.message_post(body=_("Cancelled because another RFQ was selected as Purchase Order."))
 
-        self.message_post(body=_("Selected as best RFQ and converted to Purchase Order."))
+        self.message_post(body=_("Selected as best RFQ and moved to approval."))
 
         return {
             "type": "ir.actions.act_window",
@@ -203,10 +230,10 @@ class PurchaseOrder(models.Model):
             "target": "current",
         }
 
-    @api.depends("custom_line_ids.subtotal")
+    @api.depends("order_line.price_subtotal")
     def _compute_amount_untaxed_custom(self):
         for order in self:
-            order.subtotal = sum(order.custom_line_ids.mapped("subtotal"))
+            order.subtotal = sum(order.order_line.mapped("price_subtotal"))
             order.tax_15 = order.subtotal * 0.15
             order.grand_total = order.subtotal + order.tax_15
 
@@ -217,24 +244,30 @@ class PurchaseOrder(models.Model):
     #         else:
     #             super(PurchaseOrder, order).button_confirm()
 
+
+    @api.model
+    def create(self, vals):
+        if not vals.get("name") or vals.get("name") == "New":
+            state = vals.get("state", "draft")
+            if state in ("draft", "sent", "pending"):
+                vals["name"] = self.env["ir.sequence"].sudo().next_by_code("purchase.order.rfq") or "RFQ0001"
+            else:
+                vals["name"] = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
+        return super().create(vals)
+
     def button_confirm(self):
         for order in self:
             # Preserve native confirm to keep purchase↔stock linkage
-            if order.name.startswith("RFQ"):
-                order.name = (
-                        self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
-                )
+            if "RFQ" in (order.name or ""):
+                order.name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
 
             if order.state == "pending":
+                if not order.can_confirm_order:
+                    raise UserError(_("All required approvals must be completed before confirming this Purchase Order."))
                 order.write({"state": "purchase"})
             else:
                 super(PurchaseOrder, order).button_confirm()
 
-            # After confirmation, ensure inventory receipt is created and validated from custom lines
-            try:
-                order._create_and_validate_receipt_from_custom_lines()
-            except Exception as e:
-                _logger.exception("Auto receipt creation failed for %s: %s", order.name, e)
 
     def _schedule_activity_for_group(self, group_xml_id, summary, note):
         group = self.env.ref(group_xml_id, raise_if_not_found=False)
@@ -703,144 +736,15 @@ class PurchaseOrder(models.Model):
 
     #     return True
     def action_confirm(self):
-        """Custom confirm: set state from pending → purchase and then create a validated receipt from custom lines."""
-        for order in self:
-            if order.state == "pending":
-                order.state = "purchase"
-
-            group = self.env.ref("pr_custom_purchase.inventory_data_entry", raise_if_not_found=False)
-            if group and group.users:
-                for user in group.users.filtered(lambda u: u.active):
-                    order.activity_schedule(
-                        'mail.mail_activity_data_todo',
-                        user_id=user.id,
-                        summary="Purchase Order Approved",
-                        note=f"Purchase Order {order.name} has been approved."
-                    )
-
-            try:
-                order._create_and_validate_receipt_from_custom_lines()
-            except Exception as e:
-                _logger.exception("Auto receipt creation failed for %s: %s", order.name, e)
-
-        return True
+        """Use standard purchase confirmation flow."""
+        return super().action_confirm()
 
     def _create_and_validate_receipt_from_custom_lines(self):
-        """Create and validate an incoming picking based on custom_line_ids to update on-hand quantities."""
-        self.ensure_one()
-
-        # Collect lines (prefer custom lines)
-        src_lines = self.custom_line_ids or self.order_line
-        if not src_lines:
-            return True
-
-        # Aggregate by product
-        product_qty_map = {}
-        for line in src_lines:
-            # Skip services if present
-            if hasattr(line, "type") and line.type == "service":
-                continue
-
-            qty = getattr(line, "quantity", 0.0) or getattr(line, "product_qty", 0.0) or 0.0
-            if qty <= 0:
-                continue
-
-            product = getattr(line, "product_id", False)
-            if not product:
-                name_val = getattr(line, "name", "")
-                if name_val:
-                    product = self.env["product.product"].sudo().search([("name", "=", name_val)], limit=1)
-            if not product:
-                continue
-
-            product_qty_map[product.id] = product_qty_map.get(product.id, 0.0) + qty
-
-        if not product_qty_map:
-            return True
-
-        # Incoming picking type
-        picking_type = self.env["stock.picking.type"].sudo().search([
-            ("code", "=", "incoming"),
-            ("company_id", "=", self.company_id.id),
-        ], limit=1) or self.env["stock.picking.type"].sudo().search([("code", "=", "incoming")], limit=1)
-        if not picking_type:
-            return True
-
-        # Locations
-        suppliers_loc = self.env.ref("stock.stock_location_suppliers", raise_if_not_found=False)
-        location_id = (picking_type.default_location_src_id and picking_type.default_location_src_id.id) or (
-                suppliers_loc and suppliers_loc.id)
-
-        dest_loc = picking_type.default_location_dest_id
-        if not dest_loc:
-            warehouse = self.env["stock.warehouse"].sudo().search([("company_id", "=", self.company_id.id)], limit=1)
-            dest_loc = warehouse and warehouse.lot_stock_id or False
-        location_dest_id = dest_loc and dest_loc.id or False
-        if not location_id or not location_dest_id:
-            return True
-
-        # Create picking
-        picking = self.env["stock.picking"].sudo().create({
-            "picking_type_id": picking_type.id,
-            "partner_id": self.partner_id.id,
-            "origin": self.name,
-            "company_id": self.company_id.id,
-            "location_id": location_id,
-            "location_dest_id": location_dest_id,
-        })
-
-        # Create moves
-        Move = self.env["stock.move"].sudo()
-        for product_id, qty in product_qty_map.items():
-            product = self.env["product.product"].browse(product_id)
-            if not product.exists():
-                continue
-            uom_id = (product.uom_po_id and product.uom_po_id.id) or product.uom_id.id
-            Move.create({
-                "name": product.display_name or product.name,
-                "product_id": product.id,
-                "product_uom": uom_id,
-                "product_uom_qty": qty,
-                "picking_id": picking.id,
-                "location_id": location_id,
-                "location_dest_id": location_dest_id,
-                "company_id": self.company_id.id,
-            })
-
-        # Confirm, assign and set done qty
-        picking.action_confirm()
-        picking.action_assign()
-
-        for move in picking.move_ids_without_package:
-            if not move.move_line_ids:
-                self.env["stock.move.line"].sudo().create({
-                    "move_id": move.id,
-                    "picking_id": picking.id,
-                    "product_id": move.product_id.id,
-                    "product_uom_id": move.product_uom.id,
-                    "qty_done": move.product_uom_qty,
-                    "location_id": move.location_id.id,
-                    "location_dest_id": move.location_dest_id.id,
-                    "company_id": self.company_id.id,
-                })
-            else:
-                for ml in move.move_line_ids:
-                    if not ml.qty_done:
-                        ml.sudo().qty_done = ml.product_uom_qty or move.product_uom_qty
-
-        # Validate picking
-        picking.sudo()._action_done()
+        """Deprecated custom receipt flow."""
         return True
 
     def create_grn_ses(self):
-        return {
-            "name": "Add Remarks for GRN/SES",
-            "type": "ir.actions.act_window",
-            "res_model": "grn.ses.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {"active_id": self.id},
-        }
+        raise UserError(_("GRN/SES custom flow is disabled. Use standard receipts and vendor bills."))
 
     @api.depends("state", "subtotal", "grand_total")
     def _compute_display_total(self):
@@ -850,15 +754,8 @@ class PurchaseOrder(models.Model):
             else:
                 order.display_total = order.subtotal
 
-    @api.depends("custom_line_ids.type")
+
+    @api.depends("order_line.product_id.type")
     def _compute_grn_ses_button_type(self):
         for order in self:
-            line_types = set(order.custom_line_ids.mapped("type"))
-            if not line_types:
-                order.grn_ses_button_type = False
-            elif line_types == {"material"}:
-                order.grn_ses_button_type = "grn"
-            elif line_types == {"service"}:
-                order.grn_ses_button_type = "ses"
-            else:
-                order.grn_ses_button_type = "both"
+            order.grn_ses_button_type = False

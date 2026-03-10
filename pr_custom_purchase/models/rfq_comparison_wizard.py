@@ -120,17 +120,15 @@ class RFQComparisonWizard(models.TransientModel):
                 "department": source_rfq.department if source_rfq else "",
                 "supervisor": source_rfq.supervisor if source_rfq else "",
                 "supervisor_partner_id": source_rfq.supervisor_partner_id if source_rfq else "",
-                "custom_line_ids": [
+                "order_line": [
                     (
                         0,
                         0,
                         {
                             "name": line.product_name,
-                            "quantity": line.quantity,
-                            "type": line.type,
-                            "unit": line.unit,
+                            "product_qty": line.quantity,
                             "price_unit": line.unit_price,
-                            "cost_center_id": line.cost_center_id.id,
+                            "date_planned": fields.Datetime.now(),
                         },
                     )
                     for line in vendor_lines
