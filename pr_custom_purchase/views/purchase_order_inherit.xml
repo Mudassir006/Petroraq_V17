@@ -73,14 +73,17 @@
                 groups="pr_custom_purchase.procurement_admin"
                 invisible="1"/>
       </xpath>
-      <xpath expr="(//form/header/button[@name='button_confirm'])[1]" position="attributes">
-        <attribute name="invisible">is_rfq_record or state != 'sent'</attribute>
+      <xpath expr="//form/header/button[@name='button_confirm']" position="attributes">
+        <attribute name="invisible" add="is_rfq_record" separator=" or "/>
       </xpath>
-      <xpath expr="(//form/header/button[@name='button_confirm'])[2]" position="attributes">
-        <attribute name="invisible">is_rfq_record or state != 'draft'</attribute>
+      <xpath expr="//form/header/button[@name='action_confirm']" position="attributes">
+        <attribute name="invisible" add="is_rfq_record" separator=" or "/>
       </xpath>
-      <xpath expr="(//form/header/button[@name='button_draft'])[1]" position="attributes">
-        <attribute name="invisible">is_rfq_record or state != 'cancel'</attribute>
+      <xpath expr="//form/header/button[@name='button_draft']" position="attributes">
+        <attribute name="invisible" add="is_rfq_record" separator=" or "/>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_reset_to_draft']" position="attributes">
+        <attribute name="invisible" add="is_rfq_record" separator=" or "/>
       </xpath>
       <xpath expr="//sheet/div[@name='button_box']" position="inside">
         <button type="object"
