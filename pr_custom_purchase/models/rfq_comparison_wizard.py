@@ -53,13 +53,13 @@ class RFQComparisonWizard(models.TransientModel):
                 if not product_key:
                     continue
                 grouped_prices[product_key].append(line.price_unit)
-                all_offer_lines.append((product_key, rfq, line))
+                all_offer_lines.append((product_key, rfq, line, line.analytic_distribution))
 
         if not all_offer_lines:
             raise UserError(_("No RFQ lines are available for comparison."))
 
         line_commands = []
-        for product_key, rfq, line in all_offer_lines:
+        for product_key, rfq, line, analytic_distribution in all_offer_lines:
             min_price = min(grouped_prices[product_key]) if grouped_prices.get(product_key) else line.price_unit
             is_best = line.price_unit == min_price
             line_commands.append((0, 0, {
@@ -70,12 +70,23 @@ class RFQComparisonWizard(models.TransientModel):
                 "quantity": line.product_qty,
                 "unit": line.product_uom.name if line.product_uom else "",
                 "type": "service" if (line.product_id and line.product_id.type == "service") else "material",
-                "cost_center_id": False,
+                "cost_center_id": self._extract_cost_center_from_distribution(analytic_distribution),
                 "unit_price": line.price_unit,
                 "is_best_line": is_best,
+                "analytic_distribution": analytic_distribution or False,
                 "is_selected": is_best,
             }))
         return line_commands
+
+    @api.model
+    def _extract_cost_center_from_distribution(self, analytic_distribution):
+        if not analytic_distribution:
+            return False
+        try:
+            analytic_account_id = int(next(iter(analytic_distribution.keys())))
+        except (StopIteration, TypeError, ValueError, AttributeError):
+            return False
+        return analytic_account_id
 
     @api.model
     def default_get(self, fields_list):
@@ -130,6 +141,7 @@ class RFQComparisonWizard(models.TransientModel):
                             "product_qty": line.quantity,
                             "price_unit": line.unit_price,
                             "date_planned": fields.Datetime.now(),
+                            "analytic_distribution": line.analytic_distribution or False,
                         },
                     )
                     for line in vendor_lines
@@ -172,6 +184,7 @@ class RFQComparisonWizardLine(models.TransientModel):
     )
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", readonly=True)
     unit_price = fields.Float(string="Unit Price", readonly=True)
+    analytic_distribution = fields.Json(string="Analytic Distribution", readonly=True)
     is_best_line = fields.Boolean(string="Best Price", readonly=True)
     best_badge = fields.Char(string="Best", compute="_compute_best_badge")
 

@@ -9,7 +9,7 @@
                 string="Send Email"
                 type="object"
                 class="btn-primary"
-                invisible="1"
+                invisible="state not in ('draft','sent')"
                 groups="pr_custom_purchase.procurement_admin"/>
       </xpath>
     </field>
@@ -64,7 +64,7 @@
                 string="Create PO"
                 class="btn-primary"
                 groups="pr_custom_purchase.procurement_admin"
-                invisible="1"/>
+                invisible="state not in ('draft','sent','pending')"/>
         <button name="action_open_rfq_comparison"
                 type="object"
                 string="Compare RFQs"
@@ -77,7 +77,7 @@
                 class="oe_stat_button"
                 name="action_view_rfq_quotations"
                 icon="fa-list-alt"
-                invisible="1">
+                invisible="state not in ('draft','sent')">
           <field name="quotation_count" widget="statinfo" string="RFQs"/>
         </button>
       </xpath>
