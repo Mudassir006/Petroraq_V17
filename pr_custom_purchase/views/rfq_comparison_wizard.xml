@@ -4,10 +4,10 @@
         <field name="name">rfq.comparison.wizard.form</field>
         <field name="model">rfq.comparison.wizard</field>
         <field name="arch" type="xml">
-            <form string="Quotation Comparison">
+            <form string="RFQ Comparison">
                 <sheet>
                     <div class="oe_title">
-                        <h1>Line-by-Line Quotation Comparison</h1>
+                        <h1>Line-by-Line RFQ Comparison</h1>
                         <h2>
                             <field name="custom_rfq_id" readonly="1" invisible="not custom_rfq_id"/>
                                                         <field name="requisition_id" readonly="1"/>

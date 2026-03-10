@@ -4,7 +4,6 @@ from . import inventory
 from . import purchase_requisition
 from . import purchase_requisition_inherit
 from . import quotation_model
-from . import purchase_quotation
 from . import project
 from . import expense_bucket
 from . import cost_center_budget

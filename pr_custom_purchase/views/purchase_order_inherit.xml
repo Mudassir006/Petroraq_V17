@@ -61,7 +61,7 @@
       <xpath expr="//form/header" position="inside">
         <button name="action_open_rfq_comparison"
                 type="object"
-                string="Compare Quotations"
+                string="Compare RFQs"
                 class="btn-secondary"
                 groups="pr_custom_purchase.procurement_admin"
                 invisible="state not in ('draft','sent') or quotation_count == 0"/>
@@ -72,7 +72,7 @@
                 name="action_view_rfq_quotations"
                 icon="fa-list-alt"
                 invisible="state not in ('draft','sent')">
-          <field name="quotation_count" widget="statinfo" string="Quotations"/>
+          <field name="quotation_count" widget="statinfo" string="RFQs"/>
         </button>
       </xpath>
     </field>

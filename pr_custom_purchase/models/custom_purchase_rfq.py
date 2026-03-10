@@ -53,9 +53,9 @@ class CustomPurchaseRFQ(models.Model):
     ], string="PO Status", compute="_compute_linked_statuses")
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
-        ("quote", "Quote"),
-        ("po", "Purchase"),
-    ], string="Quotation Status", compute="_compute_linked_statuses")
+        ("quote", "RFQ"),
+        ("po", "Purchase Order"),
+    ], string="RFQ / PO Status", compute="_compute_linked_statuses")
 
     def _compute_linked_statuses(self):
         po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
@@ -128,7 +128,7 @@ class CustomPurchaseRFQ(models.Model):
         wizard = self.env["rfq.comparison.wizard"].create_for_custom_rfq(self)
         return {
             "type": "ir.actions.act_window",
-            "name": _("Quotation Comparison"),
+            "name": _("RFQ Comparison"),
             "res_model": "rfq.comparison.wizard",
             "view_mode": "form",
             "target": "new",

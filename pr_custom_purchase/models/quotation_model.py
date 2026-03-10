@@ -32,9 +32,9 @@ class PurchaseOrder(models.Model):
     current_user_has_acted = fields.Boolean("Current User Has Acted",)
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
-        ("quote", "Quote"),
-        ("po", "Purchase"),
-    ], string="Quotation Status", compute="_compute_linked_statuses")
+        ("quote", "RFQ"),
+        ("po", "Purchase Order"),
+    ], string="RFQ / PO Status", compute="_compute_linked_statuses")
 
     quotation_count = fields.Integer(
         string="Related RFQs",

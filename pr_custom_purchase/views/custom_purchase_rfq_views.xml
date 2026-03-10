@@ -54,10 +54,10 @@
                             invisible="state in ('cancel', 'done')"/>
                     <button name="button_draft" type="object" string="Reset to RFQ" class="btn-secondary"
                             invisible="state != 'cancel'"/>
-                    <button name="action_view_quotations" type="object" string="Submitted Quotations"
+                    <button name="action_view_quotations" type="object" string="Related RFQs"
                             class="btn-primary"
                             groups="pr_custom_purchase.procurement_admin"/>
-                    <button name="action_open_rfq_comparison" type="object" string="Compare Quotations"
+                    <button name="action_open_rfq_comparison" type="object" string="Compare RFQs"
                             class="btn-secondary"
                             groups="pr_custom_purchase.procurement_admin"/>
                     <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
@@ -68,7 +68,7 @@
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_quotations" type="object" class="oe_stat_button" icon="fa-list-alt">
-                            <field name="quotation_count" widget="statinfo" string="Quotations"/>
+                            <field name="quotation_count" widget="statinfo" string="RFQs"/>
                         </button>
                     </div>
                     <group>

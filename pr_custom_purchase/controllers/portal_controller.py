@@ -350,9 +350,3 @@ class PortalPR(http.Controller):
             ).send()
 
         return request.redirect("/my/purchase-request?pr_submitted=1")
-
-class QuotationPortal(http.Controller):
-
-    @http.route('/custom/quotation/form', type='http', auth='user')
-    def quotation_form(self, **kwargs):
-        return request.render("pr_custom_purchase.quotation_form_template", {})

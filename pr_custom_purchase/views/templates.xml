@@ -114,22 +114,7 @@
         </t>
         <!-- RFQ alert -->
     </template>
-    <template id="custom_portal_rfq_alert_inherit" inherit_id="purchase.portal_my_purchase_rfqs">
-        <xpath expr="//t[@t-call='portal.portal_layout']" position="inside">
-            <script type="text/javascript">
-                document.addEventListener('DOMContentLoaded', function () {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.get('quotation_submitted') === '1') {
-                        alert('Quotation has been submitted successfully!');
-                    if (history.replaceState) {
-                            const cleanUrl = window.location.href.split('?')[0];
-                            history.replaceState(null, null, cleanUrl);
-                        }
-                    }
-                });
-            </script>
-        </xpath>
-    </template>
+    
     <!-- 
     <template id="custom_auth_signup_view" inherit_id="auth_signup.signup">
         
