@@ -136,7 +136,6 @@ class CustomPR(models.Model):
     def _compute_linked_document_statuses(self):
         rfq_priority = {'draft': 1, 'sent': 2, 'done': 3, 'cancel': 4}
         po_priority = {'draft': 1, 'sent': 2, 'pending': 3, 'purchase': 4, 'done': 5, 'cancel': 6}
-        quotation_priority = {'quote': 1, 'po': 2}
 
         for rec in self:
             requisition = self.env['purchase.requisition'].sudo().search([('name', '=', rec.name)], limit=1)
@@ -149,10 +148,10 @@ class CustomPR(models.Model):
             else:
                 rec.linked_rfq_status = 'missing'
 
-            quotations = self.env['purchase.quotation'].sudo().search([('pr_name', '=', rec.name)])
-            if quotations:
-                best_quotation = max(quotations, key=lambda quote: quotation_priority.get(quote.status, 0))
-                rec.linked_quotation_status = best_quotation.status
+            rfqs_for_quote_status = self.env['purchase.order'].sudo().search([('pr_name', '=', rec.name)])
+            if rfqs_for_quote_status:
+                best_rfq_for_quote = max(rfqs_for_quote_status, key=lambda rfq: po_priority.get(rfq.state, 0))
+                rec.linked_quotation_status = 'po' if best_rfq_for_quote.state in ('pending', 'purchase', 'done') else 'quote'
             else:
                 rec.linked_quotation_status = 'missing'
 

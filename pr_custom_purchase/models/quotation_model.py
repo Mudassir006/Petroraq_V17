@@ -7,424 +7,10 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-class PurchaseQuotation(models.Model):
-    _name = "purchase.quotation"
-    _description = "Purchase Quotation"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
-    # Basic Info
-    vendor_id = fields.Many2one("res.partner", string="Vendor")
-    rfq_origin = fields.Char(string="RFQ Origin")
-    custom_rfq_id = fields.Many2one("purchase.order", string="RFQ", ondelete="set null")
-    requisition_id = fields.Many2one("purchase.requisition", string="Purchase Requisition",
-                                     related="custom_rfq_id.requisition_id", store=True, readonly=True)
-    vendor_ref = fields.Char(string="Vendor Reference")
-    pr_name = fields.Char(string="PR Name", readonly=True)
-    notes = fields.Text(string="Notes")
-    order_deadline = fields.Datetime(string="Deadline")
-    expected_arrival = fields.Datetime(string="Quotation Date")
-    project_id = fields.Many2one("project.project", string="Project")
-
-    # Supplier Info
-    supplier_name = fields.Char(string="Supplier Name")
-    contact_person = fields.Char(string="Contact Person")
-    company_address = fields.Char(string="Company Address")
-    phone_number = fields.Char(string="Phone Number")
-    email_address = fields.Char(string="Email Address")
-    supplier_id = fields.Char(string="Supplier ID")
-    quotation_ref = fields.Char(string="Quotation Reference")
-    # Reason tab field for end user/supervisor workflow
-    rejection_reason = fields.Text(string="Reason for Rejection")
-
-    # Payment Terms
-    terms_net = fields.Boolean("Net")
-    terms_30days = fields.Boolean("30 Days")
-    terms_advance = fields.Boolean("Advance %")
-    terms_advance_specify = fields.Char("Specify Advance Terms")
-    terms_delivery = fields.Boolean("On Delivery")
-    terms_other = fields.Boolean("Other")
-    terms_others_specify = fields.Char("Specify Other Terms")
-
-    # Production / Material Availability
-    ex_stock = fields.Boolean("Ex-Stock")
-    required_days = fields.Boolean("Production Required")
-    production_days = fields.Char("Production Days Needed")
-
-    # Delivery Terms
-    ex_work = fields.Boolean("Ex-Works")
-    delivery_site = fields.Boolean("Site Delivery")
-
-    # Delivery Date Expected
-    delivery_date = fields.Date("Expected Delivery Date")
-
-    # Delivery Method
-    delivery_courier = fields.Boolean("Courier")
-    delivery_pickup = fields.Boolean("Pickup")
-    delivery_freight = fields.Boolean("Freight")
-    delivery_others = fields.Boolean("Other")
-    delivery_others_specify = fields.Char("Specify Other Delivery")
-
-    # Partial Order Acceptance
-    partial_yes = fields.Boolean("Partial Order Acceptable")
-    partial_no = fields.Boolean("Partial Order Not Acceptable")
-
-    # total
-    total_excl_vat = fields.Float(
-        string="Total Amount", compute="_compute_totals", store=True
-    )
-    vat_amount = fields.Float(
-        string="VAT Amount @ 15%", compute="_compute_totals", store=True
-    )
-    total_incl_vat = fields.Float(
-        string="Total Amount Including VAT", compute="_compute_totals", store=True
-    )
-    is_best = fields.Boolean(
-        string="Best Quotation", compute="_compute_is_best", store=True
-    )
-    is_best_badge = fields.Char(
-        string="Best Quotation", compute="_compute_is_best_badge", store=False
-    )
-
-    # budget
-    budget_type = fields.Selection(
-        [("opex", "Opex"), ("capex", "Capex")],
-        string="Budget Type",
-    )
-    budget_code = fields.Char(string="Budget Code")
-    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", compute="_compute_cost_center",
-                                     store=False)
-    project_budget_allowance = fields.Float(
-        string="Budget Allowance",
-        compute="_compute_cost_center",
-        store=False,
-    )
-    budget_left = fields.Float(
-        string="Budget Left", compute="_compute_cost_center", store=False
-    )
-    status = fields.Selection(
-        [("quote", "Quote"), ("po", "Purchase")],
-        default="quote",
-        string="Status",
-    )
-
-    linked_rfq_state = fields.Selection([
-        ("missing", "Not Created"),
-        ("draft", "Draft"),
-        ("sent", "RFQ Sent"),
-        ("done", "Locked"),
-        ("cancel", "Cancelled"),
-    ], string="RFQ Status", compute="_compute_linked_statuses")
-    linked_pr_state = fields.Selection([
-        ("missing", "Not Created"),
-        ("draft", "Draft"),
-        ("rfq_sent", "RFQ Sent"),
-        ("pending", "Pending"),
-        ("purchase", "Purchase Order"),
-        ("cancel", "Cancelled"),
-    ], string="PR Status", compute="_compute_linked_statuses")
-    linked_po_state = fields.Selection([
-        ("missing", "Not Created"),
-        ("draft", "RFQ"),
-        ("sent", "RFQ Sent"),
-        ("pending", "Pending"),
-        ("purchase", "Purchase Order"),
-        ("done", "Locked"),
-        ("cancel", "Cancelled"),
-    ], string="PO Status", compute="_compute_linked_statuses")
-
-    show_create_po_button = fields.Boolean(
-        compute="_compute_button_visibility", store=False
-    )
-    # PR Info
-    requested_by = fields.Char(string="Requested By")
-    department = fields.Char(string="Department")
-    supervisor = fields.Char(string="Supervisor")
-    supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-
-    # Lines
-    line_ids = fields.One2many(
-        "purchase.quotation.line", "quotation_id", string="Quotation Lines"
-    )
-
-    def _compute_linked_statuses(self):
-        po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
-        for rec in self:
-            rec.linked_rfq_state = rec.custom_rfq_id.state if rec.custom_rfq_id else "missing"
-            pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
-            rec.linked_pr_state = pr.state if pr else "missing"
-
-            domain = [("pr_name", "=", rec.pr_name)] if rec.pr_name else []
-            if rec.vendor_id:
-                domain.append(("partner_id", "=", rec.vendor_id.id))
-            linked_pos = self.env["purchase.order"].sudo().search(domain) if domain else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos,
-                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
-
-    @api.depends("budget_type", "budget_code")
-    def _compute_cost_center(self):
-        CostCenter = self.env["account.analytic.account"].sudo()
-        for rec in self:
-            cc = CostCenter.search([
-                ("budget_type", "=", rec.budget_type),
-                ("budget_code", "=", rec.budget_code),
-            ], limit=1) if rec.budget_type and rec.budget_code else False
-            rec.cost_center_id = cc.id if cc else False
-            rec.project_budget_allowance = cc.budget_allowance if cc else 0.0
-            rec.budget_left = cc.budget_left if cc else 0.0
-
-    @api.depends("line_ids.price_unit", "line_ids.quantity")
-    def _compute_totals(self):
-        for record in self:
-            total_excl = sum(
-                line.price_unit * line.quantity for line in record.line_ids
-            )
-            record.total_excl_vat = total_excl
-            record.vat_amount = total_excl * 0.15
-            record.total_incl_vat = total_excl + record.vat_amount
-
-    @api.depends("custom_rfq_id", "rfq_origin", "pr_name", "total_excl_vat", "status")
-    def _compute_is_best(self):
-        """Mark only one best quotation per PR (fallback RFQ) using the lowest total."""
-        group_keys = {(rec.pr_name, rec.rfq_origin) for rec in self if rec.pr_name or rec.rfq_origin}
-        if not group_keys:
-            for rec in self:
-                rec.is_best = False
-            return
-
-        domain = [
-            "|",
-            ("pr_name", "in", [pr for pr, _rfq in group_keys if pr]),
-            ("rfq_origin", "in", [rfq for _pr, rfq in group_keys if rfq]),
-        ]
-        all_quotations = self.env["purchase.quotation"].search(domain)
-
-        grouped = {}
-        for rec in all_quotations:
-            group_key = rec.pr_name or rec.rfq_origin
-            grouped.setdefault(group_key, self.env["purchase.quotation"])
-            grouped[group_key] |= rec
-
-        for group in grouped.values():
-            valid_records = group.filtered(lambda r: r.total_excl_vat > 0 and r.status == "quote")
-            group.is_best = False
-            if valid_records:
-                best_rec = min(valid_records, key=lambda r: (r.total_excl_vat, r.id))
-                best_rec.is_best = True
-
-    @api.depends("is_best")
-    def _compute_is_best_badge(self):
-        for rec in self:
-            rec.is_best_badge = "Best" if rec.is_best else ""
-
-    @api.depends("status")
-    def _compute_button_visibility(self):
-        """Button visible only if status is 'quote'
-        AND no PO exists in pending/purchase state."""
-        for rec in self:
-            show_button = False
-            if rec.status == "quote":
-                origin_name = rec.custom_rfq_id.name or rec.rfq_origin
-                po_exists = self.env["purchase.order"].search_count(
-                    [("origin", "=", origin_name), ("state", "in", ["pending", "purchase"])])
-                show_button = po_exists == 0
-            rec.show_create_po_button = show_button
-
-    # create purchase order
-    def action_create_purchase_order(self):
-        """Create Purchase Order from this Quotation in pending state with Custom Lines."""
-        PurchaseOrder = self.env["purchase.order"]
-
-        for quotation in self:
-            if not quotation.line_ids:
-                raise UserError(
-                    _("This Quotation has no line items to create a Purchase Order.")
-                )
-
-            amount_by_cost_center = {}
-            for line in quotation.line_ids:
-                cost_center = line.cost_center_id.sudo()
-                if not cost_center:
-                    raise UserError(_("Please set a cost center on every quotation line."))
-                amount_by_cost_center.setdefault(cost_center.id, {"cc": cost_center, "amount": 0.0})
-                amount_by_cost_center[cost_center.id]["amount"] += line.price_unit * line.quantity
-
-            for item in amount_by_cost_center.values():
-                cost_center = item["cc"]
-                if cost_center.budget_left < item["amount"]:
-                    raise UserError(
-                        _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
-                        % (cost_center.display_name, cost_center.budget_left, item["amount"])
-                    )
-
-            # Purchase Order values
-            po_vals = {
-                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or _("New"),
-                "origin": quotation.custom_rfq_id.name or quotation.rfq_origin,
-                "partner_id": quotation.vendor_id.id if quotation.vendor_id else False,
-                "partner_ref": quotation.vendor_ref or "",
-                "date_planned": quotation.delivery_date or fields.Datetime.now(),
-                "custom_line_ids": [],
-                "state": "pending",
-                "pr_name": quotation.pr_name,
-                "requested_by": quotation.requested_by,
-                "department": quotation.department,
-                "supervisor": quotation.supervisor,
-                "supervisor_partner_id": quotation.supervisor_partner_id,
-
-            }
-
-            # Fill lines from Quotation Lines
-            for line in quotation.line_ids:
-                line_vals = (
-                    0,
-                    0,
-                    {
-                        "name": line.description or line.name,
-                        "quantity": line.quantity,
-                        "type": line.type,
-                        "unit": line.unit,
-                        "price_unit": line.price_unit,
-                        "cost_center_id": line.cost_center_id.id,
-                    },
-                )
-                po_vals["custom_line_ids"].append(line_vals)
-
-            # Create Purchase Order
-            po = PurchaseOrder.sudo().create(po_vals)
-            quotation.status = "po"
-            if quotation.custom_rfq_id:
-                quotation.custom_rfq_id.sudo().write({"state": "done"})
-
-            # Log in chatter
-            quotation.message_post(
-                body=_(
-                    "Purchase Order %s created from this Quotation and populated in Custom Lines tab."
-                )
-                     % po.name,
-                message_type="notification",
-            )
-
-        # 🔥 Approval workflow: assign reviewers based on amount
-        amount = quotation.total_incl_vat
-        group_xml_ids = []
-
-        if amount <= 10000:
-            group_xml_ids = ["pr_custom_purchase.project_engineer"]
-        elif amount <= 100000:
-            group_xml_ids = [
-                "pr_custom_purchase.project_engineer",
-                "pr_custom_purchase.project_manager",
-            ]
-        elif amount <= 500000:
-            group_xml_ids = [
-                "pr_custom_purchase.project_engineer",
-                "pr_custom_purchase.project_manager",
-                "pr_custom_purchase.operations_director",
-            ]
-        else:
-            group_xml_ids = [
-                "pr_custom_purchase.project_engineer",
-                "pr_custom_purchase.project_manager",
-                "pr_custom_purchase.operations_director",
-                "pr_custom_purchase.managing_director",
-            ]
-
-        for group_xml_id in group_xml_ids:
-            group = self.env.ref(group_xml_id)
-            for user in group.users.filtered(lambda u: u.active):
-                self.env["mail.activity"].create(
-                    {
-                        "res_model_id": self.env["ir.model"]._get("purchase.order").id,
-                        "res_id": po.id,
-                        "activity_type_id": self.env.ref(
-                            "mail.mail_activity_data_todo"
-                        ).id,
-                        "summary": "Review Purchase Order",
-                        "user_id": user.id,
-                        "note": f"Please review the Purchase Order for {po.name}.",
-                        "date_deadline": fields.Date.today(),
-                    }
-                )
-                if user.email:
-                    self.env["mail.mail"].sudo().create({
-                        "email_from": "hr@petroraq.com",
-                        "email_to": user.email,
-                        "subject": f"Purchase Order {po.name} waiting for approval",
-                        "body_html": f"<p>Dear Approver,</p><p>Please review Purchase Order <b>{po.name}</b>.</p>",
-                    }).send()
-
-        return {
-            "type": "ir.actions.act_window",
-            "name": "Purchase Order",
-            "res_model": "purchase.order",
-            "res_id": po.id,
-            "view_mode": "form",
-            "target": "current",
-        }
-
-    @api.model
-    def create(self, vals):
-        record = super(PurchaseQuotation, self).create(vals)
-
-        # Always target procurement_admin group
-        procurement_admin_group = self.env.ref(
-            "pr_custom_purchase.procurement_admin", raise_if_not_found=False
-        )
-
-        if procurement_admin_group:
-            for user in procurement_admin_group.users:
-                record.activity_schedule(
-                    "mail.mail_activity_data_todo",
-                    summary="New Purchase Quotation Created",
-                    note=f"A new purchase quotation (ID: {record.id}) has been created "
-                         f"with a total amount of {record.total_incl_vat:.2f}.",
-                    user_id=user.id,
-                )
-
-        return record
-
-
-class PurchaseQuotationLine(models.Model):
-    _name = "purchase.quotation.line"
-    _description = "Purchase Quotation Line"
-
-    quotation_id = fields.Many2one(
-        "purchase.quotation", string="Quotation", ondelete="cascade"
-    )
-    name = fields.Char(string="Description")
-    quantity = fields.Float(string="Quantity")
-    unit = fields.Char(string="Unit")
-    type = fields.Selection(
-        [
-            ('material', 'Material'),
-            ('service', 'Service')
-        ],
-        string="Type",
-        default='material',
-        required=True
-    )
-    price_unit = fields.Float(string="Unit Cost")
-    cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
-    subtotal = fields.Float(string="Subtotal", compute="_compute_subtotal", store=True)
-    tax_15 = fields.Float(string="15% Tax", compute="_compute_subtotal", store=True)
-    grand_total = fields.Float(
-        string="Grand Total", compute="_compute_subtotal", store=True
-    )
-    description = fields.Char(string="Description")
-
-    @api.depends("quantity", "price_unit")
-    def _compute_subtotal(self):
-        for line in self:
-            line.subtotal = line.quantity * line.price_unit
-            line.tax_15 = line.subtotal * 0.15
-            line.grand_total = line.subtotal + line.tax_15
-
-
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
-    quotation_ids = fields.One2many("purchase.quotation", "custom_rfq_id", string="Submitted Quotations", readonly=True)
-    line_ids = fields.One2many("purchase.order.custom.line", "order_id", string="RFQ Lines")
     linked_pr_state = fields.Selection([
         ("missing", "Not Created"),
         ("draft", "Draft"),
@@ -442,15 +28,21 @@ class PurchaseOrder(models.Model):
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="PO Status", compute="_compute_linked_statuses")
-    current_user_has_acted = fields.Boolean("Current User Has Acted", )
+    current_user_has_acted = fields.Boolean("Current User Has Acted",)
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
-        ("quote", "Quote"),
-        ("po", "Purchase"),
-    ], string="Quotation Status", compute="_compute_linked_statuses")
+        ("quote", "RFQ"),
+        ("po", "Purchase Order"),
+    ], string="RFQ / PO Status", compute="_compute_linked_statuses")
+
+    is_rfq_record = fields.Boolean(
+        string="Is RFQ",
+        compute="_compute_is_rfq_record",
+        store=False,
+    )
 
     quotation_count = fields.Integer(
-        string="Quotations",
+        string="Related RFQs",
         compute="_compute_quotation_count",
         store=False,
     )
@@ -496,9 +88,7 @@ class PurchaseOrder(models.Model):
         store=False,
     )
     vendor_ids = fields.Many2many("res.partner", string="All Vendors")
-    custom_line_ids = fields.One2many(
-        "purchase.order.custom.line", "order_id", string="Custom Lines"
-    )
+    custom_line_ids = fields.One2many("purchase.order.custom.line", "order_id", string="Custom Lines")
     date_request = fields.Date(
         string="Date of Request", default=fields.Date.context_today
     )
@@ -506,84 +96,171 @@ class PurchaseOrder(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    grn_ses_button_type = fields.Selection(
-        [
-            ("grn", "GRN"),
-            ("ses", "SES"),
-            ("both", "GRN/SES"),
-        ],
-        string="GRN/SES Button Type",
-        compute="_compute_grn_ses_button_type",
-        store=False,
-    )
+    grn_ses_button_type = fields.Selection([("grn", "GRN"), ("ses", "SES"), ("both", "GRN/SES")], string="GRN/SES Button Type", compute="_compute_grn_ses_button_type", store=False)
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
 
     def _compute_quotation_count(self):
         for order in self:
-            if not order.name:
+            if not order.requisition_id:
                 order.quotation_count = 0
                 continue
-            domain = [("rfq_origin", "=", order.name)]
-            req = self.env["purchase.requisition"].search([("name", "=", order.origin or order.name)], limit=1)
-            if req:
-                domain = [("custom_rfq_id.requisition_id", "=", req.id)]
-            order.quotation_count = self.env["purchase.quotation"].search_count(domain)
+            domain = [("requisition_id", "=", order.requisition_id.id), ("id", "!=", order.id)]
+            order.quotation_count = self.env["purchase.order"].search_count(domain)
 
     def _compute_linked_statuses(self):
         po_priority = {"draft": 1, "sent": 2, "pending": 3, "purchase": 4, "done": 5, "cancel": 6}
-        quotation_priority = {"quote": 1, "po": 2}
         for rec in self:
             pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
             rec.linked_pr_state = pr.state if pr else "missing"
-            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else \
-            self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos,
-                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
-            rec.linked_quotation_status = max(rec.quotation_ids, key=lambda q: quotation_priority.get(q.status,
-                                                                                                      0)).status if rec.quotation_ids else "missing"
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            related_rfqs = self.env["purchase.order"].sudo().search([
+                ("requisition_id", "=", rec.requisition_id.id),
+                ("id", "!=", rec.id),
+            ]) if rec.requisition_id else self.env["purchase.order"]
+            if related_rfqs:
+                top_state = max(related_rfqs, key=lambda r: po_priority.get(r.state, 0)).state
+                rec.linked_quotation_status = "po" if top_state in ("pending", "purchase", "done") else "quote"
+            else:
+                rec.linked_quotation_status = "missing"
 
     def action_view_quotations(self):
         return self.action_view_rfq_quotations()
 
     def action_view_rfq_quotations(self):
         self.ensure_one()
-        req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
-        domain = [("rfq_origin", "=", self.name)]
-        context = {"default_rfq_origin": self.name}
-        if req:
-            domain = [("custom_rfq_id.requisition_id", "=", req.id)]
-            context.update({"group_by": "requisition_id"})
-        action = {
-            "type": "ir.actions.act_window",
-            "name": _("RFQ Quotations"),
-            "res_model": "purchase.quotation",
-            "view_mode": "tree,form",
+        domain = [("requisition_id", "=", self.requisition_id.id), ("id", "!=", self.id)] if self.requisition_id else [("id", "=", 0)]
+        action = self.env.ref("purchase.purchase_rfq").read()[0]
+        action.update({
+            "name": _("Related RFQs"),
             "domain": domain,
-            "context": context,
-        }
-        if self.quotation_count == 1:
-            quotation = self.env["purchase.quotation"].search(domain, limit=1)
-            if quotation:
-                action.update({"view_mode": "form", "res_id": quotation.id})
+            "context": {"group_by": "requisition_id"},
+        })
         return action
+
+    def action_create_po_from_rfq(self):
+        """Create a new PO draft/pending record from the selected RFQ."""
+        self.ensure_one()
+
+        if self.state not in ("draft", "sent", "pending"):
+            raise UserError(_("Only RFQs in Draft/Sent/Pending can be selected for Purchase Order."))
+
+        if not self.order_line:
+            raise UserError(_("This RFQ has no order lines."))
+
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("origin", "=", self.name),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for RFQ %s.") % self.name)
+
+        sibling_rfqs = self.env["purchase.order"].sudo().search([
+            ("requisition_id", "=", self.requisition_id.id),
+            ("id", "!=", self.id),
+            ("state", "in", ["draft", "sent"]),
+        ]) if self.requisition_id else self.env["purchase.order"]
+
+        po_name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
+        po_vals = {
+            "name": po_name,
+            "state": "pending",
+            "origin": self.name,
+            "partner_id": self.partner_id.id,
+            "partner_ref": self.partner_ref,
+            "date_planned": self.date_planned or fields.Datetime.now(),
+            "currency_id": self.currency_id.id,
+            "company_id": self.company_id.id,
+            "pr_name": self.pr_name,
+            "requisition_id": self.requisition_id.id,
+            "requested_by": self.requested_by,
+            "department": self.department,
+            "supervisor": self.supervisor,
+            "supervisor_partner_id": self.supervisor_partner_id,
+            "project_id": self.project_id.id if self.project_id else False,
+            "pe_approved": False,
+            "pm_approved": False,
+            "od_approved": False,
+            "md_approved": False,
+            "order_line": [
+                (0, 0, {
+                    "product_id": line.product_id.id,
+                    "name": line.name,
+                    "product_qty": line.product_qty,
+                    "product_uom": line.product_uom.id,
+                    "price_unit": line.price_unit,
+                    "date_planned": line.date_planned or fields.Datetime.now(),
+                    "taxes_id": [(6, 0, line.taxes_id.ids)],
+                })
+                for line in self.order_line if line.product_id
+            ],
+        }
+        new_po = self.env["purchase.order"].sudo().create(po_vals)
+
+        amount = new_po.subtotal
+        if amount <= 10000:
+            new_po._schedule_activity_for_group(
+                "pr_custom_purchase.project_engineer",
+                "Review Purchase Order",
+                f"PO {new_po.name} selected from RFQ {self.name}. Please review.",
+            )
+        elif amount <= 100000:
+            for group_xml_id in ["pr_custom_purchase.project_engineer", "pr_custom_purchase.project_manager"]:
+                new_po._schedule_activity_for_group(
+                    group_xml_id,
+                    "Review Purchase Order",
+                    f"PO {new_po.name} selected from RFQ {self.name}. Please review.",
+                )
+        elif amount <= 500000:
+            for group_xml_id in [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+                "pr_custom_purchase.operations_director",
+            ]:
+                new_po._schedule_activity_for_group(
+                    group_xml_id,
+                    "Review Purchase Order",
+                    f"PO {new_po.name} selected from RFQ {self.name}. Please review.",
+                )
+        else:
+            for group_xml_id in [
+                "pr_custom_purchase.project_engineer",
+                "pr_custom_purchase.project_manager",
+                "pr_custom_purchase.operations_director",
+                "pr_custom_purchase.managing_director",
+            ]:
+                new_po._schedule_activity_for_group(
+                    group_xml_id,
+                    "Review Purchase Order",
+                    f"PO {new_po.name} selected from RFQ {self.name}. Please review.",
+                )
+
+        if self.state == "draft":
+            self.write({"state": "sent"})
+        self.message_post(body=_("Purchase Order %s created from this RFQ.") % new_po.name)
+
+        if sibling_rfqs:
+            sibling_rfqs.write({"state": "cancel"})
+            sibling_rfqs.message_post(body=_("Cancelled because another RFQ was selected as Purchase Order."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Purchase Order"),
+            "res_model": "purchase.order",
+            "view_mode": "form",
+            "res_id": new_po.id,
+            "target": "current",
+        }
 
     def action_open_rfq_comparison(self):
         self.ensure_one()
         if self.quotation_count == 0:
-            raise UserError(_("No quotations are available for this RFQ yet."))
-        req = self.env["purchase.requisition"].search([("name", "=", self.origin or self.name)], limit=1)
-        if req:
-            any_rfq = self.env["purchase.order"].search([("requisition_id", "=", req.id)], limit=1)
-            if any_rfq:
-                wizard = self.env['rfq.comparison.wizard'].create_for_custom_rfq(any_rfq)
-            else:
-                wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
-        else:
-            wizard = self.env['rfq.comparison.wizard'].create_for_rfq(self)
+            raise UserError(_("No comparable RFQs are available for this requisition yet."))
+        wizard = self.env['rfq.comparison.wizard'].create_for_custom_rfq(self)
         return {
             "type": "ir.actions.act_window",
-            "name": _("Quotation Comparison"),
+            "name": _("RFQ Comparison"),
             "res_model": "rfq.comparison.wizard",
             "view_mode": "form",
             "target": "new",
@@ -600,10 +277,10 @@ class PurchaseOrder(models.Model):
             "target": "current",
         }
 
-    @api.depends("custom_line_ids.subtotal")
+    @api.depends("order_line.price_subtotal")
     def _compute_amount_untaxed_custom(self):
         for order in self:
-            order.subtotal = sum(order.custom_line_ids.mapped("subtotal"))
+            order.subtotal = sum(order.order_line.mapped("price_subtotal"))
             order.tax_15 = order.subtotal * 0.15
             order.grand_total = order.subtotal + order.tax_15
 
@@ -614,24 +291,16 @@ class PurchaseOrder(models.Model):
     #         else:
     #             super(PurchaseOrder, order).button_confirm()
 
+
     def button_confirm(self):
         for order in self:
-            # Preserve native confirm to keep purchase↔stock linkage
-            if order.name.startswith("RFQ"):
-                order.name = (
-                        self.env["ir.sequence"].next_by_code("purchase.order") or "P0001"
-                )
-
             if order.state == "pending":
+                if not order.can_confirm_order:
+                    raise UserError(_("All required approvals must be completed before confirming this Purchase Order."))
                 order.write({"state": "purchase"})
             else:
                 super(PurchaseOrder, order).button_confirm()
 
-            # After confirmation, ensure inventory receipt is created and validated from custom lines
-            try:
-                order._create_and_validate_receipt_from_custom_lines()
-            except Exception as e:
-                _logger.exception("Auto receipt creation failed for %s: %s", order.name, e)
 
     def _schedule_activity_for_group(self, group_xml_id, summary, note):
         group = self.env.ref(group_xml_id, raise_if_not_found=False)
@@ -798,8 +467,6 @@ class PurchaseOrder(models.Model):
             if order.origin:
                 rfqs = self.env["purchase.order"].sudo().search([("name", "=", order.origin)])
                 rfqs.write({"state": "draft"})
-                quotations = self.env["purchase.quotation"].sudo().search([("rfq_origin", "=", order.origin)])
-                quotations.write({"status": "quote"})
 
             order.message_post(body=_("Purchase Order reset to draft and approvals cleared."))
         return True
@@ -942,42 +609,15 @@ class PurchaseOrder(models.Model):
         return res
 
     def unlink(self):
-        # Before deleting, store PRs and Quotations linked to this PO
-        prs_to_update = self.mapped("origin")  # origin = PR.name
-        quotations_to_update = self.mapped(
-            "origin"
-        )  # origin also used for RFQ/Quotation
-
-        res = super(PurchaseOrder, self).unlink()  # Delete the PO
+        prs_to_update = self.mapped("origin")
+        res = super(PurchaseOrder, self).unlink()
 
         pr_model = self.env["purchase.requisition"]
-        quotation_model = self.env["purchase.quotation"]
-
-        # Update related PRs
         for pr_name in prs_to_update:
             pr = pr_model.search([("name", "=", pr_name)], limit=1)
             if pr:
                 pr.status = "pr"
                 pr.message_post(body=_("PO deleted, status reverted to PR."))
-
-        # Update related Quotations
-        for rfq_origin in quotations_to_update:
-            quotation = quotation_model.search(
-                [("rfq_origin", "=", rfq_origin)], limit=1
-            )
-            if quotation:
-                # Only set back if no active PO exists anymore
-                po_exists = self.env["purchase.order"].search_count(
-                    [
-                        ("origin", "=", quotation.rfq_origin),
-                        ("state", "in", ["pending", "purchase"]),
-                    ]
-                )
-                if po_exists == 0:
-                    quotation.status = "quote"
-                    quotation.message_post(
-                        body=_("PO deleted, status reverted to Quote.")
-                    )
 
         return res
 
@@ -1129,144 +769,15 @@ class PurchaseOrder(models.Model):
 
     #     return True
     def action_confirm(self):
-        """Custom confirm: set state from pending → purchase and then create a validated receipt from custom lines."""
-        for order in self:
-            if order.state == "pending":
-                order.state = "purchase"
-
-            group = self.env.ref("pr_custom_purchase.inventory_data_entry", raise_if_not_found=False)
-            if group and group.users:
-                for user in group.users.filtered(lambda u: u.active):
-                    order.activity_schedule(
-                        'mail.mail_activity_data_todo',
-                        user_id=user.id,
-                        summary="Purchase Order Approved",
-                        note=f"Purchase Order {order.name} has been approved."
-                    )
-
-            try:
-                order._create_and_validate_receipt_from_custom_lines()
-            except Exception as e:
-                _logger.exception("Auto receipt creation failed for %s: %s", order.name, e)
-
-        return True
+        """Use standard purchase confirmation flow."""
+        return super().action_confirm()
 
     def _create_and_validate_receipt_from_custom_lines(self):
-        """Create and validate an incoming picking based on custom_line_ids to update on-hand quantities."""
-        self.ensure_one()
-
-        # Collect lines (prefer custom lines)
-        src_lines = self.custom_line_ids or self.order_line
-        if not src_lines:
-            return True
-
-        # Aggregate by product
-        product_qty_map = {}
-        for line in src_lines:
-            # Skip services if present
-            if hasattr(line, "type") and line.type == "service":
-                continue
-
-            qty = getattr(line, "quantity", 0.0) or getattr(line, "product_qty", 0.0) or 0.0
-            if qty <= 0:
-                continue
-
-            product = getattr(line, "product_id", False)
-            if not product:
-                name_val = getattr(line, "name", "")
-                if name_val:
-                    product = self.env["product.product"].sudo().search([("name", "=", name_val)], limit=1)
-            if not product:
-                continue
-
-            product_qty_map[product.id] = product_qty_map.get(product.id, 0.0) + qty
-
-        if not product_qty_map:
-            return True
-
-        # Incoming picking type
-        picking_type = self.env["stock.picking.type"].sudo().search([
-            ("code", "=", "incoming"),
-            ("company_id", "=", self.company_id.id),
-        ], limit=1) or self.env["stock.picking.type"].sudo().search([("code", "=", "incoming")], limit=1)
-        if not picking_type:
-            return True
-
-        # Locations
-        suppliers_loc = self.env.ref("stock.stock_location_suppliers", raise_if_not_found=False)
-        location_id = (picking_type.default_location_src_id and picking_type.default_location_src_id.id) or (
-                suppliers_loc and suppliers_loc.id)
-
-        dest_loc = picking_type.default_location_dest_id
-        if not dest_loc:
-            warehouse = self.env["stock.warehouse"].sudo().search([("company_id", "=", self.company_id.id)], limit=1)
-            dest_loc = warehouse and warehouse.lot_stock_id or False
-        location_dest_id = dest_loc and dest_loc.id or False
-        if not location_id or not location_dest_id:
-            return True
-
-        # Create picking
-        picking = self.env["stock.picking"].sudo().create({
-            "picking_type_id": picking_type.id,
-            "partner_id": self.partner_id.id,
-            "origin": self.name,
-            "company_id": self.company_id.id,
-            "location_id": location_id,
-            "location_dest_id": location_dest_id,
-        })
-
-        # Create moves
-        Move = self.env["stock.move"].sudo()
-        for product_id, qty in product_qty_map.items():
-            product = self.env["product.product"].browse(product_id)
-            if not product.exists():
-                continue
-            uom_id = (product.uom_po_id and product.uom_po_id.id) or product.uom_id.id
-            Move.create({
-                "name": product.display_name or product.name,
-                "product_id": product.id,
-                "product_uom": uom_id,
-                "product_uom_qty": qty,
-                "picking_id": picking.id,
-                "location_id": location_id,
-                "location_dest_id": location_dest_id,
-                "company_id": self.company_id.id,
-            })
-
-        # Confirm, assign and set done qty
-        picking.action_confirm()
-        picking.action_assign()
-
-        for move in picking.move_ids_without_package:
-            if not move.move_line_ids:
-                self.env["stock.move.line"].sudo().create({
-                    "move_id": move.id,
-                    "picking_id": picking.id,
-                    "product_id": move.product_id.id,
-                    "product_uom_id": move.product_uom.id,
-                    "qty_done": move.product_uom_qty,
-                    "location_id": move.location_id.id,
-                    "location_dest_id": move.location_dest_id.id,
-                    "company_id": self.company_id.id,
-                })
-            else:
-                for ml in move.move_line_ids:
-                    if not ml.qty_done:
-                        ml.sudo().qty_done = ml.product_uom_qty or move.product_uom_qty
-
-        # Validate picking
-        picking.sudo()._action_done()
+        """Deprecated custom receipt flow."""
         return True
 
     def create_grn_ses(self):
-        return {
-            "name": "Add Remarks for GRN/SES",
-            "type": "ir.actions.act_window",
-            "res_model": "grn.ses.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {"active_id": self.id},
-        }
+        raise UserError(_("GRN/SES custom flow is disabled. Use standard receipts and vendor bills."))
 
     @api.depends("state", "subtotal", "grand_total")
     def _compute_display_total(self):
@@ -1276,15 +787,8 @@ class PurchaseOrder(models.Model):
             else:
                 order.display_total = order.subtotal
 
-    @api.depends("custom_line_ids.type")
+
+    @api.depends("order_line.product_id.type")
     def _compute_grn_ses_button_type(self):
         for order in self:
-            line_types = set(order.custom_line_ids.mapped("type"))
-            if not line_types:
-                order.grn_ses_button_type = False
-            elif line_types == {"material"}:
-                order.grn_ses_button_type = "grn"
-            elif line_types == {"service"}:
-                order.grn_ses_button_type = "ses"
-            else:
-                order.grn_ses_button_type = "both"
+            order.grn_ses_button_type = False

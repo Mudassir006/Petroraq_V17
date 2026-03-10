@@ -43,10 +43,10 @@
                     <field name="status" widget="statusbar" statusbar_visible="quote,po"/>
                     <button name="action_create_purchase_order"
                             type="object"
-                            string="Create Purchase Order"
-                            class="btn-primary"
+                            string="Create Purchase Order (Use RFQ Comparison)"
+                            class="btn-secondary"
                             groups="pr_custom_purchase.procurement_admin"
-                            invisible="not show_create_po_button"/>
+                            invisible="1"/>
                 </header>
                 <sheet>
                     <group>

@@ -46,29 +46,36 @@
             <form string="RFQ">
                 <header>
                     <button name="action_rfq_send" type="object" string="Send by Email" class="btn-primary"
-                            invisible="state not in ('draft', 'sent')"/>
+                            invisible="not is_rfq_record"/>
                     <button name="button_confirm" type="object" string="Confirm Order" class="btn-primary"
-                            invisible="state not in ('draft', 'sent', 'pending')"
+                            invisible="is_rfq_record"
                             groups="purchase.group_purchase_user"/>
                     <button name="button_cancel" type="object" string="Cancel" class="btn-secondary"
-                            invisible="state in ('cancel', 'done')"/>
+                            invisible="not is_rfq_record"/>
                     <button name="button_draft" type="object" string="Reset to RFQ" class="btn-secondary"
-                            invisible="state != 'cancel'"/>
-                    <button name="action_view_quotations" type="object" string="Submitted Quotations"
+                            invisible="is_rfq_record"/>
+                    <button name="action_view_quotations" type="object" string="Related RFQs"
                             class="btn-primary"
-                            groups="pr_custom_purchase.procurement_admin"/>
-                    <button name="action_open_rfq_comparison" type="object" string="Compare Quotations"
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="is_rfq_record"/>
+                    <button name="action_create_po_from_rfq" type="object" string="Create PO"
+                            class="btn-primary"
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="not is_rfq_record or state not in ('draft','sent','pending')"/>
+                    <button name="action_open_rfq_comparison" type="object" string="Compare RFQs"
                             class="btn-secondary"
-                            groups="pr_custom_purchase.procurement_admin"/>
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="1"/>
                     <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
-                            invisible="state == 'draft'"
+                            invisible="is_rfq_record"
                             groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
+                    <field name="is_rfq_record" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,pending,purchase,done,cancel"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_quotations" type="object" class="oe_stat_button" icon="fa-list-alt">
-                            <field name="quotation_count" widget="statinfo" string="Quotations"/>
+                        <button name="action_view_quotations" type="object" class="oe_stat_button" icon="fa-list-alt" invisible="1">
+                            <field name="quotation_count" widget="statinfo" string="RFQs"/>
                         </button>
                     </div>
                     <group>
@@ -106,15 +113,14 @@
                     <notebook>
                         <page string="Products">
 
-                            <field name="line_ids" readonly="1">
+                            <field name="order_line" readonly="1">
                                 <tree>
+                                    <field name="product_id"/>
                                     <field name="name"/>
-                                    <field name="type"/>
-                                    <field name="cost_center_id"/>
-                                    <field name="quantity"/>
-                                    <field name="unit"/>
+                                    <field name="product_qty"/>
+                                    <field name="product_uom"/>
                                     <field name="price_unit"/>
-                                    <field name="subtotal"/>
+                                    <field name="price_subtotal"/>
                                 </tree>
                             </field>
                         </page>
