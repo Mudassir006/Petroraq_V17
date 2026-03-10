@@ -549,6 +549,10 @@ class PurchaseRequisition(models.Model):
                 }))
 
             rfq = CustomRFQ.sudo().create(rfq_vals)
+            if not rfq.name or rfq.name == "New" or "RFQ" not in (rfq.name or ""):
+                rfq.sudo().write({
+                    "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order.rfq") or "RFQ0001"
+                })
 
             pr.status = "rfq"
             pr.message_post(

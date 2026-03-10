@@ -155,7 +155,9 @@ class PurchaseOrder(models.Model):
             ("state", "in", ["draft", "sent"]),
         ]) if self.requisition_id else self.env["purchase.order"]
 
+        po_name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
         self.write({
+            "name": po_name,
             "state": "pending",
             "pe_approved": False,
             "pm_approved": False,
@@ -251,22 +253,8 @@ class PurchaseOrder(models.Model):
     #             super(PurchaseOrder, order).button_confirm()
 
 
-    @api.model
-    def create(self, vals):
-        if not vals.get("name") or vals.get("name") == "New":
-            state = vals.get("state", "draft")
-            if state in ("draft", "sent", "pending"):
-                vals["name"] = self.env["ir.sequence"].sudo().next_by_code("purchase.order.rfq") or "RFQ0001"
-            else:
-                vals["name"] = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
-        return super().create(vals)
-
     def button_confirm(self):
         for order in self:
-            # Preserve native confirm to keep purchase↔stock linkage
-            if "RFQ" in (order.name or ""):
-                order.name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
-
             if order.state == "pending":
                 if not order.can_confirm_order:
                     raise UserError(_("All required approvals must be completed before confirming this Purchase Order."))

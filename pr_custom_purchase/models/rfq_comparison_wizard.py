@@ -110,6 +110,7 @@ class RFQComparisonWizard(models.TransientModel):
         for vendor, vendor_lines in grouped_by_vendor.items():
             source_rfq = self.custom_rfq_id
             po_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001",
                 "origin": source_rfq.name if source_rfq else "",
                 "partner_id": vendor.id,
                 "partner_ref": source_rfq.origin if source_rfq else "",
