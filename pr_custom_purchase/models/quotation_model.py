@@ -145,6 +145,40 @@ class PurchaseOrder(models.Model):
         })
         return action
 
+    def action_create_po_from_rfq(self):
+        """Select current RFQ as the winning offer and confirm it as Purchase Order."""
+        self.ensure_one()
+
+        if self.state not in ("draft", "sent", "pending"):
+            raise UserError(_("Only RFQs in Draft/Sent/Pending can be converted to Purchase Order."))
+
+        if not (self.custom_line_ids or self.order_line):
+            raise UserError(_("This RFQ has no lines to confirm."))
+
+        sibling_rfqs = self.env["purchase.order"].sudo().search([
+            ("requisition_id", "=", self.requisition_id.id),
+            ("id", "!=", self.id),
+            ("state", "in", ["draft", "sent"]),
+        ]) if self.requisition_id else self.env["purchase.order"]
+
+        # Confirm selected RFQ using standard flow
+        self.button_confirm()
+
+        if sibling_rfqs:
+            sibling_rfqs.write({"state": "cancel"})
+            sibling_rfqs.message_post(body=_("Cancelled because another RFQ was selected as Purchase Order."))
+
+        self.message_post(body=_("Selected as best RFQ and converted to Purchase Order."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Purchase Order"),
+            "res_model": "purchase.order",
+            "view_mode": "form",
+            "res_id": self.id,
+            "target": "current",
+        }
+
     def action_open_rfq_comparison(self):
         self.ensure_one()
         if self.quotation_count == 0:

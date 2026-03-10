@@ -57,9 +57,14 @@
                     <button name="action_view_quotations" type="object" string="Related RFQs"
                             class="btn-primary"
                             groups="pr_custom_purchase.procurement_admin"/>
+                    <button name="action_create_po_from_rfq" type="object" string="Create PO"
+                            class="btn-primary"
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="state not in ('draft','sent','pending')"/>
                     <button name="action_open_rfq_comparison" type="object" string="Compare RFQs"
                             class="btn-secondary"
-                            groups="pr_custom_purchase.procurement_admin"/>
+                            groups="pr_custom_purchase.procurement_admin"
+                            invisible="1"/>
                     <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
                             invisible="state == 'draft'"
                             groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>

@@ -59,12 +59,18 @@
         <field name="quotation_count" invisible="1"/>
       </xpath>
       <xpath expr="//form/header" position="inside">
+        <button name="action_create_po_from_rfq"
+                type="object"
+                string="Create PO"
+                class="btn-primary"
+                groups="pr_custom_purchase.procurement_admin"
+                invisible="state not in ('draft','sent','pending')"/>
         <button name="action_open_rfq_comparison"
                 type="object"
                 string="Compare RFQs"
                 class="btn-secondary"
                 groups="pr_custom_purchase.procurement_admin"
-                invisible="state not in ('draft','sent') or quotation_count == 0"/>
+                invisible="1"/>
       </xpath>
       <xpath expr="//sheet/div[@name='button_box']" position="inside">
         <button type="object"
