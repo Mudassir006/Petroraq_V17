@@ -57,6 +57,7 @@
     <field name="arch" type="xml">
       <xpath expr="//sheet" position="inside">
         <field name="quotation_count" invisible="1"/>
+        <field name="is_rfq_record" invisible="1"/>
       </xpath>
       <xpath expr="//form/header" position="inside">
         <button name="action_create_po_from_rfq"
@@ -64,7 +65,7 @@
                 string="Create PO"
                 class="btn-primary"
                 groups="pr_custom_purchase.procurement_admin"
-                invisible="state not in ('draft','sent','pending')"/>
+                invisible="not is_rfq_record or state not in ('draft','sent','pending')"/>
         <button name="action_open_rfq_comparison"
                 type="object"
                 string="Compare RFQs"

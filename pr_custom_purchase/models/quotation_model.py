@@ -149,6 +149,9 @@ class PurchaseOrder(models.Model):
         """Create a new PO draft/pending record from the selected RFQ."""
         self.ensure_one()
 
+        if not self.is_rfq_record:
+            raise UserError(_("Create PO is only available for RFQ records."))
+
         if self.state not in ("draft", "sent", "pending"):
             raise UserError(_("Only RFQs in Draft/Sent/Pending can be selected for Purchase Order."))
 
@@ -198,6 +201,7 @@ class PurchaseOrder(models.Model):
                     "price_unit": line.price_unit,
                     "date_planned": line.date_planned or fields.Datetime.now(),
                     "taxes_id": [(6, 0, line.taxes_id.ids)],
+                    "analytic_distribution": line.analytic_distribution,
                 })
                 for line in self.order_line if line.product_id
             ],
