@@ -35,6 +35,12 @@ class PurchaseOrder(models.Model):
         ("po", "Purchase Order"),
     ], string="RFQ / PO Status", compute="_compute_linked_statuses")
 
+    is_rfq_record = fields.Boolean(
+        string="Is RFQ",
+        compute="_compute_is_rfq_record",
+        store=False,
+    )
+
     quotation_count = fields.Integer(
         string="Related RFQs",
         compute="_compute_quotation_count",

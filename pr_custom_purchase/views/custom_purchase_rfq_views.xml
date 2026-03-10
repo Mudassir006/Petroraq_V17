@@ -46,14 +46,14 @@
             <form string="RFQ">
                 <header>
                     <button name="action_rfq_send" type="object" string="Send by Email" class="btn-primary"
-                            invisible="state not in ('draft', 'sent')"/>
+                            invisible="is_rfq_record"/>
                     <button name="button_confirm" type="object" string="Confirm Order" class="btn-primary"
-                            invisible="state not in ('draft', 'sent', 'pending')"
+                            invisible="is_rfq_record"
                             groups="purchase.group_purchase_user"/>
                     <button name="button_cancel" type="object" string="Cancel" class="btn-secondary"
-                            invisible="state in ('cancel', 'done')"/>
+                            invisible="is_rfq_record"/>
                     <button name="button_draft" type="object" string="Reset to RFQ" class="btn-secondary"
-                            invisible="state != 'cancel'"/>
+                            invisible="is_rfq_record"/>
                     <button name="action_view_quotations" type="object" string="Related RFQs"
                             class="btn-primary"
                             groups="pr_custom_purchase.procurement_admin"/>
@@ -66,8 +66,9 @@
                             groups="pr_custom_purchase.procurement_admin"
                             invisible="1"/>
                     <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
-                            invisible="state == 'draft'"
+                            invisible="is_rfq_record"
                             groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
+                    <field name="is_rfq_record" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,sent,pending,purchase,done,cancel"/>
                 </header>
                 <sheet>
