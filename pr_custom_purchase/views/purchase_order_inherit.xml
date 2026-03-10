@@ -73,6 +73,15 @@
                 groups="pr_custom_purchase.procurement_admin"
                 invisible="1"/>
       </xpath>
+      <xpath expr="//form/header/button[@name='button_confirm'][@id='bid_confirm']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'sent'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_confirm'][@id='draft_confirm']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'draft'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_draft']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'cancel'</attribute>
+      </xpath>
       <xpath expr="//sheet/div[@name='button_box']" position="inside">
         <button type="object"
                 class="oe_stat_button"
