@@ -149,6 +149,13 @@ class PurchaseOrder(models.Model):
         if not self.order_line:
             raise UserError(_("This RFQ has no order lines."))
 
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("origin", "=", self.name),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for RFQ %s.") % self.name)
+
         sibling_rfqs = self.env["purchase.order"].sudo().search([
             ("requisition_id", "=", self.requisition_id.id),
             ("id", "!=", self.id),
@@ -229,8 +236,9 @@ class PurchaseOrder(models.Model):
                     f"PO {new_po.name} selected from RFQ {self.name}. Please review.",
                 )
 
-        self.write({"state": "done"})
-        self.message_post(body=_("Selected as best RFQ. Purchase Order %s created.") % new_po.name)
+        if self.state == "draft":
+            self.write({"state": "sent"})
+        self.message_post(body=_("Purchase Order %s created from this RFQ.") % new_po.name)
 
         if sibling_rfqs:
             sibling_rfqs.write({"state": "cancel"})
