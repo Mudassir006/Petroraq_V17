@@ -100,6 +100,12 @@ class PurchaseOrder(models.Model):
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
 
+    @api.depends("name")
+    def _compute_is_rfq_record(self):
+        for order in self:
+            order_name = (order.name or "").upper()
+            order.is_rfq_record = order_name.startswith("RFQ")
+
     def _compute_quotation_count(self):
         for order in self:
             if not order.requisition_id:

@@ -9,7 +9,7 @@
                 string="Send Email"
                 type="object"
                 class="btn-primary"
-                invisible="1"
+                invisible="not is_rfq_record or state not in ('draft','sent','pending')"
                 groups="pr_custom_purchase.procurement_admin"/>
       </xpath>
     </field>
@@ -57,6 +57,7 @@
     <field name="arch" type="xml">
       <xpath expr="//sheet" position="inside">
         <field name="quotation_count" invisible="1"/>
+        <field name="is_rfq_record" invisible="1"/>
       </xpath>
       <xpath expr="//form/header" position="inside">
         <button name="action_create_po_from_rfq"
@@ -64,7 +65,7 @@
                 string="Create PO"
                 class="btn-primary"
                 groups="pr_custom_purchase.procurement_admin"
-                invisible="1"/>
+                invisible="not is_rfq_record or state not in ('draft','sent','pending')"/>
         <button name="action_open_rfq_comparison"
                 type="object"
                 string="Compare RFQs"
@@ -72,6 +73,66 @@
                 groups="pr_custom_purchase.procurement_admin"
                 invisible="1"/>
       </xpath>
+      <xpath expr="//form/header/button[@name='action_open_rfq_comparison']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state in ('purchase','done','cancel')</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_reset_to_draft']" position="attributes">
+        <attribute name="invisible">not is_rfq_record or state == 'draft'</attribute>
+      </xpath>
+
+      <xpath expr="//form/header/button[@name='action_confirm'][1]" position="attributes">
+        <attribute name="invisible">state != 'pending' or subtotal &gt; 10000 or not can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_confirm'][2]" position="attributes">
+        <attribute name="invisible">state != 'pending' or subtotal &lt;= 10000 or subtotal &gt; 100000 or not can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_confirm'][3]" position="attributes">
+        <attribute name="invisible">state != 'pending' or subtotal &lt;= 100000 or subtotal &gt; 500000 or not can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_confirm'][4]" position="attributes">
+        <attribute name="invisible">state != 'pending' or subtotal &lt;= 500000 or not can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_create_invoice'][1]" position="attributes">
+        <attribute name="invisible">state not in ('purchase', 'done') or invoice_status in ('no', 'invoiced') or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_create_invoice'][2]" position="attributes">
+        <attribute name="invisible">state not in ('purchase', 'done') or invoice_status not in ('no', 'invoiced') or not order_line or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_approve'][1]" position="attributes">
+        <attribute name="invisible">state != 'pending' or not show_pe_approved or can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_approve'][2]" position="attributes">
+        <attribute name="invisible">state != 'pending' or not show_pm_approved or subtotal &lt;= 10000 or can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_approve'][3]" position="attributes">
+        <attribute name="invisible">state != 'pending' or not show_od_approved or subtotal &lt;= 100000 or can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_approve'][4]" position="attributes">
+        <attribute name="invisible">state != 'pending' or not show_md_approved or subtotal &lt;= 500000 or can_confirm_order or is_rfq_record</attribute>
+      </xpath>
+
+      <xpath expr="//form/header/button[@name='button_confirm']" position="attributes">
+        <attribute name="invisible">is_rfq_record</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_approve']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'to approve'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_draft']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'cancel'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_cancel']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state not in ('draft', 'to approve', 'sent', 'purchase')</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_done']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'purchase'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='button_unlock']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'done'</attribute>
+      </xpath>
+      <xpath expr="//form/header/button[@name='action_reject']" position="attributes">
+        <attribute name="invisible">is_rfq_record or state != 'pending'</attribute>
+      </xpath>
+
       <xpath expr="//sheet/div[@name='button_box']" position="inside">
         <button type="object"
                 class="oe_stat_button"
