@@ -27,4 +27,5 @@ class RFQComparisonSelectionWizard(models.TransientModel):
             "view_mode": "form",
             "target": "current",
             "res_id": wizard.id,
+            "context": {"form_view_initial_mode": "edit"},
         }
