@@ -28,7 +28,7 @@ class PurchaseOrder(models.Model):
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="PO Status", compute="_compute_linked_statuses")
-    current_user_has_acted = fields.Boolean("Current User Has Acted",)
+    current_user_has_acted = fields.Boolean("Current User Has Acted", )
     linked_quotation_status = fields.Selection([
         ("missing", "Not Submitted"),
         ("quote", "RFQ"),
@@ -96,7 +96,9 @@ class PurchaseOrder(models.Model):
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
-    grn_ses_button_type = fields.Selection([("grn", "GRN"), ("ses", "SES"), ("both", "GRN/SES")], string="GRN/SES Button Type", compute="_compute_grn_ses_button_type", store=False)
+    grn_ses_button_type = fields.Selection([("grn", "GRN"), ("ses", "SES"), ("both", "GRN/SES")],
+                                           string="GRN/SES Button Type", compute="_compute_grn_ses_button_type",
+                                           store=False)
     # Reason tab field (editable by specific groups via view)
     rejection_reason = fields.Text(string="Reason for Rejection")
 
@@ -119,8 +121,10 @@ class PurchaseOrder(models.Model):
         for rec in self:
             pr = self.env["custom.pr"].sudo().search([("name", "=", rec.pr_name)], limit=1) if rec.pr_name else False
             rec.linked_pr_state = pr.state if pr else "missing"
-            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else self.env["purchase.order"]
-            rec.linked_po_state = max(linked_pos, key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
+            linked_pos = self.env["purchase.order"].sudo().search([("origin", "=", rec.name)]) if rec.name else \
+            self.env["purchase.order"]
+            rec.linked_po_state = max(linked_pos,
+                                      key=lambda po: po_priority.get(po.state, 0)).state if linked_pos else "missing"
             related_rfqs = self.env["purchase.order"].sudo().search([
                 ("requisition_id", "=", rec.requisition_id.id),
                 ("id", "!=", rec.id),
@@ -136,7 +140,8 @@ class PurchaseOrder(models.Model):
 
     def action_view_rfq_quotations(self):
         self.ensure_one()
-        domain = [("requisition_id", "=", self.requisition_id.id), ("id", "!=", self.id)] if self.requisition_id else [("id", "=", 0)]
+        domain = [("requisition_id", "=", self.requisition_id.id), ("id", "!=", self.id)] if self.requisition_id else [
+            ("id", "=", 0)]
         action = self.env.ref("purchase.purchase_rfq").read()[0]
         action.update({
             "name": _("Related RFQs"),
@@ -198,6 +203,7 @@ class PurchaseOrder(models.Model):
                     "price_unit": line.price_unit,
                     "date_planned": line.date_planned or fields.Datetime.now(),
                     "taxes_id": [(6, 0, line.taxes_id.ids)],
+                    "analytic_distribution": line.analytic_distribution,
                 })
                 for line in self.order_line if line.product_id
             ],
@@ -297,16 +303,15 @@ class PurchaseOrder(models.Model):
     #         else:
     #             super(PurchaseOrder, order).button_confirm()
 
-
     def button_confirm(self):
         for order in self:
             if order.state == "pending":
                 if not order.can_confirm_order:
-                    raise UserError(_("All required approvals must be completed before confirming this Purchase Order."))
+                    raise UserError(
+                        _("All required approvals must be completed before confirming this Purchase Order."))
                 order.write({"state": "purchase"})
             else:
                 super(PurchaseOrder, order).button_confirm()
-
 
     def _schedule_activity_for_group(self, group_xml_id, summary, note):
         group = self.env.ref(group_xml_id, raise_if_not_found=False)
@@ -792,7 +797,6 @@ class PurchaseOrder(models.Model):
                 order.display_total = order.grand_total
             else:
                 order.display_total = order.subtotal
-
 
     @api.depends("order_line.product_id.type")
     def _compute_grn_ses_button_type(self):
