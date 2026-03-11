@@ -35,7 +35,9 @@
                     </div>
 
                     <separator string="Comparison Matrix"/>
-                    <field name="comparison_html" widget="html" nolabel="1" readonly="1"/>
+                    <div class="rfq-comparison-matrix-wrap">
+                        <field name="comparison_html" widget="html" nolabel="1" readonly="1"/>
+                    </div>
                 </sheet>
                 <footer>
                     <button name="action_export_excel" string="Export Excel" type="object" class="btn-secondary"/>
