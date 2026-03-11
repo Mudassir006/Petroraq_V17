@@ -275,8 +275,9 @@ class PurchaseOrder(models.Model):
             "name": _("RFQ Comparison"),
             "res_model": "rfq.comparison.wizard",
             "view_mode": "form",
-            "target": "new",
+            "target": "current",
             "res_id": wizard.id,
+            "context": {"form_view_initial_mode": "edit"},
         }
 
     def _reload_action(self):
