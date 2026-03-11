@@ -62,10 +62,10 @@
                             class="btn-primary"
                             groups="pr_custom_purchase.procurement_admin"
                             invisible="not is_rfq_record or state not in ('draft','sent','pending')"/>
-                    <button name="action_open_rfq_comparison" type="object" string="Compare RFQs"
+                    <button name="action_open_rfq_comparison" type="object" string="Compare Quotations"
                             class="btn-secondary"
                             groups="pr_custom_purchase.procurement_admin"
-                            invisible="1"/>
+                            invisible="quotation_count == 0 or state not in ('draft','sent','pending')"/>
                     <button name="action_reset_to_draft" type="object" string="Reset RFQ" class="btn-secondary"
                             invisible="is_rfq_record"
                             groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
