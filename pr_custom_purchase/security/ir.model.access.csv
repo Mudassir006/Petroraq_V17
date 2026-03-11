@@ -22,3 +22,5 @@ access_purchase_requisition_reject_wizard_user,purchase.requisition.reject.wizar
 access_pr_expense_bucket_user,pr.expense.bucket user,model_pr_expense_bucket,base.group_user,1,1,1,1
 access_pr_expense_bucket_line_user,pr.expense.bucket.line user,model_pr_expense_bucket_line,base.group_user,1,1,1,1
 access_pr_expense_bucket_reject_wizard_user,pr.expense.bucket.reject.wizard user,model_pr_expense_bucket_reject_wizard,base.group_user,1,1,1,1
+access_rfq_comparison_selection_wizard_procurement_admin,access.rfq.comparison.selection.wizard.procurement.admin,model_rfq_comparison_selection_wizard,pr_custom_purchase.procurement_admin,1,1,1,1
+access_rfq_comparison_wizard_quote_procurement_admin,access.rfq.comparison.wizard.quote.procurement.admin,model_rfq_comparison_wizard_quote,pr_custom_purchase.procurement_admin,1,1,1,1
