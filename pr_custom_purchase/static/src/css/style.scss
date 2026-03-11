@@ -77,9 +77,9 @@ html .o_web_client > .o_action_manager {
 
 .o_rfq_compare_table {
     border-collapse: collapse;
-    min-width: 1200px;
-    table-layout: fixed;
-    white-space: nowrap;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
 }
 
 .o_rfq_compare_table th,
@@ -88,6 +88,8 @@ html .o_web_client > .o_action_manager {
     padding: 6px 8px;
     text-align: center;
     vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .o_rfq_compare_table thead th {
@@ -95,7 +97,14 @@ html .o_web_client > .o_action_manager {
     font-weight: 700;
 }
 
+
 .o_rfq_compare_table tbody td:nth-child(2) {
     text-align: left;
     min-width: 260px;
+}
+
+.o_rfq_compare_table tbody td:nth-child(5),
+.o_rfq_compare_table tbody td:nth-child(6) {
+    text-align: left;
+    min-width: 140px;
 }
