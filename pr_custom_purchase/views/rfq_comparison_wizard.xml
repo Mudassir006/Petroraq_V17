@@ -23,7 +23,7 @@
 
                     <separator string="Material Requirement (Default Supplier = Lowest Price)"/>
                     <div class="oe_full">
-                        <field name="line_ids" nolabel="1" class="freeze-1many">
+                        <field name="line_ids" nolabel="1">
                             <tree create="0" delete="0" editable="bottom" limit="200">
                                 <field name="sequence"/>
                                 <field name="description"/>
@@ -35,7 +35,6 @@
                     </div>
 
                     <separator string="Comparison Matrix"/>
-                    <field name="comparison_css" widget="html" nolabel="1" readonly="1"/>
                     <field name="comparison_html" widget="html" nolabel="1" readonly="1"/>
                 </sheet>
                 <footer>
