@@ -6,13 +6,21 @@
         <field name="arch" type="xml">
             <form string="RFQ Comparison">
                 <sheet>
-                    <group>
-                        <field name="requisition_id" readonly="1"/>
-                        <field name="vendor_ids" widget="many2many_tags" readonly="1"/>
-                    </group>
-                    <group string="Material Requirement (Default Supplier = Lowest Price)">
-                        <field name="line_ids" nolabel="1">
-                            <tree create="0" delete="0" edit="1">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); grid-row-gap: 10px; grid-column-gap: 20px; background: #f4f6fa; padding: 15px; border-radius: 6px; border-left: 4px solid #173b76; margin-bottom: 15px;">
+                        <div>
+                            <span style="color:#173b76; font-weight:600;">Purchase Requisition:</span>
+                            <field name="requisition_id" readonly="1"/>
+                        </div>
+                        <div>
+                            <span style="color:#173b76; font-weight:600;">Suppliers:</span>
+                            <field name="vendor_ids" widget="many2many_tags" readonly="1"/>
+                        </div>
+                    </div>
+
+                    <separator string="Material Requirement (Default Supplier = Lowest Price)"/>
+                    <div class="oe_full">
+                        <field name="line_ids" nolabel="1" class="freeze-1many">
+                            <tree create="0" delete="0" editable="bottom" limit="200">
                                 <field name="sequence"/>
                                 <field name="description"/>
                                 <field name="unit"/>
@@ -20,10 +28,11 @@
                                 <field name="selected_vendor_id"/>
                             </tree>
                         </field>
-                    </group>
-                    <group string="Comparison Matrix">
-                        <field name="comparison_html" widget="html" nolabel="1" readonly="1"/>
-                    </group>
+                    </div>
+
+                    <separator string="Comparison Matrix"/>
+                    <field name="comparison_css" widget="html" nolabel="1" readonly="1"/>
+                    <field name="comparison_html" widget="html" nolabel="1" readonly="1"/>
                 </sheet>
                 <footer>
                     <button name="action_export_excel" string="Export Excel" type="object" class="btn-secondary"/>
@@ -56,7 +65,7 @@
         <field name="name">Quotations Comparison</field>
         <field name="res_model">rfq.comparison.selection.wizard</field>
         <field name="view_mode">form</field>
-        <field name="target">new</field>
+        <field name="target">current</field>
     </record>
 
     <menuitem id="menu_rfq_comparison_wizard"

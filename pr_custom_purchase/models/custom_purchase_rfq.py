@@ -131,7 +131,7 @@ class CustomPurchaseRFQ(models.Model):
             "name": _("RFQ Comparison"),
             "res_model": "rfq.comparison.wizard",
             "view_mode": "form",
-            "target": "new",
+            "target": "current",
             "res_id": wizard.id,
         }
 

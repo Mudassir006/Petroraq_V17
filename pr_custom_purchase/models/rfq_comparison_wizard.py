@@ -20,6 +20,7 @@ class RFQComparisonWizard(models.TransientModel):
     line_ids = fields.One2many("rfq.comparison.wizard.line", "wizard_id", string="Material Requirement")
     vendor_ids = fields.Many2many("res.partner", string="Suppliers", readonly=True)
     comparison_html = fields.Html(string="Comparison", compute="_compute_comparison_html", sanitize=False)
+    comparison_css = fields.Html(string="Comparison CSS", compute="_compute_comparison_css", sanitize=False)
 
     @api.model
     def create_for_custom_rfq(self, rfq):
@@ -163,9 +164,46 @@ class RFQComparisonWizard(models.TransientModel):
                 body_rows += "</tr>"
 
             wizard.comparison_html = (
+                "<div class='o_rfq_compare_scroll'>"
                 "<table class='table table-sm table-bordered o_rfq_compare_table'>"
                 f"<thead>{header_top}{header_bottom}</thead><tbody>{body_rows}</tbody></table>"
+                "</div>"
             )
+
+    @api.depends()
+    def _compute_comparison_css(self):
+        css = """
+        <style>
+        .o_rfq_compare_scroll {
+            overflow-x: auto;
+            width: 100%;
+            max-width: 100%;
+        }
+        .o_rfq_compare_table {
+            border-collapse: collapse;
+            min-width: 1200px;
+            table-layout: fixed;
+            white-space: nowrap;
+        }
+        .o_rfq_compare_table th,
+        .o_rfq_compare_table td {
+            border: 1px solid #9f9f9f !important;
+            padding: 6px 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .o_rfq_compare_table thead th {
+            background: #d9ead3;
+            font-weight: 700;
+        }
+        .o_rfq_compare_table tbody td:nth-child(2) {
+            text-align: left;
+            min-width: 260px;
+        }
+        </style>
+        """
+        for wizard in self:
+            wizard.comparison_css = css
 
     def action_create_selected_purchase_orders(self):
         self.ensure_one()
