@@ -15,6 +15,7 @@ class RFQComparisonWizard(models.TransientModel):
         "wizard_id",
         string="Comparison Lines",
     )
+    comparison_html = fields.Html(string="Comparison Matrix", compute="_compute_comparison_html", sanitize=False)
 
     @api.model
     def create_for_custom_rfq(self, rfq):
@@ -87,6 +88,85 @@ class RFQComparisonWizard(models.TransientModel):
         except (StopIteration, TypeError, ValueError, AttributeError):
             return False
         return analytic_account_id
+
+    @api.depends("line_ids", "line_ids.product_name", "line_ids.vendor_id", "line_ids.unit_price", "line_ids.quantity")
+    def _compute_comparison_html(self):
+        for wizard in self:
+            wizard.comparison_html = wizard._render_comparison_matrix_html()
+
+    def _render_comparison_matrix_html(self):
+        self.ensure_one()
+        if not self.line_ids:
+            return '<p class="text-muted">No comparison lines found.</p>'
+
+        vendor_order = sorted(self.line_ids.mapped("vendor_id"), key=lambda v: (v.name or "").lower())
+        grouped = {}
+        for line in self.line_ids.sorted(key=lambda l: (l.product_name or "", l.vendor_id.name or "")):
+            key = line.product_key or line.product_name
+            if key not in grouped:
+                grouped[key] = {
+                    "product_name": line.product_name,
+                    "unit": line.unit,
+                    "qty": line.quantity,
+                    "type": line.type,
+                    "vendors": {},
+                }
+            grouped[key]["vendors"][line.vendor_id.id] = line
+
+        vendor_header = "".join(
+            f'<th colspan="2" style="text-align:center;background:#d9ead3;border:1px solid #8fbc8f;">{vendor.name}</th>'
+            for vendor in vendor_order
+        )
+        vendor_subheader = "".join(
+            '<th style="background:#d9ead3;border:1px solid #8fbc8f;">Cost Price</th>'
+            '<th style="background:#d9ead3;border:1px solid #8fbc8f;">Total</th>'
+            for _vendor in vendor_order
+        )
+
+        rows_html = []
+        for sr_no, item in enumerate(grouped.values(), start=1):
+            row = [
+                f'<td style="border:1px solid #bbb;text-align:center;">{sr_no}</td>',
+                f'<td style="border:1px solid #bbb;">{item["product_name"] or ""}</td>',
+                f'<td style="border:1px solid #bbb;text-align:center;">{item["unit"] or ""}</td>',
+                f'<td style="border:1px solid #bbb;text-align:right;">{item["qty"] or 0}</td>',
+                f'<td style="border:1px solid #bbb;">{item["type"] or ""}</td>',
+            ]
+            available_prices = [offer.unit_price for offer in item["vendors"].values()]
+            best_price = min(available_prices) if available_prices else False
+
+            for vendor in vendor_order:
+                offer = item["vendors"].get(vendor.id)
+                if not offer:
+                    row.append('<td style="border:1px solid #bbb;text-align:center;">-</td>')
+                    row.append('<td style="border:1px solid #bbb;text-align:center;">-</td>')
+                    continue
+
+                highlight = "background:#fff176;" if best_price is not False and offer.unit_price == best_price else ""
+                total = (offer.quantity or 0.0) * (offer.unit_price or 0.0)
+                row.append(f'<td style="border:1px solid #bbb;text-align:right;{highlight}">{offer.unit_price:.2f}</td>')
+                row.append(f'<td style="border:1px solid #bbb;text-align:right;{highlight}">{total:.2f}</td>')
+
+            rows_html.append('<tr>' + ''.join(row) + '</tr>')
+
+        return (
+            '<div style="overflow:auto;max-width:100%;">'
+            '<table style="border-collapse:collapse;width:100%;font-size:13px;">'
+            '<thead>'
+            '<tr>'
+            '<th rowspan="2" style="background:#b6d7a8;border:1px solid #8fbc8f;">Sr No</th>'
+            '<th rowspan="2" style="background:#b6d7a8;border:1px solid #8fbc8f;">Description</th>'
+            '<th rowspan="2" style="background:#b6d7a8;border:1px solid #8fbc8f;">Unit</th>'
+            '<th rowspan="2" style="background:#b6d7a8;border:1px solid #8fbc8f;">Qty</th>'
+            '<th rowspan="2" style="background:#b6d7a8;border:1px solid #8fbc8f;">Type</th>'
+            + vendor_header +
+            '</tr>'
+            '<tr>' + vendor_subheader + '</tr>'
+            '</thead>'
+            '<tbody>' + ''.join(rows_html) + '</tbody>'
+            '</table>'
+            '</div>'
+        )
 
     @api.model
     def default_get(self, fields_list):
