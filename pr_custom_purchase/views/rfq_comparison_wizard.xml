@@ -47,7 +47,10 @@
         <field name="name">rfq.comparison.selection.wizard.form</field>
         <field name="model">rfq.comparison.selection.wizard</field>
         <field name="arch" type="xml">
-            <form string="Quotations Comparison">
+            <form string="Quotations Comparison" create="false" edit="false" delete="false">
+                <header>
+                    <button name="action_view_comparison" string="View Comparison" type="object" class="btn-primary"/>
+                </header>
                 <sheet>
                     <group>
                         <field name="requisition_id" options="{'no_create': True}"/>
@@ -65,7 +68,7 @@
         <field name="name">Quotations Comparison</field>
         <field name="res_model">rfq.comparison.selection.wizard</field>
         <field name="view_mode">form</field>
-        <field name="target">current</field>
+        <field name="target">new</field>
     </record>
 
     <menuitem id="menu_rfq_comparison_wizard"
