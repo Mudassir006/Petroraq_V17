@@ -1,7 +1,10 @@
 from collections import defaultdict
+import base64
+from io import BytesIO
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools.misc import xlsxwriter
 
 
 class RFQComparisonWizard(models.TransientModel):
@@ -167,6 +170,105 @@ class RFQComparisonWizard(models.TransientModel):
             '</table>'
             '</div>'
         )
+
+    def action_export_xlsx(self):
+        self.ensure_one()
+        if not self.line_ids:
+            raise UserError(_("No RFQ lines are available for export."))
+
+        xlsx_content = self._build_comparison_xlsx()
+        filename = "RFQ_Comparison_%s.xlsx" % (self.custom_rfq_id.name or self.id)
+        attachment = self.env["ir.attachment"].sudo().create({
+            "name": filename,
+            "type": "binary",
+            "datas": base64.b64encode(xlsx_content),
+            "res_model": self._name,
+            "res_id": self.id,
+            "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
+
+    def _build_comparison_xlsx(self):
+        self.ensure_one()
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        sheet = workbook.add_worksheet("RFQ Comparison")
+
+        header = workbook.add_format({"bold": True, "align": "center", "valign": "vcenter", "bg_color": "#B6D7A8", "border": 1})
+        vendor_header = workbook.add_format({"bold": True, "align": "center", "valign": "vcenter", "bg_color": "#D9EAD3", "border": 1})
+        cell = workbook.add_format({"border": 1})
+        num_cell = workbook.add_format({"border": 1, "num_format": "#,##0.00"})
+        best_num_cell = workbook.add_format({"border": 1, "num_format": "#,##0.00", "bg_color": "#FFF176"})
+        right_cell = workbook.add_format({"border": 1, "align": "right"})
+
+        vendor_order = sorted(self.line_ids.mapped("vendor_id"), key=lambda v: (v.name or "").lower())
+        grouped = {}
+        for line in self.line_ids.sorted(key=lambda l: (l.product_name or "", l.vendor_id.name or "")):
+            key = line.product_key or line.product_name
+            if key not in grouped:
+                grouped[key] = {
+                    "product_name": line.product_name,
+                    "unit": line.unit,
+                    "qty": line.quantity,
+                    "type": line.type,
+                    "vendors": {},
+                }
+            grouped[key]["vendors"][line.vendor_id.id] = line
+
+        sheet.set_column(0, 0, 8)
+        sheet.set_column(1, 1, 42)
+        sheet.set_column(2, 3, 10)
+        sheet.set_column(4, 4, 14)
+
+        row = 0
+        sheet.write(row, 0, "Sr No", header)
+        sheet.write(row, 1, "Description", header)
+        sheet.write(row, 2, "Unit", header)
+        sheet.write(row, 3, "Qty", header)
+        sheet.write(row, 4, "Type", header)
+
+        col = 5
+        for vendor in vendor_order:
+            sheet.merge_range(row, col, row, col + 1, vendor.name or "Vendor", vendor_header)
+            sheet.write(row + 1, col, "Cost Price", vendor_header)
+            sheet.write(row + 1, col + 1, "Total", vendor_header)
+            col += 2
+
+        sheet.set_row(0, 22)
+        sheet.set_row(1, 20)
+
+        data_row = 2
+        for sr_no, item in enumerate(grouped.values(), start=1):
+            sheet.write(data_row, 0, sr_no, cell)
+            sheet.write(data_row, 1, item["product_name"] or "", cell)
+            sheet.write(data_row, 2, item["unit"] or "", cell)
+            sheet.write(data_row, 3, item["qty"] or 0, right_cell)
+            sheet.write(data_row, 4, item["type"] or "", cell)
+
+            prices = [offer.unit_price for offer in item["vendors"].values()]
+            best_price = min(prices) if prices else False
+
+            col = 5
+            for vendor in vendor_order:
+                offer = item["vendors"].get(vendor.id)
+                if not offer:
+                    sheet.write(data_row, col, "-", cell)
+                    sheet.write(data_row, col + 1, "-", cell)
+                else:
+                    total = (offer.quantity or 0.0) * (offer.unit_price or 0.0)
+                    fmt = best_num_cell if best_price is not False and offer.unit_price == best_price else num_cell
+                    sheet.write_number(data_row, col, offer.unit_price or 0.0, fmt)
+                    sheet.write_number(data_row, col + 1, total, fmt)
+                col += 2
+            data_row += 1
+
+        workbook.close()
+        output.seek(0)
+        return output.read()
 
     @api.model
     def default_get(self, fields_list):
