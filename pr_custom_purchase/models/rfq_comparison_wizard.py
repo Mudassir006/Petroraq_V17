@@ -247,7 +247,7 @@ class RFQComparisonWizard(models.TransientModel):
 
         headers = ["Sr No", "Description", "Unit", "Qty", "Supplier", "Selected RFQ"]
         for vendor in vendors:
-            headers.extend([f"{vendor.display_name} Cost", f"{vendor.display_name} Total"])
+            headers.extend(["Cost Price", "Total Amount"])
 
         for idx, header in enumerate(headers):
             ws.write(1, idx, header, header_fmt)
