@@ -5,6 +5,9 @@
         <field name="model">rfq.comparison.wizard</field>
         <field name="arch" type="xml">
             <form string="RFQ Comparison">
+                <header>
+                    <button name="action_export_xlsx" string="Export Excel" type="object" class="btn-secondary"/>
+                </header>
                 <sheet>
                     <div class="oe_title">
                         <h1>Line-by-Line RFQ Comparison</h1>
@@ -40,10 +43,6 @@
                     </div>
                 </sheet>
                 <footer>
-                    <button name="action_export_xlsx"
-                            string="Export Excel"
-                            type="object"
-                            class="btn-secondary"/>
                     <button name="action_create_selected_purchase_orders"
                             string="Create Purchase Orders from Selection"
                             type="object"
@@ -58,6 +57,7 @@
         <field name="name">RFQ Comparison</field>
         <field name="res_model">rfq.comparison.wizard</field>
         <field name="view_mode">form</field>
+        <field name="view_id" ref="view_rfq_comparison_wizard_form"/>
         <field name="target">current</field>
     </record>
 </odoo>

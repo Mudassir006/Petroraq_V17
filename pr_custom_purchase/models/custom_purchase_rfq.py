@@ -121,19 +121,16 @@ class CustomPurchaseRFQ(models.Model):
 
     def action_open_rfq_comparison(self):
         self.ensure_one()
-        comparable_rfqs = self.related_rfq_ids.filtered(lambda rfq: rfq.id != self.id and rfq.order_line)
+        comparable_rfqs = self.related_rfq_ids.filtered(
+            lambda rfq: rfq.id != self.id and rfq.order_line and rfq.state in ("draft", "sent", "pending")
+        )
         if not comparable_rfqs:
             label = self.requisition_id.name or self.pr_name or self.name
             raise UserError(_("No comparable RFQs are available for %s yet.") % label)
         wizard = self.env["rfq.comparison.wizard"].create_for_custom_rfq(self)
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("RFQ Comparison"),
-            "res_model": "rfq.comparison.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "res_id": wizard.id,
-        }
+        action = self.env.ref("pr_custom_purchase.action_rfq_comparison_wizard").read()[0]
+        action.update({"res_id": wizard.id, "target": "current"})
+        return action
 
     def action_view_quotations(self):
         self.ensure_one()
