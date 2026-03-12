@@ -313,6 +313,19 @@ class AttendanceSheet(models.Model):
         readonly=True,
         copy=False,
     )
+    carry_forward_amount = fields.Float(
+        string='Carry Forward Amount (Source)',
+        readonly=True,
+        copy=False,
+        help='Computed deduction amount for this source sheet that will be carried to a later payroll.',
+    )
+    carry_forward_settled_sheet_id = fields.Many2one(
+        comodel_name='attendance.sheet',
+        string='Carry Forward Settled In',
+        readonly=True,
+        copy=False,
+        help='Attendance sheet where this source sheet carry-forward was finally deducted.',
+    )
 
     contract_id = fields.Many2one('hr.contract', string='Contract',
                                   readonly=True,
@@ -1094,7 +1107,7 @@ class AttendanceSheet(models.Model):
             ('predictive_mode', '=', True),
             ('predictive_cutoff_date', '!=', False),
             ('date_to', '<', self.date_from),
-            ('carry_forward_processed', '=', False),
+            ('carry_forward_settled_sheet_id', '=', False),
         ], order='date_to asc')
 
         for prev_sheet in previous_sheets:
@@ -1102,6 +1115,8 @@ class AttendanceSheet(models.Model):
                 prev_sheet.write({
                     'carry_forward_processed': True,
                     'carry_forward_run_date': fields.Date.context_today(self),
+                    'carry_forward_amount': 0.0,
+                    'carry_forward_settled_sheet_id': self.id,
                 })
                 continue
 
@@ -1110,13 +1125,17 @@ class AttendanceSheet(models.Model):
             pending_lines = prev_sheet.line_ids.filtered(
                 lambda l: l.date and l.date > prev_sheet.predictive_cutoff_date
             )
-            carry_amount += sum(pending_lines.mapped('absence_amount'))
-            carry_amount += sum(pending_lines.mapped('late_in_amount'))
-            carry_amount += sum(pending_lines.mapped('diff_amount'))
+            source_amount = 0.0
+            source_amount += sum(pending_lines.mapped('absence_amount'))
+            source_amount += sum(pending_lines.mapped('late_in_amount'))
+            source_amount += sum(pending_lines.mapped('diff_amount'))
+            carry_amount += source_amount
 
             prev_sheet.write({
                 'carry_forward_processed': True,
                 'carry_forward_run_date': fields.Date.context_today(self),
+                'carry_forward_amount': source_amount,
+                'carry_forward_settled_sheet_id': self.id,
             })
 
         self.carry_forward_deduction = carry_amount
