@@ -93,7 +93,12 @@
                         <field name="total_unpaid_leave" invisible="1"/>
                         <field name="total_sick_leave" invisible="1"/>
                         <field name="total_business_trip_leave" invisible="1"/>
+                        <field name="carry_forward_deduction" readonly="1"/>
                         <field name="contract_id"/>
+                        <field name="predictive_mode"
+                               readonly="'state'  != 'draft'"/>
+                        <field name="predictive_cutoff_date"
+                               readonly="'state'  != 'draft'"/>
                         <field name="name"
                                readonly="'state'  != 'draft'"/>
                         <field name="att_policy_id"

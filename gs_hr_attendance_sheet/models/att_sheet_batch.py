@@ -42,6 +42,16 @@ class AttendanceSheetBatch(models.Model):
                                     inverse_name='batch_id')
     payslip_batch_id = fields.Many2one(comodel_name='hr.payslip.run',
                                        string='Payslip Batch')
+    predictive_mode = fields.Boolean(
+        string='Predictive Payroll',
+        default=True,
+        help='If enabled, future days after cutoff are projected as present while generating attendance sheets.',
+    )
+    predictive_cutoff_date = fields.Date(
+        string='Predictive Cutoff Date',
+        default=fields.Date.context_today,
+        help='All working days after this date are projected as present with no late/absence deduction.',
+    )
 
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -146,7 +156,9 @@ class AttendanceSheetBatch(models.Model):
                             'employee_id': employee.id,
                             'date_from': from_date,
                             'date_to': to_date,
-                            'batch_id':batch.id
+                            'batch_id':batch.id,
+                            'predictive_mode': batch.predictive_mode,
+                            'predictive_cutoff_date': batch.predictive_cutoff_date,
                         })
                         new_sheet.onchange_employee()
                         values = att_sheet_obj._convert_to_write(new_sheet._cache)
@@ -179,7 +191,9 @@ class AttendanceSheetBatch(models.Model):
                             'employee_id': employee.id,
                             'date_from': from_date,
                             'date_to': to_date,
-                            'batch_id':batch.id
+                            'batch_id':batch.id,
+                            'predictive_mode': batch.predictive_mode,
+                            'predictive_cutoff_date': batch.predictive_cutoff_date,
                         })
                         new_sheet.onchange_employee()
                         values = att_sheet_obj._convert_to_write(new_sheet._cache)
