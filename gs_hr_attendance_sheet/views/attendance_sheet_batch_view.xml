@@ -45,6 +45,10 @@
                         </div>
                     </group>
                     <group>
+                        <field name="predictive_mode" readonly="state  != 'draft'"/>
+                        <field name="predictive_cutoff_date" readonly="state  != 'draft'"/>
+                    </group>
+                    <group>
                         <field name="name" readonly="state  != 'draft'"/>
                         <field name="payslip_batch_id" invisible="1"/>
                         <!--<field name="is_done" invisible="1"/>-->
