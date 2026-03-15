@@ -716,7 +716,7 @@ class AttendanceSheet(models.Model):
                                     'status': 'ph',
                                     'note': _("working on Public Holiday")
                                 }
-                                if att_sheet.employee_id.compute_attendance or self.env.context.get('force_actual_attendance'):
+                                if att_sheet.employee_id.compute_attendance:
                                     att_line.create(values)
                         else:
                             values = {
@@ -725,7 +725,7 @@ class AttendanceSheet(models.Model):
                                 'att_sheet_id': self.id,
                                 'status': 'ph',
                             }
-                            if att_sheet.employee_id.compute_attendance or self.env.context.get('force_actual_attendance'):
+                            if att_sheet.employee_id.compute_attendance:
                                 att_line.create(values)
                     else:
                         for i, work_interval in enumerate(work_intervals):
@@ -964,7 +964,7 @@ class AttendanceSheet(models.Model):
                                 'status': status,
                                 'att_sheet_id': self.id
                             }
-                            if att_sheet.employee_id.compute_attendance or status == "leave" or self.env.context.get('force_actual_attendance'):
+                            if att_sheet.employee_id.compute_attendance or status == "leave":
                                 att_line.create(values)
                         out_work_intervals = [x for x in attendance_intervals if
                                               x not in reserved_intervals]
@@ -1001,7 +1001,7 @@ class AttendanceSheet(models.Model):
                                     'note': _("overtime out of work intervals"),
                                     'att_sheet_id': self.id
                                 }
-                                if att_sheet.employee_id.compute_attendance or self.env.context.get('force_actual_attendance'):
+                                if att_sheet.employee_id.compute_attendance:
                                     att_line.create(values)
                 else:
                     if attendance_intervals:
@@ -1043,7 +1043,7 @@ class AttendanceSheet(models.Model):
                                 'status': 'weekend',
                                 'note': _("working in weekend")
                             }
-                            if att_sheet.employee_id.compute_attendance or self.env.context.get('force_actual_attendance'):
+                            if att_sheet.employee_id.compute_attendance:
                                 att_line.create(values)
                     else:
                         values = {
@@ -1053,7 +1053,7 @@ class AttendanceSheet(models.Model):
                             'status': 'weekend',
                             'note': ""
                         }
-                        if att_sheet.employee_id.compute_attendance or self.env.context.get('force_actual_attendance'):
+                        if att_sheet.employee_id.compute_attendance:
                             att_line.create(values)
 
             # leave_ids = self.env['hr.leave'].search([('employee_id', '=', att_sheet.employee_id.id),
@@ -1099,6 +1099,10 @@ class AttendanceSheet(models.Model):
 
     def _collect_carry_forward_deduction(self):
         self.ensure_one()
+        if not self.employee_id.compute_attendance:
+            self.carry_forward_deduction = 0.0
+            return 0.0
+
         carry_amount = 0.0
         previous_sheets = self.search([
             ('employee_id', '=', self.employee_id.id),
