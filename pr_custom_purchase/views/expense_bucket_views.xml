@@ -67,7 +67,7 @@
                             <field name="line_ids" readonly="state != 'draft'">
                                 <tree editable="bottom">
                                     <field name="cost_center_id"/>
-                                    <field name="budget_code" readonly="1"/>
+<!--                                    <field name="budget_code" readonly="1"/>-->
                                     <field name="budget_type"/>
                                     <field name="budget_allowance"/>
                                     <field name="budget_left" readonly="1"/>
