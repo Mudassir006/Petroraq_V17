@@ -244,21 +244,19 @@
                                             </b>
                                         </td>
                                     </tr>
+                                    <t t-set="is_rfq" t-value="o.state in ['draft', 'sent', 'to approve']"/>
                                     <t t-set="sr_number" t-value="0"/>
                                     <t t-set="taxable_amount" t-value="0"/>
                                     <t t-set="total_qty" t-value="0"/>
                                     <t t-set="total_unit_price" t-value="0"/>
                                     <t t-esc="excluding_vat" t-value="0"/>
                                     <t t-esc="total_vat_tax" t-value="0"/>
-                                    <tr t-foreach="o.custom_line_ids" t-as="l">
+                                    <tr t-foreach="o.order_line.filtered(lambda ln: not ln.display_type)" t-as="l">
                                         <t t-set="sr_number" t-value="sr_number+1"/>
-                                        <t t-set="taxable_amount" t-value="(l.quantity * l.price_unit/100)*15"/>
-                                        <t t-set="total_qty" t-value="total_qty + l.quantity"/>
+                                        <t t-set="taxable_amount" t-value="(l.product_qty * l.price_unit/100)*15"/>
+                                        <t t-set="total_qty" t-value="total_qty + l.product_qty"/>
                                         <t t-set="total_unit_price" t-value="total_unit_price + l.price_unit"/>
                                         <t t-set="excluding_vat" t-value="total_qty * total_unit_price"/>
-                                        <!--                                            <t t-if="l.tax_ids.name">-->
-                                        <!--                                                <t t-set="total_vat_tax" t-value="total_vat_tax + str(l.tax_ids.name)"/>-->
-                                        <!--                                            </t>-->
 
                                         <td>
                                             <span t-esc="sr_number"/>
@@ -267,23 +265,25 @@
                                             <span t-esc="l.name"/>
                                         </td>
                                         <td>
-                                            <span t-esc="l.quantity"/>
+                                            <span t-esc="l.product_qty"/>
                                         </td>
                                         <td>
-                                            <span t-esc="l.unit"/>
+                                            <span t-esc="l.product_uom.name"/>
                                         </td>
                                         <td>
-<!--                                                <span t-esc="'{0:,.2f}'.format(l.price_unit)"-->
-                                            <span t-esc="l.price_unit"
-                                            t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="l.price_unit" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            </t>
                                         </td>
                                         <td>
-                                            <span>15%</span>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="', '.join(l.taxes_id.mapped('name'))"/>
+                                            </t>
                                         </td>
                                         <td>
-<!--                                                <span t-esc="'{0:,.2f}'.format(l.price_subtotal)"-->
-                                            <span t-esc="l.subtotal"
-                                            t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="l.price_subtotal" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            </t>
                                         </td>
                                     </tr>
                                 </table>
@@ -296,8 +296,9 @@
                                         </td>
                                         <td width="23%" style="text-align:center;border:1px solid #000000">
 <!--                                                <span t-esc="'{0:,.2f}'.format(o.amount_untaxed)"-->
-                                            <span t-esc="o.subtotal"
-                                            t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="o.amount_untaxed" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            </t>
                                         </td>
                                         <td width="42%" style="text-align:right;border:1px solid #000000">
                                             الإجمالي بإستثناء ضريبة القيمة المضافة
@@ -308,8 +309,9 @@
                                             Total VAT Amount (15%)
                                         </td>
                                         <td width="23%" style="text-align:center;border:1px solid #000000">
-                                            <span t-esc="o.tax_15"
-                                            t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="o.amount_tax" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            </t>
                                         </td>
                                         <td width="42%" style="text-align:right;border:1px solid #000000">
                                             مجموع ضريبة القيمة المضاف
@@ -321,27 +323,32 @@
                                         </td>
                                         <td width="23%" style="text-align:center;border:1px solid #000000">
 <!--                                                <span t-esc="'{0:,.2f}'.format(o.amount_residual)"-->
-                                            <span t-esc="o.grand_total"
-                                            t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="o.amount_total" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                            </t>
                                         </td>
                                         <td width="42%" style="text-align:right;border:1px solid #000000">
                                              إجمالي المبلغ
                                         </td>
                                     </tr>
                                 </table>
-                        <t t-set="total_word"
-                                   t-value="o.amount_to_text(o.grand_total)"
+                        <t t-if="not is_rfq" t-set="total_word"
+                                   t-value="o.amount_to_text(o.amount_total)"
                                 />
-                        <t t-set="total_words"
-                           t-value="o.amount_to_world(o.grand_total)"/>
+                        <t t-if="not is_rfq" t-set="total_words"
+                           t-value="o.amount_to_world(o.amount_total)"/>
                         <table class="table table-border"
                                        style="border:1px solid #000000;margin-top:-10px;font-size:15px;font-family: 'Noto Sans Arabic';">
                                     <tr>
                                         <td style="border-left:1px solid black;text-align:left !important;">
-                                            <span t-esc="total_word"/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="total_word"/>
+                                            </t>
                                         </td>
                                         <td style="border-right:1px solid black;text-align:right !important;">
-                                            <span t-esc="total_words"/>
+                                            <t t-if="not is_rfq">
+                                                <span t-esc="total_words"/>
+                                            </t>
                                         </td>
                                     </tr>
                                 </table>
