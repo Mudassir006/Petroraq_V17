@@ -171,10 +171,10 @@ class hrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence + num_weekend,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence + (num_weekend * 8),
-                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_deduction
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence + num_weekend
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_deduction
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount
                 else:
                     absence = [{
                         'name': "Absence",
@@ -183,10 +183,10 @@ class hrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence,
-                        'amount': rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_deduction,
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount,
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_deduction
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount
 
                 late = [{
                     'name': "Late In",
@@ -301,6 +301,24 @@ class AttendanceSheet(models.Model):
         readonly=True,
         copy=False,
         help='Deductions captured from previously projected payroll periods and applied in this payroll.',
+    )
+    carry_forward_absence_amount = fields.Float(
+        string='Carry Forward Absence',
+        readonly=True,
+        copy=False,
+        help='Absence-only amount carried from prior projected periods.',
+    )
+    carry_forward_late_amount = fields.Float(
+        string='Carry Forward Late',
+        readonly=True,
+        copy=False,
+        help='Late-only amount carried from prior projected periods.',
+    )
+    carry_forward_diff_amount = fields.Float(
+        string='Carry Forward Diff',
+        readonly=True,
+        copy=False,
+        help='Difference-time amount carried from prior projected periods.',
     )
     carry_forward_processed = fields.Boolean(
         string='Carry Forward Processed',
@@ -1101,8 +1119,14 @@ class AttendanceSheet(models.Model):
         self.ensure_one()
         if not self.employee_id.compute_attendance:
             self.carry_forward_deduction = 0.0
+            self.carry_forward_absence_amount = 0.0
+            self.carry_forward_late_amount = 0.0
+            self.carry_forward_diff_amount = 0.0
             return 0.0
 
+        carry_absence_amount = 0.0
+        carry_late_amount = 0.0
+        carry_diff_amount = 0.0
         carry_amount = 0.0
         previous_sheets = self.search([
             ('employee_id', '=', self.employee_id.id),
@@ -1129,10 +1153,14 @@ class AttendanceSheet(models.Model):
             pending_lines = prev_sheet.line_ids.filtered(
                 lambda l: l.date and l.date > prev_sheet.predictive_cutoff_date
             )
-            source_amount = 0.0
-            source_amount += sum(pending_lines.mapped('absence_amount'))
-            source_amount += sum(pending_lines.mapped('late_in_amount'))
-            source_amount += sum(pending_lines.mapped('diff_amount'))
+            source_absence_amount = sum(pending_lines.mapped('absence_amount'))
+            source_late_amount = sum(pending_lines.mapped('late_in_amount'))
+            source_diff_amount = sum(pending_lines.mapped('diff_amount'))
+            source_amount = source_absence_amount + source_late_amount + source_diff_amount
+
+            carry_absence_amount += source_absence_amount
+            carry_late_amount += source_late_amount
+            carry_diff_amount += source_diff_amount
             carry_amount += source_amount
 
             prev_sheet.write({
@@ -1142,6 +1170,9 @@ class AttendanceSheet(models.Model):
                 'carry_forward_settled_sheet_id': self.id,
             })
 
+        self.carry_forward_absence_amount = carry_absence_amount
+        self.carry_forward_late_amount = carry_late_amount
+        self.carry_forward_diff_amount = carry_diff_amount
         self.carry_forward_deduction = carry_amount
         return carry_amount
 

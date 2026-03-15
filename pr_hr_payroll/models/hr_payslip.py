@@ -306,10 +306,10 @@ class HrPayslip(models.Model):
 
             if payslip.attendance_sheet_id and payslip.employee_id.compute_attendance:
                 att_sheet = payslip.attendance_sheet_id
-                abs_amount = -((att_sheet.tot_absence_amount or 0.0) + (getattr(att_sheet, 'carry_forward_deduction', 0.0) or 0.0))
-                late_amount = -(att_sheet.tot_late_amount or 0.0)
+                abs_amount = -((att_sheet.tot_absence_amount or 0.0) + (getattr(att_sheet, 'carry_forward_absence_amount', 0.0) or 0.0))
+                late_amount = -((att_sheet.tot_late_amount or 0.0) + (getattr(att_sheet, 'carry_forward_late_amount', 0.0) or 0.0))
                 eco_amount = -(getattr(att_sheet, 'tot_early_checkout_amount', 0.0) or 0.0)
-                diff_amount = -(att_sheet.tot_difftime_amount or 0.0)
+                diff_amount = -((att_sheet.tot_difftime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_diff_amount', 0.0) or 0.0))
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'ABS', abs_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'LATE', late_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'ECO', eco_amount)
