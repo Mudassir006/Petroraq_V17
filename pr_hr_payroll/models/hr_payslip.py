@@ -304,7 +304,7 @@ class HrPayslip(models.Model):
                             'slip_id': payslip.id,
                         })
 
-            if payslip.attendance_sheet_id:
+            if payslip.attendance_sheet_id and payslip.employee_id.compute_attendance:
                 att_sheet = payslip.attendance_sheet_id
                 abs_amount = -((att_sheet.tot_absence_amount or 0.0) + (getattr(att_sheet, 'carry_forward_deduction', 0.0) or 0.0))
                 late_amount = -(att_sheet.tot_late_amount or 0.0)
@@ -314,6 +314,11 @@ class HrPayslip(models.Model):
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'LATE', late_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'ECO', eco_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'DIFFT', diff_amount)
+            elif payslip.attendance_sheet_id and not payslip.employee_id.compute_attendance:
+                for vals in line_vals:
+                    if vals.get('code') in ['ABS', 'LATE', 'ECO', 'DIFFT']:
+                        vals['amount'] = 0.0
+                        vals['total'] = 0.0
 
             net_amount = sum(vals.get("total", 0) for vals in line_vals if vals.get("code") not in ["NET", "GROSS"])
             attendance_ded_codes = ["ABS", "LATE", "DIFFT", "UNPAID", "PAID87", "LEAVE90", "SICKTO89", "BTD", "ECO"]
