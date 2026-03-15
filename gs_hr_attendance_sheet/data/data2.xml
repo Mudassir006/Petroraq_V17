@@ -111,10 +111,10 @@
                    ref="gs_hr_attendance_sheet.structure_attendance_sheet"/>
             <field name="condition_select">python</field>
 <!--            <field name="condition_python">result =(worked_days.ATTSHAB and worked_days.ATTSHAB.number_of_hours > 0) or False</field>-->
-            <field name="condition_python">result = ((payslip.attendance_sheet_id.no_absence or 0) or (payslip.attendance_sheet_id.carry_forward_deduction or 0)) or False</field>
+            <field name="condition_python">result = ((payslip.attendance_sheet_id.no_absence or 0) or (payslip.attendance_sheet_id.carry_forward_absence_amount or 0)) or False</field>
             <field name="amount_select">code</field>
 <!--            <field name="amount_python_compute">result=-(worked_days.ATTSHAB.number_of_hours * (contract.wage /(9*26)))</field>-->
-            <field name="amount_python_compute">result = ((payslip.attendance_sheet_id.tot_absence_amount + payslip.attendance_sheet_id.carry_forward_deduction)*-1 or 0)</field>
+            <field name="amount_python_compute">result = ((payslip.attendance_sheet_id.tot_absence_amount + payslip.attendance_sheet_id.carry_forward_absence_amount)*-1 or 0)</field>
             <field name="sequence" eval="60"/>
             <field name="note">deduction of absence days</field>
         </record>
@@ -161,10 +161,10 @@
 
             <field name="condition_select">python</field>
 <!--            <field name="condition_python">result = (worked_days.ATTSHOT and worked_days.ATTSHOT.number_of_hours > 0 ) or False</field>-->
-            <field name="condition_python">result = (payslip.attendance_sheet_id.tot_overtime or 0) or False</field>
+            <field name="condition_python">result = ((payslip.attendance_sheet_id.tot_overtime or 0) or (payslip.attendance_sheet_id.carry_forward_overtime_amount or 0)) or False</field>
             <field name="amount_select">code</field>
 <!--            <field name="amount_python_compute">result = (contract.wage /(9*26)) * worked_days.ATTSHOT.number_of_hours</field>-->
-            <field name="amount_python_compute">result = (payslip.attendance_sheet_id.tot_overtime_amount or 0)</field>
+            <field name="amount_python_compute">result = ((payslip.attendance_sheet_id.tot_overtime_amount + payslip.attendance_sheet_id.carry_forward_overtime_amount) or 0)</field>
             <field name="sequence" eval="30"/>
             <field name="note">Over time</field>
         </record>

@@ -56,7 +56,7 @@ class HrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': rec.attendance_sheet_id.tot_overtime_amount,
+                    'amount': rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount,
                 }]
                 # if not rec.attendance_sheet_id.overtime_approved:
                 #     overtime = []
@@ -74,10 +74,10 @@ class HrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence + num_weekend,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence + (num_weekend * 8),
-                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_deduction,
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount,
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence + num_weekend
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_deduction
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount
                 else:
                     absence = [{
                         'name': "Absence",
@@ -86,10 +86,10 @@ class HrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence,
-                        'amount': rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_deduction,
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount,
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_deduction
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount
 
                 late = [{
                     'name': "Late In",
