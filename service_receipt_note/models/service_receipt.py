@@ -208,6 +208,8 @@ class ServiceReceiptNote(models.Model):
             rec._validate_lines()
             rec.state = "done"
 
+            rec.line_ids.mapped("purchase_line_id")._update_qty_received_from_srn()
+
             backorder = rec._create_backorder_if_needed()
             if backorder:
                 rec.message_post(

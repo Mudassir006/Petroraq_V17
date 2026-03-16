@@ -137,6 +137,18 @@ class PurchaseOrderLine(models.Model):
         digits="Product Unit of Measure",
     )
 
+
+    def _update_qty_received_from_srn(self):
+        receipt_line_model = self.env["service.receipt.note.line"]
+        for line in self.filtered(lambda l: l.product_id.detailed_type == "service"):
+            done_lines = receipt_line_model.search([
+                ("purchase_line_id", "=", line.id),
+                ("receipt_id.state", "=", "done"),
+            ])
+            received = sum(done_lines.mapped("done_qty"))
+            if line.qty_received != received:
+                line.qty_received = received
+
     @api.depends("product_qty")
     def _compute_srn_received_qty(self):
         receipt_line_model = self.env["service.receipt.note.line"]
