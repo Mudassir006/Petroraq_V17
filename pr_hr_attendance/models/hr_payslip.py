@@ -56,7 +56,7 @@ class HrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount,
+                    'amount': (rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
                 }]
                 # if not rec.attendance_sheet_id.overtime_approved:
                 #     overtime = []
@@ -108,7 +108,7 @@ class HrPayslip(models.Model):
                     'sequence': 40,
                     'number_of_days': rec.attendance_sheet_id.no_early_checkout,
                     'number_of_hours': rec.attendance_sheet_id.tot_early_checkout,
-                    'amount': rec.attendance_sheet_id.tot_early_checkout_amount,
+                    'amount': rec.attendance_sheet_id.tot_early_checkout_amount + rec.attendance_sheet_id.carry_forward_early_checkout_amount,
                 }]
                 difftime = [{
                     'name': "Difference time",
