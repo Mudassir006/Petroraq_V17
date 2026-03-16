@@ -3,7 +3,7 @@ from io import BytesIO
 import base64
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 try:
     import xlsxwriter
@@ -187,9 +187,38 @@ class RFQComparisonWizard(models.TransientModel):
         if not grouped_by_vendor:
             raise UserError(_("Please select at least one supplier with available quotation lines."))
 
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("requisition_id", "=", self.requisition_id.id),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for requisition %s.") % self.requisition_id.name)
+
         purchase_orders = self.env["purchase.order"]
         for vendor, vendor_lines in grouped_by_vendor.items():
+            line_amounts = {}
+            for line, offer in vendor_lines:
+                if not line.cost_center_id:
+                    continue
+                line_amounts.setdefault(line.cost_center_id.id, 0.0)
+                line_amounts[line.cost_center_id.id] += line.quantity * offer.unit_price
+
+            if line_amounts:
+                cost_centers = self.env["account.analytic.account"].sudo().browse(list(line_amounts.keys()))
+                cc_map = {cc.id: cc for cc in cost_centers}
+                for cc_id, amount in line_amounts.items():
+                    cc = cc_map.get(cc_id)
+                    if not cc:
+                        raise ValidationError(_("Invalid cost center found in selected comparison lines."))
+                    if cc.budget_left < amount:
+                        raise ValidationError(
+                            _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                            % (cc.display_name, cc.budget_left, amount)
+                        )
+
             po_vals = {
+                "name": self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001",
+                "state": "pending",
                 "partner_id": vendor.id,
                 "origin": self.requisition_id.name,
                 "requisition_id": self.requisition_id.id,
@@ -198,6 +227,12 @@ class RFQComparisonWizard(models.TransientModel):
                 "department": self.requisition_id.department,
                 "supervisor": self.requisition_id.supervisor,
                 "supervisor_partner_id": self.requisition_id.supervisor_partner_id,
+                "budget_type": self.requisition_id.budget_type,
+                "budget_code": self.requisition_id.budget_details,
+                "pe_approved": False,
+                "pm_approved": False,
+                "od_approved": False,
+                "md_approved": False,
                 "order_line": [
                     (0, 0, {
                         "product_id": line.product_id.id,

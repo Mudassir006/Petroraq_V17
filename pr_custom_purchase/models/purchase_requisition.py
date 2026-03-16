@@ -223,20 +223,23 @@ class PurchaseRequisition(models.Model):
             rec.rfq_count = len(rec.rfq_ids)
             rec.rfq_sent_count = len(rec.rfq_ids.filtered(lambda r: r.state == "sent"))
 
-    @api.depends("pr_type", "approval", "status")
+    @api.depends("pr_type", "approval", "status", "rfq_ids", "rfq_ids.state")
     def _compute_button_visibility(self):
-        """Compute button visibility based on PR type, approval, and status"""
+        """Compute button visibility based on PR type, approval, status and existing PO state."""
         for rec in self:
+            has_po = bool(rec.rfq_ids.filtered(lambda r: r.state in ("pending", "purchase", "done")))
             rec.show_create_rfq_button = (
                     rec.pr_type != "cash"
                     and rec.approval == "approved"
                     and rec.status in ["pr", "rfq"]
+                    and not has_po
             )
 
             rec.show_create_po_button = (
                     rec.pr_type == "cash"
                     and rec.approval == "approved"
                     and rec.status in ["pr", "rfq"]
+                    and not has_po
             )
 
     @api.depends(
@@ -507,6 +510,15 @@ class PurchaseRequisition(models.Model):
             },
         }
 
+    def _ensure_no_purchase_order_exists(self):
+        self.ensure_one()
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("requisition_id", "=", self.id),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for requisition %s.") % self.name)
+
     def action_create_rfq(self):
         """Create Custom RFQ from this PR and keep PO sequencing independent."""
         CustomRFQ = self.env["purchase.order"]
@@ -515,6 +527,7 @@ class PurchaseRequisition(models.Model):
         for pr in self:
             if pr.approval != "approved":
                 raise UserError(_("Supervisor approval is required before creating RFQ."))
+            pr._ensure_no_purchase_order_exists()
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
@@ -548,6 +561,8 @@ class PurchaseRequisition(models.Model):
                 "supervisor": pr.supervisor,
                 "supervisor_partner_id": pr.supervisor_partner_id,
                 "project_id": pr.project_id.id if pr.project_id else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
             }
 
             for line in pr.line_ids:
@@ -588,12 +603,13 @@ class PurchaseRequisition(models.Model):
 
     # create cash PR
     def action_create_purchase_order(self):
-        """Create Purchase Order directly (confirmed) from this PR and populate Custom Lines tab."""
+        """Create a PO from cash PR using the same approval entry point as RFQ-selected POs."""
         PurchaseOrder = self.env["purchase.order"]
 
         for pr in self:
             if pr.approval != "approved":
                 raise UserError(_("Supervisor approval is required before creating Purchase Order."))
+            pr._ensure_no_purchase_order_exists()
             if not pr.line_ids:
                 raise UserError(
                     _("This PR has no line items to create a Purchase Order.")
@@ -615,20 +631,31 @@ class PurchaseRequisition(models.Model):
                         % (cc.display_name, cc.budget_left, item["amount"])
                     )
 
-            # Create PO values
+            # Create PO values aligned with action_create_po_from_rfq (pending + approval flags)
+            po_name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
             po_vals = {
+                "name": po_name,
+                "state": "pending",
                 "origin": pr.name,
+                "pr_name": pr.name,
+                "requisition_id": pr.id,
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
-                "date_planned": pr.required_date,
+                "date_planned": pr.required_date or fields.Datetime.now(),
+                "project_id": pr.project_id.id if pr.project_id else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
                 "order_line": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
                 "department": pr.department,
                 "supervisor": pr.supervisor,
                 "supervisor_partner_id": pr.supervisor_partner_id,
+                "pe_approved": False,
+                "pm_approved": False,
+                "od_approved": False,
+                "md_approved": False,
             }
 
-            # Fill custom_line_ids from PR lines
             for line in pr.line_ids:
                 analytic_distribution = (
                     {str(line.cost_center_id.id): 100.0}
@@ -639,10 +666,10 @@ class PurchaseRequisition(models.Model):
                     0,
                     0,
                     {
-                        # "name": line.description.display_name,
                         "name": line.description.display_name,
                         "product_id": line.description.id,
                         "product_qty": line.quantity,
+                        "product_uom": line.description.uom_po_id.id if line.description.uom_po_id else False,
                         "price_unit": line.unit_price,
                         "date_planned": fields.Datetime.now(),
                         "analytic_distribution": analytic_distribution,
@@ -650,19 +677,52 @@ class PurchaseRequisition(models.Model):
                 )
                 po_vals["order_line"].append(line_vals)
 
-            # Create Purchase Order
             po = PurchaseOrder.sudo().create(po_vals)
 
-            # Confirm it → changes state from draft (RFQ) to purchase
-            po.button_confirm()
-            # Update PR status
+            amount = po.subtotal
+            if amount <= 10000:
+                po._schedule_activity_for_group(
+                    "pr_custom_purchase.project_engineer",
+                    "Review Purchase Order",
+                    f"PO {po.name} created from cash PR {pr.name}. Please review.",
+                )
+            elif amount <= 100000:
+                for group_xml_id in ["pr_custom_purchase.project_engineer", "pr_custom_purchase.project_manager"]:
+                    po._schedule_activity_for_group(
+                        group_xml_id,
+                        "Review Purchase Order",
+                        f"PO {po.name} created from cash PR {pr.name}. Please review.",
+                    )
+            elif amount <= 500000:
+                for group_xml_id in [
+                    "pr_custom_purchase.project_engineer",
+                    "pr_custom_purchase.project_manager",
+                    "pr_custom_purchase.operations_director",
+                ]:
+                    po._schedule_activity_for_group(
+                        group_xml_id,
+                        "Review Purchase Order",
+                        f"PO {po.name} created from cash PR {pr.name}. Please review.",
+                    )
+            else:
+                for group_xml_id in [
+                    "pr_custom_purchase.project_engineer",
+                    "pr_custom_purchase.project_manager",
+                    "pr_custom_purchase.operations_director",
+                    "pr_custom_purchase.managing_director",
+                ]:
+                    po._schedule_activity_for_group(
+                        group_xml_id,
+                        "Review Purchase Order",
+                        f"PO {po.name} created from cash PR {pr.name}. Please review.",
+                    )
+
             pr.status = "po"
-            # Log in PR chatter
             pr.message_post(
                 body=_(
-                    "Purchase Order %s created and confirmed from this PR (Custom Lines populated)."
+                    "Purchase Order %s created from this PR and moved to pending approval."
                 )
-                     % po.name,
+                % po.name,
                 message_type="notification",
             )
 

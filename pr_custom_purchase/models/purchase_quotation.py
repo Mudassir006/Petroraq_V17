@@ -110,6 +110,8 @@ class PurchaseQuotation(models.Model):
         ("missing", "Not Created"),
         ("draft", "Draft"),
         ("sent", "RFQ Sent"),
+        ("pending", "Pending Approval"),
+        ("purchase", "Purchase Order"),
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="RFQ Status", compute="_compute_linked_statuses")
@@ -287,4 +289,3 @@ class PurchaseQuotationLine(models.Model):
             line.subtotal = line.quantity * line.price_unit
             line.tax_15 = line.subtotal * 0.15
             line.grand_total = line.subtotal + line.tax_15
-
