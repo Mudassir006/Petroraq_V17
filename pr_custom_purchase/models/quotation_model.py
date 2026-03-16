@@ -548,6 +548,9 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         if self.state != "pending":
             raise UserError(_("Only pending Purchase Orders can be rejected."))
+        self._compute_show_approvals()
+        if not (self.show_pe_approved or self.show_pm_approved or self.show_od_approved or self.show_md_approved):
+            raise UserError(_("You can reject only when it is your current approval stage."))
         return {
             "type": "ir.actions.act_window",
             "name": _("Reject Purchase Order"),

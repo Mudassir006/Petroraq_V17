@@ -116,8 +116,15 @@ class CustomPurchaseRFQ(models.Model):
             if linked_po:
                 raise UserError(_("Cannot reset RFQ %s because a confirmed Purchase Order already exists.") % rec.name)
 
-            rec.write({"state": "draft"})
-            rec.message_post(body=_("RFQ reset to draft."))
+            rec.write({
+                "state": "draft",
+                "pe_approved": False,
+                "pm_approved": False,
+                "od_approved": False,
+                "md_approved": False,
+                "rejection_reason": False,
+            })
+            rec.message_post(body=_("RFQ/PO reset to draft and approval flags cleared."))
 
     def action_open_rfq_comparison(self):
         self.ensure_one()
