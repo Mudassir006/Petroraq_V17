@@ -146,9 +146,8 @@ class PurchaseOrder(models.Model):
         # Attach the module's official purchase order report PDF.
         attachment_ids = []
         try:
-            report_xmlid = 'pr_custom_purchase.petroraq_purchase_order_action_id'
-            pdf_bytes, _content_type = self.env['ir.actions.report'].sudo()._render_qweb_pdf(
-                report_xmlid,
+            report_action = self.env.ref('pr_custom_purchase.petroraq_purchase_order_action_id')
+            pdf_bytes, _content_type = report_action.sudo()._render_qweb_pdf(
                 res_ids=[self.id],
             )
             if pdf_bytes:
