@@ -223,20 +223,23 @@ class PurchaseRequisition(models.Model):
             rec.rfq_count = len(rec.rfq_ids)
             rec.rfq_sent_count = len(rec.rfq_ids.filtered(lambda r: r.state == "sent"))
 
-    @api.depends("pr_type", "approval", "status")
+    @api.depends("pr_type", "approval", "status", "rfq_ids", "rfq_ids.state")
     def _compute_button_visibility(self):
-        """Compute button visibility based on PR type, approval, and status"""
+        """Compute button visibility based on PR type, approval, status and existing PO state."""
         for rec in self:
+            has_po = bool(rec.rfq_ids.filtered(lambda r: r.state in ("pending", "purchase", "done")))
             rec.show_create_rfq_button = (
                     rec.pr_type != "cash"
                     and rec.approval == "approved"
                     and rec.status in ["pr", "rfq"]
+                    and not has_po
             )
 
             rec.show_create_po_button = (
                     rec.pr_type == "cash"
                     and rec.approval == "approved"
                     and rec.status in ["pr", "rfq"]
+                    and not has_po
             )
 
     @api.depends(
@@ -507,6 +510,15 @@ class PurchaseRequisition(models.Model):
             },
         }
 
+    def _ensure_no_purchase_order_exists(self):
+        self.ensure_one()
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("requisition_id", "=", self.id),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for requisition %s.") % self.name)
+
     def action_create_rfq(self):
         """Create Custom RFQ from this PR and keep PO sequencing independent."""
         CustomRFQ = self.env["purchase.order"]
@@ -515,6 +527,7 @@ class PurchaseRequisition(models.Model):
         for pr in self:
             if pr.approval != "approved":
                 raise UserError(_("Supervisor approval is required before creating RFQ."))
+            pr._ensure_no_purchase_order_exists()
             if not pr.line_ids:
                 raise UserError(_("This PR has no line items to create an RFQ."))
 
@@ -596,6 +609,7 @@ class PurchaseRequisition(models.Model):
         for pr in self:
             if pr.approval != "approved":
                 raise UserError(_("Supervisor approval is required before creating Purchase Order."))
+            pr._ensure_no_purchase_order_exists()
             if not pr.line_ids:
                 raise UserError(
                     _("This PR has no line items to create a Purchase Order.")

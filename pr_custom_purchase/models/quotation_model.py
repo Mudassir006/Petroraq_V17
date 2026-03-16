@@ -161,6 +161,9 @@ class PurchaseOrder(models.Model):
             raise UserError(_("This RFQ has no order lines."))
 
         existing_po = self.env["purchase.order"].sudo().search_count([
+            ("requisition_id", "=", self.requisition_id.id),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ]) if self.requisition_id else self.env["purchase.order"].sudo().search_count([
             ("origin", "=", self.name),
             ("state", "in", ["pending", "purchase", "done"]),
         ])

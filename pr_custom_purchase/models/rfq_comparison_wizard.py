@@ -187,6 +187,13 @@ class RFQComparisonWizard(models.TransientModel):
         if not grouped_by_vendor:
             raise UserError(_("Please select at least one supplier with available quotation lines."))
 
+        existing_po = self.env["purchase.order"].sudo().search_count([
+            ("requisition_id", "=", self.requisition_id.id),
+            ("state", "in", ["pending", "purchase", "done"]),
+        ])
+        if existing_po:
+            raise UserError(_("A Purchase Order already exists for requisition %s.") % self.requisition_id.name)
+
         purchase_orders = self.env["purchase.order"]
         for vendor, vendor_lines in grouped_by_vendor.items():
             line_amounts = {}
