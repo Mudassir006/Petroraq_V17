@@ -123,6 +123,37 @@ class AccountMove(models.Model):
 
         return super()._search_default_journal()
 
+
+    @api.model
+    def _get_purchase_journal_for_company(self, company_id=None):
+        company = self.env["res.company"].browse(company_id) if company_id else (self.company_id or self.env.company)
+        return self.env["account.journal"].search([
+            ("type", "=", "purchase"),
+            ("company_id", "=", company.id),
+        ], order="id asc", limit=1)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            move_type = vals.get("move_type") or self._context.get("default_move_type")
+            if move_type not in ("in_invoice", "in_refund"):
+                continue
+
+            journal_id = vals.get("journal_id")
+            company_id = vals.get("company_id") or self._context.get("default_company_id")
+            if journal_id:
+                journal = self.env["account.journal"].browse(journal_id)
+                if journal.type != "purchase":
+                    purchase_journal = self._get_purchase_journal_for_company(company_id=company_id)
+                    if purchase_journal:
+                        vals["journal_id"] = purchase_journal.id
+            else:
+                purchase_journal = self._get_purchase_journal_for_company(company_id=company_id)
+                if purchase_journal:
+                    vals["journal_id"] = purchase_journal.id
+
+        return super().create(vals_list)
+
     def _compute_pr_vouchers(self):
         BankPayment = self.env["pr.account.bank.payment"]
         CashPayment = self.env["pr.account.cash.payment"]
