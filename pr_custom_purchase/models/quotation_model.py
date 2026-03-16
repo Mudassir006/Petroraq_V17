@@ -254,7 +254,8 @@ class PurchaseOrder(models.Model):
 
         if sibling_rfqs:
             sibling_rfqs.write({"state": "cancel"})
-            sibling_rfqs.message_post(body=_("Cancelled because another RFQ was selected as Purchase Order."))
+            for sibling_rfq in sibling_rfqs:
+                sibling_rfq.message_post(body=_("Cancelled because another RFQ was selected as Purchase Order."))
 
         return {
             "type": "ir.actions.act_window",
