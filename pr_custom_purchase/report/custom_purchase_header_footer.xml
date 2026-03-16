@@ -26,7 +26,7 @@
     <template id="custom_invoice_header_layout">
         <div class="header">
             <div class="text-center">
-                <img src='/pr_custom_purchase/static/src/img/petroraq_main_header.jpg' style="width:100%;"/>
+                <img src='/pr_custom_purchase/static/src/img/white_header.jpeg' style="width:100%;"/>
             </div>
         </div>
     </template>
@@ -47,7 +47,8 @@
                 </table>
             </div>
             <div style="border-top:1px solid #305081 !important;">
-                <img src='/pr_custom_purchase/static/src/img/footer.png' style="width:100%;display:inline-block;"/>
+                <img src='/pr_custom_purchase/static/src/img/blue_footer.jpeg'
+                     style="width:100%;display:inline-block;"/>
                 <div name="pager" class="list-inline no-margin text-center" style="color:rgba(18,49,96,0.91);">
                     Page:
                     <span class="page"/>
