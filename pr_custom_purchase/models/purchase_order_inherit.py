@@ -143,43 +143,20 @@ class PurchaseOrder(models.Model):
                 partner_ids.append(vid)
 
         compose_form = self.env.ref('mail.email_compose_message_wizard_form')
-        # Generate and attach PO PDF (pure Python using reportlab)
-        attachment_ids = []
-        try:
-            pdf_bytes = self._build_email_pdf_bytes()
-            if pdf_bytes:
-                Attachment = self.env['ir.attachment'].sudo()
-                filename = f"{self.name}.pdf"
-                existing = Attachment.search([
-                    ('res_model', '=', 'purchase.order'),
-                    ('res_id', '=', self.id),
-                    ('name', '=', filename),
-                ], limit=1)
-                if existing:
-                    existing.write({'datas': base64.b64encode(pdf_bytes)})
-                    attachment_ids = [existing.id]
-                else:
-                    att = Attachment.create({
-                        'name': filename,
-                        'res_model': 'purchase.order',
-                        'res_id': self.id,
-                        'type': 'binary',
-                        'mimetype': 'application/pdf',
-                        'datas': base64.b64encode(pdf_bytes),
-                    })
-                    attachment_ids = [att.id]
-        except Exception:
-            # Non-blocking if report not available
-            attachment_ids = []
+        mail_template = self.env.ref(
+            'pr_custom_purchase.purchase_order_custom_email_template',
+            raise_if_not_found=False,
+        )
         ctx = {
             'default_model': 'purchase.order',
             'default_res_ids': self.ids,
             'default_composition_mode': 'comment',
+            'default_template_id': mail_template.id if mail_template else None,
+            'default_use_template': bool(mail_template),
             'default_subject': subject,
             'default_body': body,
             'default_partner_ids': partner_ids,
             'default_email_layout_xmlid': 'mail.mail_notification_light',
-            'default_attachment_ids': [(6, 0, attachment_ids)] if attachment_ids else [],
             'force_email': True,
             'mark_rfq_as_sent': True,
         }
