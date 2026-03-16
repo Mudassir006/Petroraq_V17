@@ -552,17 +552,31 @@ class PetroraqEstimation(models.Model):
             if self.line_ids.filtered(lambda l: l.section_type == section_type[0])
         ]
 
+        section_amounts = {
+            section_map.get(section_type[0], section_type[1]): sum(
+                self.line_ids.filtered(lambda l: l.section_type == section_type[0]).mapped("subtotal")
+            )
+            for section_type in SECTION_TYPES
+            if self.line_ids.filtered(lambda l: l.section_type == section_type[0])
+        }
+
         wo_cost_center_model = self.env["pr.work.order.cost.center"]
         analytic_model = self.env["account.analytic.account"]
         analytic_plan = self.env.ref("pr_account.pr_account_analytic_plan_our_project")
 
         for section_name in sections:
-            analytic = analytic_model.create({
+            analytic_vals = {
                 "name": f"{order.name} - {section_name}",
                 "company_id": order.company_id.id,
                 "plan_id": analytic_plan.id,
                 "partner_id": order.partner_id.id,
-            })
+            }
+            if "budget_type" in analytic_model._fields:
+                analytic_vals["budget_type"] = "capex"
+            if "budget_allowance" in analytic_model._fields:
+                analytic_vals["budget_allowance"] = section_amounts.get(section_name, 0.0)
+
+            analytic = analytic_model.create(analytic_vals)
 
             wo_cost_center_model.create({
                 "work_order_id": work_order.id,
@@ -572,6 +586,7 @@ class PetroraqEstimation(models.Model):
                 "department_id": False,
                 "section_id": False,
             })
+
 
         for line_vals in self._prepare_work_order_boq_lines(work_order):
             work_order.boq_line_ids.create(line_vals)
