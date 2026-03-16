@@ -147,7 +147,7 @@ class PurchaseOrder(models.Model):
         attachment_ids = []
         try:
             report_action = self.env.ref('pr_custom_purchase.petroraq_purchase_order_action_id')
-            pdf_bytes, _content_type = report_action._render_qweb_pdf(self.id)
+            pdf_bytes, _content_type = report_action.sudo()._render_qweb_pdf([self.id])
             if pdf_bytes:
                 att = self.env['ir.attachment'].sudo().create({
                     'name': f"{self._get_report_base_filename()}.pdf",
