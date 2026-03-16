@@ -56,7 +56,7 @@ class HrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': rec.attendance_sheet_id.tot_overtime_amount,
+                    'amount': rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount,
                 }]
                 # if not rec.attendance_sheet_id.overtime_approved:
                 #     overtime = []

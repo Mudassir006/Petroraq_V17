@@ -155,7 +155,7 @@ class hrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': rec.attendance_sheet_id.tot_overtime_amount,
+                    'amount': rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount,
                 }]
                 if not attendances and not leave_ids:
                     num_weekend = 0
@@ -319,6 +319,12 @@ class AttendanceSheet(models.Model):
         readonly=True,
         copy=False,
         help='Difference-time amount carried from prior projected periods.',
+    )
+    carry_forward_overtime_amount = fields.Float(
+        string='Carry Forward Overtime',
+        readonly=True,
+        copy=False,
+        help='Overtime amount carried from prior projected periods.',
     )
     carry_forward_processed = fields.Boolean(
         string='Carry Forward Processed',
@@ -1122,11 +1128,13 @@ class AttendanceSheet(models.Model):
             self.carry_forward_absence_amount = 0.0
             self.carry_forward_late_amount = 0.0
             self.carry_forward_diff_amount = 0.0
+            self.carry_forward_overtime_amount = 0.0
             return 0.0
 
         carry_absence_amount = 0.0
         carry_late_amount = 0.0
         carry_diff_amount = 0.0
+        carry_overtime_amount = 0.0
         carry_amount = 0.0
         previous_sheets = self.search([
             ('employee_id', '=', self.employee_id.id),
@@ -1156,11 +1164,13 @@ class AttendanceSheet(models.Model):
             source_absence_amount = sum(pending_lines.mapped('absence_amount'))
             source_late_amount = sum(pending_lines.mapped('late_in_amount'))
             source_diff_amount = sum(pending_lines.mapped('diff_amount'))
-            source_amount = source_absence_amount + source_late_amount + source_diff_amount
+            source_overtime_amount = sum(pending_lines.mapped('overtime_amount'))
+            source_amount = source_absence_amount + source_late_amount + source_diff_amount - source_overtime_amount
 
             carry_absence_amount += source_absence_amount
             carry_late_amount += source_late_amount
             carry_diff_amount += source_diff_amount
+            carry_overtime_amount += source_overtime_amount
             carry_amount += source_amount
 
             prev_sheet.write({
@@ -1173,6 +1183,7 @@ class AttendanceSheet(models.Model):
         self.carry_forward_absence_amount = carry_absence_amount
         self.carry_forward_late_amount = carry_late_amount
         self.carry_forward_diff_amount = carry_diff_amount
+        self.carry_forward_overtime_amount = carry_overtime_amount
         self.carry_forward_deduction = carry_amount
         return carry_amount
 
