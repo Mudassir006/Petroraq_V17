@@ -487,12 +487,32 @@ class PurchaseOrder(models.Model):
             order.message_post(body=_("Purchase Order reset to draft and approvals cleared."))
         return True
 
-    def action_reject(self):
+    def action_open_reject_wizard(self):
+        self.ensure_one()
+        if self.state != "pending":
+            raise UserError(_("Only pending Purchase Orders can be rejected."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reject Purchase Order"),
+            "res_model": "purchase.order.reject.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_purchase_order_id": self.id,
+            },
+        }
+
+    def action_reject(self, reason=False):
+        reason = reason or self.env.context.get("reject_reason")
+        if not reason:
+            raise UserError(_("Please provide reason for rejection."))
+
         for order in self:
             if not order.origin:
                 raise UserError(_("This Purchase Order has no origin."))
 
             rejecting_user = self.env.user
+            order.rejection_reason = reason
             _logger.info(
                 "Rejecting PO %s with origin: %s by %s",
                 order.name,
@@ -500,7 +520,6 @@ class PurchaseOrder(models.Model):
                 rejecting_user.name,
             )
 
-            # Step 1: Find the PO with this origin
             parent_po = self.env["purchase.order"].search(
                 [("name", "=", order.origin)], limit=1
             )
@@ -509,14 +528,6 @@ class PurchaseOrder(models.Model):
                 order.state = "cancel"
                 continue
 
-            _logger.info(
-                "Origin %s belongs to PO %s with origin: %s",
-                order.origin,
-                parent_po.name,
-                parent_po.origin,
-            )
-
-            # Step 2: Get the PR number from the parent PO origin
             if not parent_po.origin:
                 _logger.warning("Parent PO %s has no origin.", parent_po.name)
                 order.state = "cancel"
@@ -532,9 +543,6 @@ class PurchaseOrder(models.Model):
                 order.state = "cancel"
                 continue
 
-            _logger.info("Found PR %s linked to PO %s", pr_record.name, parent_po.name)
-
-            # Step 3: Get supervisor_partner_id and convert to int
             if not pr_record.supervisor_partner_id:
                 _logger.warning("PR %s has no supervisor_partner_id.", pr_record.name)
                 order.state = "cancel"
@@ -551,19 +559,8 @@ class PurchaseOrder(models.Model):
                 order.state = "cancel"
                 continue
 
-            # Step 4: Find partner
             supervisor_partner = self.env["res.partner"].browse(supervisor_id_int)
-            if not supervisor_partner.exists():
-                _logger.warning("No partner found with ID: %s", supervisor_id_int)
-            else:
-                _logger.info(
-                    "Supervisor Partner for PR %s is %s with email: %s",
-                    pr_record.name,
-                    supervisor_partner.name,
-                    supervisor_partner.email,
-                )
-
-                # Create activity for supervisor
+            if supervisor_partner.exists():
                 self.env["mail.activity"].create(
                     {
                         "res_model_id": self.env["ir.model"]._get_id("purchase.order"),
@@ -576,12 +573,11 @@ class PurchaseOrder(models.Model):
                             if supervisor_partner.user_ids
                             else False
                         ),
-                        "note": _("Purchase Order %s was rejected by %s")
-                                % (order.name, rejecting_user.name),
+                        "note": _("Purchase Order %s was rejected by %s.<br/>Reason: %s")
+                        % (order.name, rejecting_user.name, reason),
                     }
                 )
 
-                # Send email to supervisor
                 if supervisor_partner.email:
                     mail_values = {
                         "email_from": "hr@petroraq.com",
@@ -589,19 +585,21 @@ class PurchaseOrder(models.Model):
                         "body_html": _(
                             "<p>Hello %s,</p>"
                             "<p>The Purchase Order <b>%s</b> has been rejected by <b>%s</b>.</p>"
+                            "<p><b>Reason:</b> %s</p>"
                             "<p>Regards,<br/>%s</p>"
                         )
-                                     % (
-                                         supervisor_partner.name,
-                                         order.name,
-                                         rejecting_user.name,
-                                         rejecting_user.company_id.name,
-                                     ),
+                        % (
+                            supervisor_partner.name,
+                            order.name,
+                            rejecting_user.name,
+                            reason,
+                            rejecting_user.company_id.name,
+                        ),
                         "email_to": supervisor_partner.email,
                     }
                     self.env["mail.mail"].create(mail_values).send()
 
-            # Final step: reject the current PO
+            order.message_post(body=_("Purchase Order rejected by %s.<br/>Reason: %s") % (rejecting_user.name, reason))
             order.state = "cancel"
 
     # PO send by Email in RFQ
@@ -807,3 +805,15 @@ class PurchaseOrder(models.Model):
     def _compute_grn_ses_button_type(self):
         for order in self:
             order.grn_ses_button_type = False
+
+class PurchaseOrderRejectWizard(models.TransientModel):
+    _name = "purchase.order.reject.wizard"
+    _description = "Purchase Order Reject Wizard"
+
+    purchase_order_id = fields.Many2one("purchase.order", required=True, readonly=True)
+    reason = fields.Text(string="Reason", required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        self.purchase_order_id.action_reject(reason=self.reason)
+        return {"type": "ir.actions.act_window_close"}
