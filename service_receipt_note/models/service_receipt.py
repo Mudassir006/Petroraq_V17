@@ -208,6 +208,8 @@ class ServiceReceiptNote(models.Model):
             rec._validate_lines()
             rec.state = "done"
 
+            rec.line_ids.mapped("purchase_line_id")._update_qty_received_from_srn()
+
             backorder = rec._create_backorder_if_needed()
             if backorder:
                 rec.message_post(
@@ -303,11 +305,17 @@ class ServiceReceiptNoteLine(models.Model):
                 line.balance_qty = 0.0
                 continue
 
-            prior_done_lines = ReceiptLine.search([
+            domain = [
                 ("purchase_line_id", "=", line.purchase_line_id.id),
                 ("receipt_id.state", "=", "done"),
-                ("id", "!=", line.id),
-            ])
+            ]
+            # During onchange, unsaved one2many records may have a temporary NewId_* string,
+            # which cannot be compared against integer ids in SQL.
+            line_id = line._origin.id
+            if line_id:
+                domain.append(("id", "!=", line_id))
+
+            prior_done_lines = ReceiptLine.search(domain)
 
             already_received = sum(prior_done_lines.mapped("done_qty"))
             ordered = line.purchase_line_id.product_qty

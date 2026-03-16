@@ -158,7 +158,7 @@
         <field name="name">RFQs</field>
         <field name="res_model">purchase.order</field>
         <field name="view_mode">tree,form</field>
-        <field name="domain">[('state','in',['draft','sent'])]</field>
+        <field name="domain">[('state','in',['draft','sent','cancel'])]</field>
     </record>
 
     <menuitem id="menu_custom_purchase_rfq_root"
@@ -173,4 +173,46 @@
               action="action_custom_purchase_rfq"
               sequence="10"
               groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
+
+
+    <record id="action_custom_purchase_order" model="ir.actions.act_window">
+        <field name="name">Purchase Orders</field>
+        <field name="res_model">purchase.order</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('state','in',['pending','purchase','done'])]</field>
+    </record>
+
+    <menuitem id="menu_custom_purchase_order_root"
+              name="Purchase Orders"
+              parent="purchase.menu_purchase_root"
+              sequence="133"
+              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
+
+    <menuitem id="menu_custom_purchase_order"
+              name="All Purchase Orders"
+              parent="menu_custom_purchase_order_root"
+              action="action_custom_purchase_order"
+              sequence="10"
+              groups="pr_custom_purchase.procurement_admin,purchase.group_purchase_manager"/>
+
+    <!-- Keep Odoo core actions aligned with custom state semantics. -->
+    <record id="purchase.purchase_rfq" model="ir.actions.act_window">
+        <field name="name">RFQs</field>
+        <field name="domain">[('state','in',['draft','sent'])]</field>
+    </record>
+
+    <record id="purchase.purchase_form_action" model="ir.actions.act_window">
+        <field name="name">Purchase Orders</field>
+        <field name="domain">[('state','in',['pending','purchase','done'])]</field>
+    </record>
+
+    <!-- Hide Odoo default Purchasing menus to avoid conflicting definitions. -->
+    <record id="purchase.menu_purchase_rfq" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('base.group_no_one')])]"/>
+    </record>
+
+    <record id="purchase.menu_purchase_form_action" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('base.group_no_one')])]"/>
+    </record>
+
 </odoo>
