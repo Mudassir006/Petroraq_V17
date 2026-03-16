@@ -69,6 +69,7 @@
                                     <field name="carry_forward_late_amount"/>
                                     <field name="carry_forward_diff_amount"/>
                                     <field name="carry_forward_overtime_amount"/>
+                                    <field name="carry_forward_early_checkout_amount"/>
                                 </tree>
                             </field>
                         </page>
