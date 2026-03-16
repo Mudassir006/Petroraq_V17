@@ -395,6 +395,16 @@ class PurchaseRequisition(models.Model):
                                 "<p>Purchase Requisition <b>%s</b> is approved and ready for processing.</p>") % pr.name,
                         }).send()
 
+                requester_email = pr.requested_user_id.email if pr.requested_user_id else False
+                if requester_email:
+                    self.env["mail.mail"].sudo().create({
+                        "email_from": "hr@petroraq.com",
+                        "email_to": requester_email,
+                        "subject": _("Your Purchase Requisition %s is approved") % pr.name,
+                        "body_html": _(
+                            "<p>Your Purchase Requisition <b>%s</b> has been approved and sent to Procurement.</p>") % pr.name,
+                    }).send()
+
                 _logger.info(
                     "Activities scheduled for Procurement Admins on PR=%s", pr.name
                 )
