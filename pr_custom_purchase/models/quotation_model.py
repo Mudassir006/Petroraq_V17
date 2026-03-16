@@ -475,23 +475,49 @@ class PurchaseOrder(models.Model):
                         and order.md_approved
                 )
 
-    @api.depends("state")
+    @api.depends("state", "subtotal", "pe_approved", "pm_approved", "od_approved", "md_approved")
     def _compute_show_approvals(self):
-        """Compute visibility of approval fields based on user groups and state"""
+        """Show only one approval button for the next required stage."""
+        user = self.env.user
         for order in self:
-            user = self.env.user
-            order.show_pe_approved = order.state == "pending" and user.has_group(
-                "pr_custom_purchase.project_engineer"
-            )
-            order.show_pm_approved = order.state == "pending" and user.has_group(
-                "pr_custom_purchase.project_manager"
-            )
-            order.show_od_approved = order.state == "pending" and user.has_group(
-                "pr_custom_purchase.operations_director"
-            )
-            order.show_md_approved = order.state == "pending" and user.has_group(
-                "pr_custom_purchase.managing_director"
-            )
+            order.show_pe_approved = False
+            order.show_pm_approved = False
+            order.show_od_approved = False
+            order.show_md_approved = False
+
+            if order.state != "pending":
+                continue
+
+            amount = order.subtotal
+            if amount <= 10000:
+                required_stage = "pe"
+            elif amount <= 100000:
+                required_stage = "pm" if order.pe_approved else "pe"
+            elif amount <= 500000:
+                if not order.pe_approved:
+                    required_stage = "pe"
+                elif not order.pm_approved:
+                    required_stage = "pm"
+                else:
+                    required_stage = "od"
+            else:
+                if not order.pe_approved:
+                    required_stage = "pe"
+                elif not order.pm_approved:
+                    required_stage = "pm"
+                elif not order.od_approved:
+                    required_stage = "od"
+                else:
+                    required_stage = "md"
+
+            if required_stage == "pe" and user.has_group("pr_custom_purchase.project_engineer"):
+                order.show_pe_approved = True
+            elif required_stage == "pm" and user.has_group("pr_custom_purchase.project_manager"):
+                order.show_pm_approved = True
+            elif required_stage == "od" and user.has_group("pr_custom_purchase.operations_director"):
+                order.show_od_approved = True
+            elif required_stage == "md" and user.has_group("pr_custom_purchase.managing_director"):
+                order.show_md_approved = True
 
     def action_reset_to_draft(self):
         for order in self:
