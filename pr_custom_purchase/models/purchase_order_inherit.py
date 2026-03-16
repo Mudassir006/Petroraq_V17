@@ -143,35 +143,20 @@ class PurchaseOrder(models.Model):
                 partner_ids.append(vid)
 
         compose_form = self.env.ref('mail.email_compose_message_wizard_form')
-        # Attach the module's official purchase order report PDF.
-        attachment_ids = []
-        try:
-            report_action = self.env.ref('pr_custom_purchase.petroraq_purchase_order_action_id')
-            pdf_bytes, _content_type = report_action.sudo()._render_qweb_pdf(
-                res_ids=[self.id],
-            )
-            if pdf_bytes:
-                att = self.env['ir.attachment'].sudo().create({
-                    'name': f"{self._get_report_base_filename()}.pdf",
-                    'res_model': 'purchase.order',
-                    'res_id': self.id,
-                    'type': 'binary',
-                    'mimetype': 'application/pdf',
-                    'datas': base64.b64encode(pdf_bytes),
-                })
-                attachment_ids = [att.id]
-        except Exception:
-            # Non-blocking if report rendering is not available.
-            attachment_ids = []
+        mail_template = self.env.ref(
+            'pr_custom_purchase.purchase_order_custom_email_template',
+            raise_if_not_found=False,
+        )
         ctx = {
             'default_model': 'purchase.order',
             'default_res_ids': self.ids,
             'default_composition_mode': 'comment',
+            'default_template_id': mail_template.id if mail_template else None,
+            'default_use_template': bool(mail_template),
             'default_subject': subject,
             'default_body': body,
             'default_partner_ids': partner_ids,
             'default_email_layout_xmlid': 'mail.mail_notification_light',
-            'default_attachment_ids': [(6, 0, attachment_ids)] if attachment_ids else [],
             'force_email': True,
             'mark_rfq_as_sent': True,
         }
