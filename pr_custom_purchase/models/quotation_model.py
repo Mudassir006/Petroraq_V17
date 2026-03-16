@@ -1,6 +1,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import AccessError
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 import logging
 
@@ -173,6 +173,32 @@ class PurchaseOrder(models.Model):
             ("state", "in", ["draft", "sent"]),
         ]) if self.requisition_id else self.env["purchase.order"]
 
+        line_amounts = {}
+        for line in self.order_line:
+            distribution = line.analytic_distribution or {}
+            for cc_id, percentage in distribution.items():
+                try:
+                    share = (line.price_subtotal or 0.0) * (float(percentage) / 100.0)
+                except (TypeError, ValueError):
+                    share = 0.0
+                if share <= 0.0:
+                    continue
+                line_amounts.setdefault(int(cc_id), 0.0)
+                line_amounts[int(cc_id)] += share
+
+        if line_amounts:
+            cost_centers = self.env["account.analytic.account"].sudo().browse(list(line_amounts.keys()))
+            cc_map = {cc.id: cc for cc in cost_centers}
+            for cc_id, amount in line_amounts.items():
+                cc = cc_map.get(cc_id)
+                if not cc:
+                    raise ValidationError(_("Invalid cost center found in RFQ analytic distribution."))
+                if cc.budget_left < amount:
+                    raise ValidationError(
+                        _("Insufficient budget for cost center %s. Remaining: %s, Required: %s")
+                        % (cc.display_name, cc.budget_left, amount)
+                    )
+
         po_name = self.env["ir.sequence"].sudo().next_by_code("purchase.order") or "PO0001"
         po_vals = {
             "name": po_name,
@@ -190,6 +216,8 @@ class PurchaseOrder(models.Model):
             "supervisor": self.supervisor,
             "supervisor_partner_id": self.supervisor_partner_id,
             "project_id": self.project_id.id if self.project_id else False,
+            "budget_type": self.requisition_id.budget_type if self.requisition_id else False,
+            "budget_code": self.requisition_id.budget_details if self.requisition_id else False,
             "pe_approved": False,
             "pm_approved": False,
             "od_approved": False,

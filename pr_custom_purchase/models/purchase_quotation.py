@@ -110,6 +110,8 @@ class PurchaseQuotation(models.Model):
         ("missing", "Not Created"),
         ("draft", "Draft"),
         ("sent", "RFQ Sent"),
+        ("pending", "Pending Approval"),
+        ("purchase", "Purchase Order"),
         ("done", "Locked"),
         ("cancel", "Cancelled"),
     ], string="RFQ Status", compute="_compute_linked_statuses")

@@ -25,14 +25,22 @@ class AccountAnalyticAccount(models.Model):
         PurchaseOrder = self.env["purchase.order"].sudo()
         for rec in self:
             spent = 0.0
-            if rec.budget_code and rec.budget_type:
+            if rec.id:
                 pos = PurchaseOrder.search([
-                    ("budget_type", "=", rec.budget_type),
-                    ("budget_code", "=", rec.budget_code),
                     ("state", "in", ["pending", "purchase", "done"]),
+                    ("order_line.analytic_distribution", "!=", False),
                 ])
                 for po in pos:
-                    spent += po.grand_total if "grand_total" in po._fields else po.amount_total
+                    for line in po.order_line:
+                        distribution = line.analytic_distribution or {}
+                        percentage = distribution.get(str(rec.id), 0.0)
+                        try:
+                            percentage = float(percentage)
+                        except (TypeError, ValueError):
+                            percentage = 0.0
+                        if not percentage:
+                            continue
+                        spent += (line.price_subtotal or 0.0) * (percentage / 100.0)
 
             rec.budget_spent = spent
             rec.budget_left = (rec.budget_allowance or 0.0) - spent

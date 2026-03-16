@@ -548,6 +548,8 @@ class PurchaseRequisition(models.Model):
                 "supervisor": pr.supervisor,
                 "supervisor_partner_id": pr.supervisor_partner_id,
                 "project_id": pr.project_id.id if pr.project_id else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
             }
 
             for line in pr.line_ids:
@@ -626,6 +628,8 @@ class PurchaseRequisition(models.Model):
                 "partner_id": pr.vendor_id.id if pr.vendor_id else False,
                 "date_planned": pr.required_date or fields.Datetime.now(),
                 "project_id": pr.project_id.id if pr.project_id else False,
+                "budget_type": pr.budget_type,
+                "budget_code": pr.budget_details,
                 "order_line": [],
                 "date_request": pr.date_request,
                 "requested_by": pr.requested_by,
