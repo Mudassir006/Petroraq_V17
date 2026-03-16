@@ -48,27 +48,7 @@ class PurchaseOrder(models.Model):
         if not service_lines:
             raise UserError(_("This Purchase Order has no service product lines."))
 
-        line_commands = []
-        for po_line in service_lines:
-            already_received = sum(
-                self.env["service.receipt.note.line"].search([
-                    ("purchase_line_id", "=", po_line.id),
-                    ("receipt_id.state", "=", "done"),
-                ]).mapped("done_qty")
-            )
-            remaining = po_line.product_qty - already_received
-            if remaining > 0:
-                line_commands.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "purchase_line_id": po_line.id,
-                            "name": po_line.name or po_line.product_id.display_name,
-                            "done_qty": 0.0,
-                        },
-                    )
-                )
+        line_commands = self._prepare_srn_line_commands(service_lines)
 
         if not line_commands:
             raise UserError(_("All service quantities for this Purchase Order are already received."))
@@ -96,6 +76,51 @@ class PurchaseOrder(models.Model):
             action["view_mode"] = "form"
             action["res_id"] = self.service_receipt_note_ids.id
         return action
+
+    def _prepare_srn_line_commands(self, service_lines):
+        self.ensure_one()
+        line_commands = []
+        for po_line in service_lines:
+            already_received = sum(
+                self.env["service.receipt.note.line"].search([
+                    ("purchase_line_id", "=", po_line.id),
+                    ("receipt_id.state", "=", "done"),
+                ]).mapped("done_qty")
+            )
+            remaining = po_line.product_qty - already_received
+            if remaining > 0:
+                line_commands.append(
+                    (
+                        0,
+                        0,
+                        {
+                            "purchase_line_id": po_line.id,
+                            "name": po_line.name or po_line.product_id.display_name,
+                            "done_qty": 0.0,
+                        },
+                    )
+                )
+        return line_commands
+
+    def button_confirm(self):
+        result = super().button_confirm()
+        for order in self:
+            if order.state not in ("purchase", "done"):
+                continue
+            if order.service_receipt_note_ids.filtered(lambda r: r.state in ("draft", "ready")):
+                continue
+
+            service_lines = order.order_line.filtered(
+                lambda l: not l.display_type and l.product_id.detailed_type == "service"
+            )
+            line_commands = order._prepare_srn_line_commands(service_lines)
+            if line_commands:
+                self.env["service.receipt.note"].create({
+                    "purchase_id": order.id,
+                    "state": "ready",
+                    "line_ids": line_commands,
+                })
+        return result
 
 
 class PurchaseOrderLine(models.Model):
