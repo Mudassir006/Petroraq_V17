@@ -9,21 +9,11 @@
                 <button name="action_approve_receipt" type="object" string="Approve Receipt"
                         class="btn-primary"
                         groups="pr_custom_purchase.inventory_admin"
-                        invisible="picking_type_code != 'incoming' or state in ('done','cancel') or receipt_approval_state == 'approved'"/>
+                        invisible="picking_type_code != 'incoming' or state in ('done','cancel')"/>
                 <button name="action_open_receipt_reject_wizard" type="object" string="Reject Receipt"
                         class="btn-secondary"
                         groups="pr_custom_purchase.inventory_admin"
                         invisible="picking_type_code != 'incoming' or state in ('done','cancel')"/>
-                <field name="receipt_approval_state" widget="badge"
-                       decoration-warning="receipt_approval_state == 'pending'"
-                       decoration-success="receipt_approval_state == 'approved'"
-                       decoration-danger="receipt_approval_state == 'rejected'"
-                       invisible="picking_type_code != 'incoming'"/>
-            </xpath>
-            <xpath expr="//form/sheet" position="inside">
-                <group string="Receipt Approval" invisible="picking_type_code != 'incoming'">
-                    <field name="receipt_rejection_reason" readonly="1" invisible="not receipt_rejection_reason"/>
-                </group>
             </xpath>
         </field>
     </record>
