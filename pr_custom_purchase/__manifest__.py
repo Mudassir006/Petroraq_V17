@@ -41,6 +41,7 @@
         'views/purchase_order_inherit.xml',
         'views/rfq_comparison_wizard.xml',
         'views/res_users_supervisor.xml',
+        'views/stock_picking_approval_views.xml',
         'data/custom_pr_ir_sequence_data.xml',
         'data/custom_purchase_rfq_sequence.xml',
         'data/budget_increase_sequence.xml',

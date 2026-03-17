@@ -16,3 +16,4 @@ from . import rfq_comparison_selection_wizard
 
 from . import custom_purchase_rfq
 from . import models
+from . import stock_picking_approval
