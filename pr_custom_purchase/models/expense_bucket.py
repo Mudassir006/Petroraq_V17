@@ -93,7 +93,6 @@ class ExpenseBucket(models.Model):
                     or (rec.state == "md_approval" and is_md)
             )
 
-
     def _get_department_manager_users(self):
         self.ensure_one()
         manager_user = self.department_id.manager_id.user_id
@@ -193,7 +192,8 @@ class ExpenseBucket(models.Model):
                 raise UserError(_("Add at least one cost center line."))
 
             if rec.scope == "department" and not rec._get_department_manager_users():
-                raise UserError(_("Please set a Department Manager user for the selected department before submitting."))
+                raise UserError(
+                    _("Please set a Department Manager user for the selected department before submitting."))
 
             rec.state = "pm_approval"
             if rec.scope == "department":
@@ -218,7 +218,9 @@ class ExpenseBucket(models.Model):
                     raise UserError(_("Only Department Manager can approve at this stage."))
                 raise UserError(_("Only Project Manager can approve at this stage."))
             rec.state = "accounts_approval"
-            rec._notify_group(["account.group_account_manager", "account.group_account_user"], _("Expense  Approval Needed"), _("Expense  <b>%s</b> is waiting for Accounts approval.") % rec.display_name)
+            rec._notify_group(["account.group_account_manager", "account.group_account_user"],
+                              _("Expense  Approval Needed"),
+                              _("Expense  <b>%s</b> is waiting for Accounts approval.") % rec.display_name)
 
     def action_accounts_approve(self):
         for rec in self:
@@ -227,7 +229,8 @@ class ExpenseBucket(models.Model):
             if not rec.can_accounts_approve:
                 raise UserError(_("Only Accounts can approve at this stage."))
             rec.state = "md_approval"
-            rec._notify_group(["pr_custom_purchase.managing_director"], _("Expense  Approval Needed"), _("Expense  <b>%s</b> is waiting for Managing Director approval.") % rec.display_name)
+            rec._notify_group(["pr_custom_purchase.managing_director"], _("Expense  Approval Needed"),
+                              _("Expense  <b>%s</b> is waiting for Managing Director approval.") % rec.display_name)
 
     def action_md_approve(self):
         for rec in self:
@@ -236,7 +239,8 @@ class ExpenseBucket(models.Model):
             if not rec.can_md_approve:
                 raise UserError(_("Only Managing Director can approve at this stage."))
             for line in rec.line_ids:
-                line.cost_center_id.budget_allowance = (line.cost_center_id.budget_allowance or 0.0) + (line.budget_allowance or 0.0)
+                line.cost_center_id.budget_allowance = (line.cost_center_id.budget_allowance or 0.0) + (
+                        line.budget_allowance or 0.0)
                 if line.budget_type:
                     line.cost_center_id.budget_type = line.budget_type
             rec.state = "approved"
@@ -262,7 +266,7 @@ class ExpenseBucketLine(models.Model):
     bucket_id = fields.Many2one("pr.expense.bucket", required=True, ondelete="cascade")
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     budget_code = fields.Char(related="cost_center_id.budget_code", readonly=True)
-    budget_type = fields.Selection([("opex", "Opex"), ("capex", "Capex")], string="Budget Type", required=True)
+    budget_type = fields.Selection([("opex", "Opex"), ("capex", "Capex")], string="Budget Type", )
     budget_allowance = fields.Float(string="Budget Allowance", required=True)
     budget_left = fields.Float(related="cost_center_id.budget_left", readonly=True)
 
