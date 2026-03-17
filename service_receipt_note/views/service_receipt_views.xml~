@@ -44,12 +44,6 @@
                 <header>
                     <button name="action_set_ready" type="object" string="Set Ready" class="btn-secondary"
                             invisible="state != 'draft'"/>
-                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
-                            groups="pr_custom_purchase.inventory_admin"
-                            invisible="state in ('done','cancel') or approval_state == 'approved'"/>
-                    <button name="action_open_reject_wizard" type="object" string="Reject" class="btn-secondary"
-                            groups="pr_custom_purchase.inventory_admin"
-                            invisible="state in ('done','cancel')"/>
                     <button name="action_validate" type="object" string="Validate" class="btn-primary"
                             invisible="state in ('done','cancel')"/>
                     <button name="action_reset_to_draft" type="object" string="Reset to Draft" class="btn-secondary"
@@ -58,10 +52,6 @@
                             invisible="state in ('done','cancel')"/>
                     <button name="action_view_backorders" type="object" string="Backorders" class="btn-secondary"
                             invisible="backorder_count == 0"/>
-                    <field name="approval_state" widget="badge"
-                           decoration-warning="approval_state == 'pending'"
-                           decoration-success="approval_state == 'approved'"
-                           decoration-danger="approval_state == 'rejected'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,ready,done,cancel"/>
                 </header>
 
@@ -84,7 +74,6 @@
                             <field name="company_id" groups="base.group_multi_company" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="backorder_id" readonly="1"/>
-                            <field name="rejection_reason" readonly="1" invisible="not rejection_reason"/>
                         </group>
                     </group>
 
@@ -123,23 +112,6 @@
         <field name="res_model">service.receipt.note</field>
         <field name="view_mode">tree,form</field>
         <field name="search_view_id" ref="view_service_receipt_note_search"/>
-    </record>
-
-    <record id="view_service_receipt_reject_wizard_form" model="ir.ui.view">
-        <field name="name">service.receipt.reject.wizard.form</field>
-        <field name="model">service.receipt.reject.wizard</field>
-        <field name="arch" type="xml">
-            <form string="Reject Service Receipt Note">
-                <group>
-                    <field name="receipt_id" readonly="1"/>
-                    <field name="rejection_reason" placeholder="Please provide rejection reason..."/>
-                </group>
-                <footer>
-                    <button name="action_confirm_reject" type="object" string="Reject" class="btn-danger"/>
-                    <button string="Cancel" special="cancel" class="btn-secondary"/>
-                </footer>
-            </form>
-        </field>
     </record>
 
     <menuitem id="menu_service_receipt_note_purchase"

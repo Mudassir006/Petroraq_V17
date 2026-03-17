@@ -42,7 +42,7 @@ class RFQComparisonWizard(models.TransientModel):
         rfqs = self.env["purchase.order"].search([
             ("requisition_id", "=", self.requisition_id.id),
             ("partner_id", "!=", False),
-            ("state", "in", ["draft", "sent", "pending"]),
+            ("state", "in", ["sent", "pending"]),
         ])
         if not rfqs:
             raise UserError(_("No RFQs/quotations found for requisition %s.") % self.requisition_id.display_name)
@@ -92,8 +92,9 @@ class RFQComparisonWizard(models.TransientModel):
             vendor_ids.update(offers.keys())
 
             selected_vendor_id = False
-            if offers:
-                selected_vendor_id = min(offers.values(), key=lambda x: x["unit_price"])["vendor_id"]
+            positive_offers = [offer for offer in offers.values() if offer["unit_price"] > 0]
+            if positive_offers:
+                selected_vendor_id = min(positive_offers, key=lambda x: x["unit_price"])["vendor_id"]
 
             quote_commands = []
             for offer in offers.values():
@@ -125,14 +126,15 @@ class RFQComparisonWizard(models.TransientModel):
     def _compute_comparison_html(self):
         for wizard in self:
             vendors = wizard.vendor_ids
-            header_top = "<tr><th rowspan='2'>Sr No</th><th colspan='5'>Material Requirement</th>"
+            header_top = "<tr><th rowspan='2'>Sr No</th><th colspan='4'>Material Requirement</th>"
             for vendor in vendors:
                 header_top += "<th colspan='2'>%s</th>" % vendor.display_name
+            header_top += "<th rowspan='2'>Supplier</th>"
             header_top += "</tr>"
 
             header_bottom = (
                 "<tr>"
-                "<th>Description</th><th>Unit</th><th>Qty</th><th>Supplier</th><th>Selected RFQ</th>"
+                "<th>Description</th><th>Unit</th><th>Qty</th><th>Selected RFQ</th>"
             )
             for _vendor in vendors:
                 header_bottom += "<th>Cost Price</th><th>Total Amount</th>"
@@ -148,10 +150,7 @@ class RFQComparisonWizard(models.TransientModel):
                     line.quantity,
                 )
                 selected_offer = line.quote_line_ids.filtered(lambda q: q.vendor_id == line.selected_vendor_id)[:1]
-                body_rows += "<td>%s</td><td>%s</td>" % (
-                    line.selected_vendor_id.display_name or "",
-                    selected_offer.rfq_id.name if selected_offer else "",
-                )
+                body_rows += "<td>%s</td>" % (selected_offer.rfq_id.name if selected_offer else "")
 
                 quotes_by_vendor = {quote.vendor_id.id: quote for quote in line.quote_line_ids}
                 for vendor in vendors:
@@ -160,6 +159,7 @@ class RFQComparisonWizard(models.TransientModel):
                         body_rows += "<td>%.2f</td><td>%.2f</td>" % (quote.unit_price, quote.total_amount)
                     else:
                         body_rows += "<td></td><td></td>"
+                body_rows += "<td>%s</td>" % (line.selected_vendor_id.display_name or "")
                 body_rows += "</tr>"
 
             wizard.comparison_html = (
@@ -196,6 +196,7 @@ class RFQComparisonWizard(models.TransientModel):
 
         purchase_orders = self.env["purchase.order"]
         for vendor, vendor_lines in grouped_by_vendor.items():
+            source_rfq = next((offer.rfq_id for _line, offer in vendor_lines if offer.rfq_id), False)
             line_amounts = {}
             for line, offer in vendor_lines:
                 if not line.cost_center_id:
@@ -223,6 +224,11 @@ class RFQComparisonWizard(models.TransientModel):
                 "origin": self.requisition_id.name,
                 "requisition_id": self.requisition_id.id,
                 "pr_name": self.requisition_id.name,
+                "partner_ref": source_rfq.partner_ref if source_rfq else False,
+                "date_planned": source_rfq.date_planned if source_rfq else fields.Datetime.now(),
+                "payment_term_id": source_rfq.payment_term_id.id if source_rfq and source_rfq.payment_term_id else False,
+                "incoterm_id": source_rfq.incoterm_id.id if source_rfq and source_rfq.incoterm_id else False,
+                "notes": source_rfq.notes if source_rfq else False,
                 "requested_by": self.requisition_id.requested_by,
                 "department": self.requisition_id.department,
                 "supervisor": self.requisition_id.supervisor,
@@ -274,15 +280,17 @@ class RFQComparisonWizard(models.TransientModel):
         num_fmt = workbook.add_format({"border": 1, "num_format": "#,##0.00"})
 
         vendors = self.vendor_ids
-        ws.merge_range(0, 0, 0, 5, "Material Requirement", title_fmt)
-        col = 6
+        ws.merge_range(0, 0, 0, 4, "Material Requirement", title_fmt)
+        col = 5
         for vendor in vendors:
             ws.merge_range(0, col, 0, col + 1, vendor.display_name, title_fmt)
             col += 2
+        ws.write(0, col, "Supplier", title_fmt)
 
-        headers = ["Sr No", "Description", "Unit", "Qty", "Supplier", "Selected RFQ"]
+        headers = ["Sr No", "Description", "Unit", "Qty", "Selected RFQ"]
         for vendor in vendors:
             headers.extend(["Cost Price", "Total Amount"])
+        headers.append("Supplier")
 
         for idx, header in enumerate(headers):
             ws.write(1, idx, header, header_fmt)
@@ -294,12 +302,11 @@ class RFQComparisonWizard(models.TransientModel):
             ws.write(row, 1, line.description or "", cell_fmt)
             ws.write(row, 2, line.unit or "", cell_fmt)
             ws.write_number(row, 3, line.quantity or 0.0, num_fmt)
-            ws.write(row, 4, line.selected_vendor_id.display_name or "", cell_fmt)
             selected_offer = line.quote_line_ids.filtered(lambda q: q.vendor_id == line.selected_vendor_id)[:1]
-            ws.write(row, 5, selected_offer.rfq_id.name if selected_offer else "", cell_fmt)
+            ws.write(row, 4, selected_offer.rfq_id.name if selected_offer else "", cell_fmt)
 
             quotes_by_vendor = {quote.vendor_id.id: quote for quote in line.quote_line_ids}
-            col = 6
+            col = 5
             for vendor in vendors:
                 quote = quotes_by_vendor.get(vendor.id)
                 if quote:
@@ -309,6 +316,7 @@ class RFQComparisonWizard(models.TransientModel):
                     ws.write(row, col, "", cell_fmt)
                     ws.write(row, col + 1, "", cell_fmt)
                 col += 2
+            ws.write(row, col, line.selected_vendor_id.display_name or "", cell_fmt)
             row += 1
 
         workbook.close()
