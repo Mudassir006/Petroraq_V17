@@ -8,6 +8,12 @@ from reportlab.lib.units import mm
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
+    def _get_report_base_filename(self):
+        self.ensure_one()
+        if self.state in ("draft", "sent") or getattr(self, "is_rfq_record", False):
+            return f"Request for Quotation - {self.name}"
+        return f"Purchase Order - {self.name}"
+
     def action_send_purchase_order_email(self):
         """Open the standard Compose wizard pre-filled with our custom body and recipients."""
         self.ensure_one()
