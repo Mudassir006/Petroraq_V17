@@ -67,6 +67,18 @@ class ServiceReceiptNote(models.Model):
         copy=True,
     )
     note = fields.Text(string="Notes")
+    approval_state = fields.Selection(
+        [
+            ("pending", "Pending Approval"),
+            ("approved", "Approved"),
+            ("rejected", "Rejected"),
+        ],
+        string="Approval",
+        default="pending",
+        tracking=True,
+        copy=False,
+    )
+    rejection_reason = fields.Text(string="Rejection Reason", readonly=True, copy=False)
     backorder_id = fields.Many2one(
         "service.receipt.note",
         string="Source Backorder Of",
@@ -105,6 +117,28 @@ class ServiceReceiptNote(models.Model):
         for rec in self:
             if rec.state == "draft":
                 rec.state = "ready"
+                rec.approval_state = "pending"
+                rec.rejection_reason = False
+
+    def action_approve(self):
+        group = self.env.ref("pr_custom_purchase.inventory_admin", raise_if_not_found=False)
+        if group and self.env.user not in group.users:
+            raise UserError(_("Only Inventory Administration can approve SRN."))
+        for rec in self.filtered(lambda r: r.state not in ("done", "cancel")):
+            rec.write({"approval_state": "approved", "rejection_reason": False})
+
+    def action_open_reject_wizard(self):
+        self.ensure_one()
+        if self.state in ("done", "cancel"):
+            raise UserError(_("You cannot reject a done/cancelled SRN."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Reject SRN"),
+            "res_model": "service.receipt.reject.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_receipt_id": self.id},
+        }
 
     def action_cancel(self):
         for rec in self:
@@ -117,6 +151,8 @@ class ServiceReceiptNote(models.Model):
             if rec.state == "done":
                 raise UserError(_("You cannot reset a validated Service Receipt Note to draft."))
             rec.state = "draft"
+            rec.approval_state = "pending"
+            rec.rejection_reason = False
 
     def action_view_backorders(self):
         self.ensure_one()
@@ -205,6 +241,9 @@ class ServiceReceiptNote(models.Model):
             if rec.purchase_id.state not in ("purchase", "done"):
                 raise UserError(_("The related Purchase Order must be confirmed before validating SRN."))
 
+            if rec.approval_state != "approved":
+                raise UserError(_("SRN must be approved by Inventory Administration before validation."))
+
             rec._validate_lines()
             rec.state = "done"
 
@@ -218,6 +257,27 @@ class ServiceReceiptNote(models.Model):
                 )
             else:
                 rec.message_post(body=_("Service Receipt Note validated successfully."))
+
+
+class ServiceReceiptRejectWizard(models.TransientModel):
+    _name = "service.receipt.reject.wizard"
+    _description = "Service Receipt Rejection Wizard"
+
+    receipt_id = fields.Many2one("service.receipt.note", required=True)
+    rejection_reason = fields.Text(string="Rejection Reason", required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        group = self.env.ref("pr_custom_purchase.inventory_admin", raise_if_not_found=False)
+        if group and self.env.user not in group.users:
+            raise UserError(_("Only Inventory Administration can reject SRN."))
+        if self.receipt_id.state in ("done", "cancel"):
+            raise UserError(_("You cannot reject a done/cancelled SRN."))
+        self.receipt_id.write({
+            "approval_state": "rejected",
+            "rejection_reason": self.rejection_reason,
+        })
+        return {"type": "ir.actions.act_window_close"}
 
 
 class ServiceReceiptNoteLine(models.Model):
