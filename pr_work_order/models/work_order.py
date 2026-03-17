@@ -1,6 +1,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
+
 class PRWorkOrder(models.Model):
     _name = "pr.work.order"
     _description = "Construction Work Order"
@@ -345,7 +346,8 @@ class PRWorkOrder(models.Model):
             rec._notify_group_for_approval(
                 "pr_work_order.custom_group_work_order_operations",
                 _("Work Order %s waiting for operations approval") % rec.name,
-                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Operations approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Operations approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
             )
             # # ---------------------------------------
             # # AUTO CREATE BUDGET (ONLY IF NOT EXISTS)
@@ -382,7 +384,8 @@ class PRWorkOrder(models.Model):
         if self.state not in ["acc_approval", "final_approval", "approved", "in_progress", "done"]:
             raise UserError(_("PR can be created only after Operations approval."))
 
-        if not self.boq_line_ids.filtered(lambda l: l.display_type not in ("line_section", "line_note") and l.product_id):
+        if not self.boq_line_ids.filtered(
+                lambda l: l.display_type not in ("line_section", "line_note") and l.product_id):
             raise UserError(_("No BOQ product lines found to create PR."))
 
         return {
@@ -409,7 +412,8 @@ class PRWorkOrder(models.Model):
             rec._notify_group_for_approval(
                 "pr_work_order.custom_group_work_order_accounts",
                 _("Work Order %s waiting for accounts approval") % rec.name,
-                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Accounts approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Accounts approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
             )
             rec._ensure_project_expense_bucket(sync_budget=True)
 
@@ -462,7 +466,8 @@ class PRWorkOrder(models.Model):
             rec._notify_group_for_approval(
                 "pr_work_order.custom_group_work_order_management",
                 _("Work Order %s waiting for final approval") % rec.name,
-                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Management final approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (rec.name, record_url),
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Management final approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
             )
 
     def action_final_approve(self):
@@ -618,6 +623,7 @@ class WorkOrderCostCenter(models.Model):
         "work_order_id.boq_line_ids.total",
         "work_order_id.boq_line_ids.section_name",
         "section_name",
+        "analytic_account_id",
     )
     def _compute_estimated_cost(self):
         for rec in self:
