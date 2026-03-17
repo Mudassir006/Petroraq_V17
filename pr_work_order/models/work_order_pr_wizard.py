@@ -33,7 +33,7 @@ class WorkOrderCreatePRWizard(models.TransientModel):
         work_order = self.env["pr.work.order"].sudo().browse(work_order_id)
         lines = []
         for boq_line in work_order.boq_line_ids.filtered(
-            lambda l: l.display_type not in ("line_section", "line_note") and l.product_id and l.qty > 0
+                lambda l: l.display_type not in ("line_section", "line_note") and l.product_id and l.qty > 0
         ):
             cc = work_order.cost_center_ids.filtered(lambda c: c.section_name == boq_line.section_name)[:1]
             lines.append(
@@ -100,11 +100,22 @@ class WorkOrderCreatePRWizard(models.TransientModel):
                     },
                 )
             )
+            work_order = self.work_order_id
+            if not work_order.expense_bucket_id:
+                work_order._ensure_project_expense_bucket(sync_budget=True)
+                work_order.invalidate_recordset(["expense_bucket_id"])
+
+            if not work_order.expense_bucket_id:
+                raise ValidationError(
+                    _("Missing expense bucket on Work Order. Please submit/approve the Work Order budget setup first.")
+                )
 
         custom_pr = self.env["custom.pr"].create(
             {
                 "pr_type": "standard",
                 "priority": self.priority,
+                "expense_type": work_order.expense_bucket_id.expense_type or "capex",
+                "expense_bucket_id": work_order.expense_bucket_id.id,
                 "notes": self.notes,
                 "line_ids": commands,
             }
