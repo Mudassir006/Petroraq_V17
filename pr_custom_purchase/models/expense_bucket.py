@@ -267,7 +267,7 @@ class ExpenseBucketLine(models.Model):
     cost_center_id = fields.Many2one("account.analytic.account", string="Cost Center", required=True)
     budget_code = fields.Char(related="cost_center_id.budget_code", readonly=True)
     budget_type = fields.Selection([("opex", "Opex"), ("capex", "Capex")], string="Budget Type", )
-    budget_allowance = fields.Float(string="Budget Allowance", required=True)
+    budget_allowance = fields.Float(string="Budget Allowance", )
     budget_left = fields.Float(related="cost_center_id.budget_left", readonly=True)
 
     _sql_constraints = [
