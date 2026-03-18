@@ -155,7 +155,7 @@ class hrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': rec.attendance_sheet_id.tot_overtime_amount,
+                    'amount': (rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
                 }]
                 if not attendances and not leave_ids:
                     num_weekend = 0
@@ -171,10 +171,10 @@ class hrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence + num_weekend,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence + (num_weekend * 8),
-                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence + num_weekend
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + weekend_amount + rec.attendance_sheet_id.carry_forward_absence_amount
                 else:
                     absence = [{
                         'name': "Absence",
@@ -183,10 +183,10 @@ class hrPayslip(models.Model):
                         'sequence': 35,
                         'number_of_days': rec.attendance_sheet_id.no_absence,
                         'number_of_hours': rec.attendance_sheet_id.tot_absence,
-                        'amount': rec.attendance_sheet_id.tot_absence_amount,
+                        'amount': rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount,
                     }]
                     rec.absence_num = rec.attendance_sheet_id.no_absence
-                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount
+                    rec.total_absence = rec.attendance_sheet_id.tot_absence_amount + rec.attendance_sheet_id.carry_forward_absence_amount
 
                 late = [{
                     'name': "Late In",
@@ -286,6 +286,76 @@ class AttendanceSheet(models.Model):
     att_policy_id = fields.Many2one(comodel_name='hr.attendance.policy',
                                     string="Attendance Policy ", required=True)
     payslip_id = fields.Many2one(comodel_name='hr.payslip', string='PaySlip')
+    predictive_mode = fields.Boolean(
+        string='Predictive Payroll',
+        default=True,
+        help='When enabled, days after the predictive cutoff are assumed as present without deductions.',
+    )
+    predictive_cutoff_date = fields.Date(
+        string='Predictive Cutoff Date',
+        default=fields.Date.context_today,
+        help='Days after this date are projected as present when payroll is run before month end.',
+    )
+    carry_forward_deduction = fields.Float(
+        string='Carry Forward Deduction',
+        readonly=True,
+        copy=False,
+        help='Deductions captured from previously projected payroll periods and applied in this payroll.',
+    )
+    carry_forward_absence_amount = fields.Float(
+        string='Carry Forward Absence',
+        readonly=True,
+        copy=False,
+        help='Absence-only amount carried from prior projected periods.',
+    )
+    carry_forward_late_amount = fields.Float(
+        string='Carry Forward Late',
+        readonly=True,
+        copy=False,
+        help='Late-only amount carried from prior projected periods.',
+    )
+    carry_forward_diff_amount = fields.Float(
+        string='Carry Forward Diff',
+        readonly=True,
+        copy=False,
+        help='Difference-time amount carried from prior projected periods.',
+    )
+    carry_forward_overtime_amount = fields.Float(
+        string='Carry Forward Overtime',
+        readonly=True,
+        copy=False,
+        help='Overtime amount carried from prior projected periods.',
+    )
+    carry_forward_early_checkout_amount = fields.Float(
+        string='Carry Forward Early Checkout',
+        readonly=True,
+        copy=False,
+        help='Early checkout amount carried from prior projected periods.',
+    )
+    carry_forward_processed = fields.Boolean(
+        string='Carry Forward Processed',
+        default=False,
+        copy=False,
+        help='Technical flag to avoid deducting the same projected period more than once.',
+    )
+    carry_forward_run_date = fields.Date(
+        string='Carry Forward Processed Date',
+        readonly=True,
+        copy=False,
+    )
+    carry_forward_amount = fields.Float(
+        string='Carry Forward Amount (Source)',
+        readonly=True,
+        copy=False,
+        help='Computed deduction amount for this source sheet that will be carried to a later payroll.',
+    )
+    carry_forward_settled_sheet_id = fields.Many2one(
+        comodel_name='attendance.sheet',
+        string='Carry Forward Settled In',
+        readonly=True,
+        copy=False,
+        help='Attendance sheet where this source sheet carry-forward was finally deducted.',
+    )
 
     contract_id = fields.Many2one('hr.contract', string='Contract',
                                   readonly=True,
@@ -456,18 +526,21 @@ class AttendanceSheet(models.Model):
                 else:
                     sheet.tot_overtime_amount = 0
             else:
-                worked_hours = sum(sheet.line_ids.filtered(lambda l: l.worked_hours > 0).mapped("worked_hours"))
                 overtime_lines = sheet.line_ids.filtered(
                     lambda l: l.worked_hours > 9 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
                 )
 
-                monthly_working_hours = 260 if sheet.employee_id.resource_calendar_id.id == 6 else 208
-                if worked_hours >= monthly_working_hours:
-                    tot_overtime_custom = worked_hours - monthly_working_hours
-                else:
-                    tot_overtime_custom = 0.0
+                # Calculate overtime per-day (sum daily extra hours),
+                # instead of applying a monthly threshold.
+                tot_overtime_hours_from_calc_def = 0
+                for overtime_line in overtime_lines:
+                    tot_overtime_hours_from_calc_def += self.calculate_overtime_from_method(
+                        overtime_line,
+                        sheet.employee_id.resource_calendar_id.hours_per_day,
+                        sheet.employee_id.add_overtime
+                    )
 
-                sheet.tot_overtime = tot_overtime_custom if sheet.employee_id.add_overtime else 0.0
+                sheet.tot_overtime = tot_overtime_hours_from_calc_def if sheet.employee_id.add_overtime else 0.0
 
                 if sheet.employee_id.add_overtime and sheet.tot_overtime:
                     wage = sheet.employee_id.contract_id.wage or 0.0
@@ -602,6 +675,7 @@ class AttendanceSheet(models.Model):
             sick_leave = 0
             business_trip_leave = 0
             late_cnt = []
+            predictive_cutoff = att_sheet.predictive_cutoff_date or fields.Date.context_today(self)
             for day in all_dates:
                 # Add Custom Calendar Day For 26, 27/03/2025
                 # Add Custom Calendar Day For 26, 27/03/2025
@@ -833,10 +907,23 @@ class AttendanceSheet(models.Model):
                                     ac_sign_out = ac_sign_in + float_worked_hours
                             else:
                                 late_in_interval = []
-                                diff_intervals.append(
-                                    (work_interval[0], work_interval[1]))
-
-                                status = "ab"
+                                is_predictive_day = bool(
+                                    att_sheet.predictive_mode
+                                    and predictive_cutoff
+                                    and not self.env.context.get('force_actual_attendance')
+                                    and day > predictive_cutoff
+                                )
+                                if is_predictive_day:
+                                    planned_interval = work_interval[1] - work_interval[0]
+                                    float_worked_hours = planned_interval.total_seconds() / 3600
+                                    ac_sign_in = pl_sign_in
+                                    ac_sign_out = pl_sign_out
+                                    status = ""
+                                    note = _("Projected as present for predictive payroll run.")
+                                else:
+                                    diff_intervals.append(
+                                        (work_interval[0], work_interval[1]))
+                                    status = "ab"
                             if diff_intervals:
                                 for diff_in in diff_intervals:
                                     if leaves:
@@ -1040,6 +1127,80 @@ class AttendanceSheet(models.Model):
             att_sheet.sick_leave = sick_leave
             att_sheet.business_trip_leave = business_trip_leave
 
+    def _collect_carry_forward_deduction(self):
+        self.ensure_one()
+        if not self.employee_id.compute_attendance:
+            self.carry_forward_deduction = 0.0
+            self.carry_forward_absence_amount = 0.0
+            self.carry_forward_late_amount = 0.0
+            self.carry_forward_diff_amount = 0.0
+            self.carry_forward_overtime_amount = 0.0
+            self.carry_forward_early_checkout_amount = 0.0
+            return 0.0
+
+        carry_absence_amount = 0.0
+        carry_late_amount = 0.0
+        carry_diff_amount = 0.0
+        carry_overtime_amount = 0.0
+        carry_early_checkout_amount = 0.0
+        carry_amount = 0.0
+        previous_sheets = self.search([
+            ('employee_id', '=', self.employee_id.id),
+            ('state', '=', 'done'),
+            ('id', '!=', self.id),
+            ('predictive_mode', '=', True),
+            ('predictive_cutoff_date', '!=', False),
+            ('date_to', '<', self.date_from),
+            ('carry_forward_settled_sheet_id', '=', False),
+        ], order='date_to asc')
+
+        for prev_sheet in previous_sheets:
+            if not prev_sheet.predictive_cutoff_date or prev_sheet.predictive_cutoff_date >= prev_sheet.date_to:
+                prev_sheet.write({
+                    'carry_forward_processed': True,
+                    'carry_forward_run_date': fields.Date.context_today(self),
+                    'carry_forward_amount': 0.0,
+                    'carry_forward_settled_sheet_id': self.id,
+                })
+                continue
+
+            # Rebuild prior period with actual attendance (no projection) to get true late/absence deductions.
+            prev_sheet.with_context(force_actual_attendance=True).get_attendances()
+            pending_lines = prev_sheet.line_ids.filtered(
+                lambda l: l.date and l.date > prev_sheet.predictive_cutoff_date
+            )
+            source_absence_amount = sum(pending_lines.mapped('absence_amount'))
+            source_late_amount = sum(pending_lines.mapped('late_in_amount'))
+            source_diff_amount = sum(pending_lines.mapped('diff_amount'))
+            source_early_checkout_amount = sum(pending_lines.mapped('early_check_out_amount')) if 'early_check_out_amount' in pending_lines._fields else 0.0
+            if prev_sheet.employee_id.add_overtime:
+                source_overtime_amount = sum([v for v in pending_lines.mapped('overtime_amount') if v > 0])
+            else:
+                source_overtime_amount = 0.0
+            source_amount = source_absence_amount + source_late_amount + source_diff_amount + source_early_checkout_amount - source_overtime_amount
+
+            carry_absence_amount += source_absence_amount
+            carry_late_amount += source_late_amount
+            carry_diff_amount += source_diff_amount
+            carry_early_checkout_amount += source_early_checkout_amount
+            carry_overtime_amount += source_overtime_amount
+            carry_amount += source_amount
+
+            prev_sheet.write({
+                'carry_forward_processed': True,
+                'carry_forward_run_date': fields.Date.context_today(self),
+                'carry_forward_amount': source_amount,
+                'carry_forward_settled_sheet_id': self.id,
+            })
+
+        self.carry_forward_absence_amount = carry_absence_amount
+        self.carry_forward_late_amount = carry_late_amount
+        self.carry_forward_diff_amount = carry_diff_amount
+        self.carry_forward_overtime_amount = carry_overtime_amount
+        self.carry_forward_early_checkout_amount = carry_early_checkout_amount
+        self.carry_forward_deduction = carry_amount
+        return carry_amount
+
     def action_payslip(self):
         self.ensure_one()
         payslip_id = self.payslip_id
@@ -1058,6 +1219,7 @@ class AttendanceSheet(models.Model):
         payslip_obj = self.env['hr.payslip']
         payslips = payslip_obj
         for sheet in self:
+            sheet._collect_carry_forward_deduction()
             contracts = sheet.employee_id._get_contracts(sheet.date_from,
                                                          sheet.date_to)
             if not contracts:

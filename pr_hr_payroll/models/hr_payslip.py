@@ -49,6 +49,51 @@ class HrPayslip(models.Model):
     no_difftime = fields.Integer(related="attendance_sheet_id.no_difftime", readonly=True)
     tot_difftime = fields.Float(related="attendance_sheet_id.tot_difftime", readonly=True)
     tot_difftime_amount = fields.Float(related="attendance_sheet_id.tot_difftime_amount", readonly=True)
+    carry_forward_absence_amount = fields.Float(related="attendance_sheet_id.carry_forward_absence_amount", readonly=True)
+    carry_forward_late_amount = fields.Float(related="attendance_sheet_id.carry_forward_late_amount", readonly=True)
+    carry_forward_diff_amount = fields.Float(related="attendance_sheet_id.carry_forward_diff_amount", readonly=True)
+    carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
+    carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
+
+
+    def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
+        """Ensure attendance deduction line exists and reflects latest attendance-sheet amount."""
+        if abs(amount or 0.0) < 1e-6:
+            return
+
+        existing_line = None
+        for vals in line_vals:
+            if vals.get('code') == code:
+                existing_line = vals
+                break
+
+        if existing_line:
+            existing_line['amount'] = amount
+            existing_line['total'] = amount
+            existing_line['quantity'] = 1
+            existing_line['rate'] = 100
+            return
+
+        salary_rule = self.env['hr.salary.rule'].search([
+            ('code', '=', code),
+            ('struct_id', '=', payslip.struct_id.id),
+        ], limit=1)
+        if not salary_rule:
+            return
+
+        line_vals.append({
+            'sequence': salary_rule.sequence,
+            'code': salary_rule.code,
+            'name': salary_rule.name,
+            'salary_rule_id': salary_rule.id,
+            'contract_id': payslip.employee_id.contract_id.id if payslip.employee_id.contract_id else False,
+            'employee_id': payslip.employee_id.id,
+            'amount': amount,
+            'quantity': 1,
+            'rate': 100,
+            'total': amount,
+            'slip_id': payslip.id,
+        })
 
     def _get_payslip_lines(self):
         line_vals = super()._get_payslip_lines()
@@ -264,8 +309,26 @@ class HrPayslip(models.Model):
                             'slip_id': payslip.id,
                         })
 
+            if payslip.attendance_sheet_id and payslip.employee_id.compute_attendance:
+                att_sheet = payslip.attendance_sheet_id
+                abs_amount = -((att_sheet.tot_absence_amount or 0.0) + (getattr(att_sheet, 'carry_forward_absence_amount', 0.0) or 0.0))
+                late_amount = -((att_sheet.tot_late_amount or 0.0) + (getattr(att_sheet, 'carry_forward_late_amount', 0.0) or 0.0))
+                eco_amount = -((getattr(att_sheet, 'tot_early_checkout_amount', 0.0) or 0.0) + (getattr(att_sheet, 'carry_forward_early_checkout_amount', 0.0) or 0.0))
+                diff_amount = -((att_sheet.tot_difftime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_diff_amount', 0.0) or 0.0))
+                ovt_amount = ((att_sheet.tot_overtime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_overtime_amount', 0.0) or 0.0)) if payslip.employee_id.add_overtime else 0.0
+                self._upsert_attendance_deduction_line(line_vals, payslip, 'OVT', ovt_amount)
+                self._upsert_attendance_deduction_line(line_vals, payslip, 'ABS', abs_amount)
+                self._upsert_attendance_deduction_line(line_vals, payslip, 'LATE', late_amount)
+                self._upsert_attendance_deduction_line(line_vals, payslip, 'ECO', eco_amount)
+                self._upsert_attendance_deduction_line(line_vals, payslip, 'DIFFT', diff_amount)
+            elif payslip.attendance_sheet_id and not payslip.employee_id.compute_attendance:
+                for vals in line_vals:
+                    if vals.get('code') in ['ABS', 'LATE', 'ECO', 'DIFFT']:
+                        vals['amount'] = 0.0
+                        vals['total'] = 0.0
+
             net_amount = sum(vals.get("total", 0) for vals in line_vals if vals.get("code") not in ["NET", "GROSS"])
-            attendance_ded_codes = ["ABS", "LATE", "LEAVE90", "ECO"]
+            attendance_ded_codes = ["ABS", "LATE", "DIFFT", "UNPAID", "PAID87", "LEAVE90", "SICKTO89", "BTD", "ECO"]
 
             earnings = sum(
                 vals.get("total", 0)

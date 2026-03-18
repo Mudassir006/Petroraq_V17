@@ -1,11 +1,64 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
+
 class PRWorkOrder(models.Model):
     _name = "pr.work.order"
     _description = "Construction Work Order"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
+
+    def _notify_group_for_approval(self, group_xml_id, summary, body_html):
+        self.ensure_one()
+        group = self.env.ref(group_xml_id, raise_if_not_found=False)
+        if not group:
+            return
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        for user in group.users.filtered(lambda u: u.active):
+            if activity_type:
+                self.activity_schedule(
+                    activity_type_id=activity_type.id,
+                    user_id=user.id,
+                    summary=summary,
+                    note=body_html,
+                )
+            if user.email:
+                self.env["mail.mail"].sudo().create({
+                    "email_from": "hr@petroraq.com",
+                    "email_to": user.email,
+                    "subject": summary,
+                    "body_html": body_html,
+                }).send()
+
+    def _reset_approval_metadata(self):
+        self.write({
+            "ops_approver_id": False,
+            "ops_approved_date": False,
+            "acc_approver_id": False,
+            "acc_approved_date": False,
+            "final_approver_id": False,
+            "final_approved_date": False,
+            "rejected_by": False,
+            "rejected_date": False,
+            "rejection_reason": False,
+        })
+
+    def action_reset_to_draft(self):
+        for rec in self:
+            if rec.state == "draft":
+                continue
+
+            if rec.expense_bucket_id and rec.expense_bucket_id.state != "approved":
+                linked_pr_count = self.env["custom.pr"].sudo().search_count([
+                    ("expense_bucket_id", "=", rec.expense_bucket_id.id)
+                ])
+                if not linked_pr_count:
+                    rec.expense_bucket_id.sudo().unlink()
+                    rec.expense_bucket_id = False
+
+            rec.write({"state": "draft"})
+            rec._reset_approval_metadata()
+            rec.message_post(body=_("Work Order has been reset to draft."))
 
     name = fields.Char(
         string="Work Order",
@@ -35,6 +88,12 @@ class PRWorkOrder(models.Model):
 
     project_id = fields.Many2one("project.project", string="Construction Project", ondelete="restrict")
     analytic_account_id = fields.Many2one("account.analytic.account", string="Cost Center", ondelete="restrict")
+    expense_bucket_id = fields.Many2one(
+        "pr.expense.bucket",
+        string="Expense Bucket",
+        copy=False,
+        readonly=True,
+    )
     cost_center_ids = fields.One2many(
         "pr.work.order.cost.center",
         "work_order_id",
@@ -279,8 +338,17 @@ class PRWorkOrder(models.Model):
         for rec in self:
             if rec.state != "draft":
                 raise UserError(_("Only draft work orders can be submitted for approval"))
+            rec._ensure_project_expense_bucket(sync_budget=False)
             rec.state = "ops_approval"
             rec.rejection_reason = ""
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_operations",
+                _("Work Order %s waiting for operations approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Operations approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
+            )
             # # ---------------------------------------
             # # AUTO CREATE BUDGET (ONLY IF NOT EXISTS)
             # # ---------------------------------------
@@ -307,6 +375,30 @@ class PRWorkOrder(models.Model):
             #
             # rec.budget_id = budget.id
 
+    def action_open_create_pr_wizard(self):
+        self.ensure_one()
+
+        if not self.env.user.has_group("pr_custom_purchase.group_custom_pr_end_user"):
+            raise UserError(_("Only End Users can create PR from Work Order."))
+
+        if self.state not in ["acc_approval", "final_approval", "approved", "in_progress", "done"]:
+            raise UserError(_("PR can be created only after Operations approval."))
+
+        if not self.boq_line_ids.filtered(
+                lambda l: l.display_type not in ("line_section", "line_note") and l.product_id):
+            raise UserError(_("No BOQ product lines found to create PR."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Create PR"),
+            "res_model": "pr.work.order.create.pr.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_work_order_id": self.id,
+            },
+        }
+
     def action_ops_approve(self):
         for rec in self:
             if rec.state != "ops_approval":
@@ -315,6 +407,52 @@ class PRWorkOrder(models.Model):
             rec.ops_approver_id = self.env.user
             rec.ops_approved_date = fields.Datetime.now()
             rec.state = "acc_approval"
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_accounts",
+                _("Work Order %s waiting for accounts approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Accounts approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
+            )
+            rec._ensure_project_expense_bucket(sync_budget=True)
+
+    def _ensure_project_expense_bucket(self, sync_budget=False):
+        ExpenseBucket = self.env["pr.expense.bucket"].sudo()
+        ExpenseBucketLine = self.env["pr.expense.bucket.line"].sudo()
+
+        for rec in self:
+            cost_centers = rec.cost_center_ids.mapped("analytic_account_id").filtered(lambda a: a)
+            if not cost_centers:
+                continue
+
+            total_budget = sum(cost_centers.mapped("budget_allowance"))
+
+            if not rec.expense_bucket_id:
+                bucket = ExpenseBucket.create({
+                    "name": _("%s - CAPEX Bucket") % rec.name,
+                    "scope": "project",
+                    "expense_type": "capex",
+                    "work_order_id": rec.id,
+                    "budget_amount": total_budget,
+                })
+                rec.sudo().write({"expense_bucket_id": bucket.id})
+            else:
+                bucket = rec.expense_bucket_id.sudo()
+                if bucket.work_order_id != rec:
+                    bucket.write({"work_order_id": rec.id})
+
+            existing_cc_ids = set(bucket.line_ids.mapped("cost_center_id").ids)
+            for analytic in cost_centers:
+                if analytic.id in existing_cc_ids:
+                    continue
+                ExpenseBucketLine.create({
+                    "bucket_id": bucket.id,
+                    "cost_center_id": analytic.id,
+                })
+
+            if sync_budget:
+                bucket.write({"budget_amount": rec.budgeted_cost or total_budget})
 
     def action_acc_approve(self):
         for rec in self:
@@ -323,6 +461,14 @@ class PRWorkOrder(models.Model):
             rec.acc_approver_id = self.env.user
             rec.acc_approved_date = fields.Datetime.now()
             rec.state = "final_approval"
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            record_url = f"{base_url}/web#id={rec.id}&model=pr.work.order&view_type=form"
+            rec._notify_group_for_approval(
+                "pr_work_order.custom_group_work_order_management",
+                _("Work Order %s waiting for final approval") % rec.name,
+                _("""<p>Dear Approver,</p><p>Work Order <b>%s</b> requires Management final approval.</p><p><a href=\"%s\">Open Work Order</a></p>""") % (
+                rec.name, record_url),
+            )
 
     def action_final_approve(self):
         for rec in self:
@@ -477,6 +623,7 @@ class WorkOrderCostCenter(models.Model):
         "work_order_id.boq_line_ids.total",
         "work_order_id.boq_line_ids.section_name",
         "section_name",
+        "analytic_account_id",
     )
     def _compute_estimated_cost(self):
         for rec in self:
@@ -485,6 +632,19 @@ class WorkOrderCostCenter(models.Model):
                           and l.section_name == rec.section_name
             )
             rec.estimated_cost = sum(lines.mapped("total"))
+
+            analytic = rec.analytic_account_id
+            if not analytic:
+                continue
+
+            analytic_vals = {}
+            if "budget_type" in analytic._fields:
+                analytic_vals["budget_type"] = "capex"
+            if "budget_allowance" in analytic._fields:
+                analytic_vals["budget_allowance"] = rec.estimated_cost
+
+            if analytic_vals:
+                analytic.sudo().write(analytic_vals)
 
     @api.onchange("department_id", "section_id")
     def _sync_fields_to_analytic_account(self):
@@ -522,14 +682,13 @@ class PRWorkOrderRejectWizard(models.TransientModel):
             "rejection_reason": self.reason,
             "rejected_by": self.env.user.id,
             "rejected_date": fields.Datetime.now(),
+        })
 
-            # reset approvals
-            "ops_approver_id": False,
-            "ops_approved_date": False,
-            "acc_approver_id": False,
-            "acc_approved_date": False,
-            "final_approver_id": False,
-            "final_approved_date": False,
+        wo._reset_approval_metadata()
+        wo.write({
+            "rejection_reason": self.reason,
+            "rejected_by": self.env.user.id,
+            "rejected_date": fields.Datetime.now(),
         })
 
         wo.message_post(

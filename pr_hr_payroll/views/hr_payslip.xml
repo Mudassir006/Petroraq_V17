@@ -126,6 +126,14 @@
                             <field name="tot_difftime_amount" style="color: red;"/>
                         </group>
 
+                        <group string="Carry Forward">
+                            <field name="carry_forward_absence_amount" style="color: red;"/>
+                            <field name="carry_forward_late_amount" style="color: red;"/>
+                            <field name="carry_forward_diff_amount" style="color: red;"/>
+                            <field name="carry_forward_overtime_amount" style="color: green;"/>
+                            <field name="carry_forward_early_checkout_amount" style="color: red;"/>
+                        </group>
+
                     </group>
                 </page>
 

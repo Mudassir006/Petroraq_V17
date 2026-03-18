@@ -45,6 +45,10 @@
                         </div>
                     </group>
                     <group>
+                        <field name="predictive_mode" readonly="state  != 'draft'"/>
+                        <field name="predictive_cutoff_date" readonly="state  != 'draft'"/>
+                    </group>
+                    <group>
                         <field name="name" readonly="state  != 'draft'"/>
                         <field name="payslip_batch_id" invisible="1"/>
                         <!--<field name="is_done" invisible="1"/>-->
@@ -61,6 +65,11 @@
                                     <field name="tot_overtime" widget="float_time"/>
                                     <field name="no_absence"/>
                                     <field name="tot_absence" widget="float_time"/>
+                                    <field name="carry_forward_absence_amount"/>
+                                    <field name="carry_forward_late_amount"/>
+                                    <field name="carry_forward_diff_amount"/>
+                                    <field name="carry_forward_overtime_amount"/>
+                                    <field name="carry_forward_early_checkout_amount"/>
                                 </tree>
                             </field>
                         </page>

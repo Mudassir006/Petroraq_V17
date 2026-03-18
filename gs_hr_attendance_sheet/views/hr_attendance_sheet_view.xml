@@ -93,7 +93,17 @@
                         <field name="total_unpaid_leave" invisible="1"/>
                         <field name="total_sick_leave" invisible="1"/>
                         <field name="total_business_trip_leave" invisible="1"/>
+                        <field name="carry_forward_deduction" readonly="1"/>
+                        <field name="carry_forward_absence_amount" readonly="1"/>
+                        <field name="carry_forward_late_amount" readonly="1"/>
+                        <field name="carry_forward_diff_amount" readonly="1"/>
+                        <field name="carry_forward_overtime_amount" readonly="1"/>
+                        <field name="carry_forward_early_checkout_amount" readonly="1"/>
                         <field name="contract_id"/>
+                        <field name="predictive_mode"
+                               readonly="'state'  != 'draft'"/>
+                        <field name="predictive_cutoff_date"
+                               readonly="'state'  != 'draft'"/>
                         <field name="name"
                                readonly="'state'  != 'draft'"/>
                         <field name="att_policy_id"
@@ -196,8 +206,16 @@
                                     <field name="tot_difftime_amount" style="color: red;"/>
                                 </group>
 
-                            </group>
-                        </page>
+                                <group string="Carry Forward">
+                                    <field name="carry_forward_absence_amount" style="color: red;"/>
+                                    <field name="carry_forward_late_amount" style="color: red;"/>
+                                    <field name="carry_forward_diff_amount" style="color: red;"/>
+                                    <field name="carry_forward_overtime_amount" style="color: green;"/>
+                                    <field name="carry_forward_early_checkout_amount" style="color: red;"/>
+                                    <field name="carry_forward_deduction" style="color: red;"/>
+                                </group>
+
+                            </group>                        </page>
                     </notebook>
                 </sheet>
                 <div class="oe_chatter">

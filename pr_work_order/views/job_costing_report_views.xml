@@ -18,7 +18,11 @@
                 <field name="total_with_profit"/>
                 <field name="actual_cost"/>
                 <field name="actual_margin"/>
-                <field name="state"/>
+                <field name="state" widget="badge"
+                       decoration-success="state in ('approved', 'done')"
+                       decoration-danger="state in ('rejected', 'cancel')"
+                       decoration-warning="state in ('draft', 'ops_approval', 'acc_approval', 'final_approval')"
+                       decoration-info="state in ('in_progress', 'pm_approval', 'accounts_approval', 'md_approval')"/>
             </tree>
         </field>
     </record>
@@ -72,7 +76,11 @@
                 <field name="estimated_cost"/>
                 <field name="actual_cost"/>
                 <field name="variance"/>
-                <field name="state"/>
+                <field name="state"
+                       decoration-success="state in ('approved', 'done')"
+                       decoration-danger="state in ('rejected', 'cancel')"
+                       decoration-warning="state in ('draft', 'ops_approval', 'acc_approval', 'final_approval')"
+                       decoration-info="state in ('in_progress', 'pm_approval', 'accounts_approval', 'md_approval')"/>
             </tree>
         </field>
     </record>

@@ -186,6 +186,30 @@ class OrderInquiry(models.Model):
                 'state': 'expire',
             })
 
+    def _notify_inquiry_approvers(self):
+        self.ensure_one()
+        group = self.env.ref('sales_team.group_sale_manager', raise_if_not_found=False)
+        if not group:
+            return
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        record_url = f"{base_url}/web#id={self.id}&model=order.inq&view_type=form"
+        summary = _("Inquiry %s requires review") % self.name
+        note = _("Please review inquiry %s and take the needed approval action.") % self.name
+        for user in group.users.filtered(lambda u: u.active):
+            self.activity_schedule(
+                'mail.mail_activity_data_todo',
+                user_id=user.id,
+                summary=summary,
+                note=note,
+            )
+            if user.email:
+                self.env['mail.mail'].sudo().create({
+                    'email_from': 'hr@petroraq.com',
+                    'email_to': user.email,
+                    'subject': summary,
+                    'body_html': f"<p>Dear Approver,</p><p>{note}</p><p><a href='{record_url}'>Open Inquiry</a></p>",
+                }).send()
+
     def action_reset_to_draft(self):
         self.write({
             'state': 'pending',
@@ -308,6 +332,7 @@ class OrderInquiry(models.Model):
 
     def button_confirm(self, sales_list=None):
         self.state = 'confirm'
+        self._notify_inquiry_approvers()
 
     def view_sale_order(self):
         return {
