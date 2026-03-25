@@ -43,3 +43,6 @@ access_hr_diff_rule_user,access.hr.diff.rule.user,model_hr_diff_rule,group_atten
 
 access_hr_diff_rule_line_manager,access.hr.diff.rule.line.manager,model_hr_diff_rule_line,group_attendance_sheet_manager,1,1,1,1
 access_hr_diff_rule_line_user,access.hr.diff.rule.line.user,model_hr_diff_rule_line,group_attendance_sheet_user,1,0,0,0
+
+access_attendance_sheet_line_change_user,access.attendance.sheet.line.change.user,model_attendance_sheet_line_change,group_attendance_sheet_user,1,1,1,1
+access_attendance_sheet_line_change_manager,access.attendance.sheet.line.change.manager,model_attendance_sheet_line_change,group_attendance_sheet_manager,1,1,1,1
