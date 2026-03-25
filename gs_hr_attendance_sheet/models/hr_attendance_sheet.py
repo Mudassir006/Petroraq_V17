@@ -502,14 +502,17 @@ class AttendanceSheet(models.Model):
             sheet.num_att = len(attendance_lines)
             sheet.attendance_amount = sum(attendance_lines.mapped("day_amount")) if attendance_lines else 0
             # Compute Total Overtime
-            overtime_lines = sheet.line_ids.filtered(lambda l: l.worked_hours > 11)
+            calendar_hours_per_day = sheet.employee_id.resource_calendar_id.hours_per_day or 8.0
+            overtime_min_worked_hours = calendar_hours_per_day
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.worked_hours > overtime_min_worked_hours)
             # sheet.tot_overtime = sum([l.overtime for l in overtime_lines])
             # if sheet.employee_id.id == 133:
             if sheet.employee_id.resource_calendar_id.id == 6:
                 tot_overtime_hours_from_calc_def = 0
+                site_overtime_min_worked_hours = 11 if calendar_hours_per_day >= 9 else calendar_hours_per_day
                 # sheet.tot_overtime = sum([l.overtime for l in overtime_lines]) if sheet.employee_id.add_overtime else 0
                 overtime_lines = sheet.line_ids.filtered(
-                    lambda l: l.worked_hours > 11 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
+                    lambda l: l.worked_hours > site_overtime_min_worked_hours or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
                 )
                 # sheet.tot_overtime = sum([(l.worked_hours -1) - sheet.employee_id.resource_calendar_id.hours_per_day for l in overtime_lines]) if sheet.employee_id.add_overtime else 0
                 for overtime_line in overtime_lines:
@@ -527,7 +530,7 @@ class AttendanceSheet(models.Model):
                     sheet.tot_overtime_amount = 0
             else:
                 overtime_lines = sheet.line_ids.filtered(
-                    lambda l: l.worked_hours > 9 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
+                    lambda l: l.worked_hours > overtime_min_worked_hours or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
                 )
 
                 # Calculate overtime per-day (sum daily extra hours),
@@ -576,9 +579,9 @@ class AttendanceSheet(models.Model):
     def calculate_overtime_from_method(self, l, resource_calendar_hours_per_day, add_overtime):
         if add_overtime:
             if l.pl_sign_in > 0 and l.ac_sign_in > 0:
-                return (l.worked_hours - 1) - resource_calendar_hours_per_day
+                return max(l.worked_hours - resource_calendar_hours_per_day, 0)
             elif l.pl_sign_in == 0 and l.ac_sign_in > 0:
-                return l.worked_hours - 1
+                return l.worked_hours
         return 0
 
     def _get_float_from_time(self, time):
