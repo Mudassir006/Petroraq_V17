@@ -55,7 +55,7 @@
                     </group>
                     <notebook>
                         <page string="Attendance Sheets">
-                            <field name="att_sheet_ids" readonly="state  != 'draft'">
+                            <field name="att_sheet_ids" readonly="state not in ['draft', 'att_gen']">
                                 <tree create="0">
                                     <field name="name"/>
                                     <field name="employee_id"/>
