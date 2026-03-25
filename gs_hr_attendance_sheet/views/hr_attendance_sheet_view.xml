@@ -42,17 +42,17 @@
             <form string="Attendance Sheets">
                 <header>
                     <button name="get_attendances" string="Get Attendances"
-                            class="oe_highlight" invisible="'state' != 'draft'"
+                            class="oe_highlight" invisible="state != 'draft'"
                             type="object"/>
 
-                    <button name="action_confirm" invisible="'state' != 'draft'"
+                    <button name="action_confirm" invisible="state != 'draft'"
                             string="Submit to Manager" type="object"
                             class="oe_highlight"/>
-                    <button name="action_approve" invisible="'state' != 'confirm'"
+                    <button name="action_approve" invisible="state != 'confirm'"
                             string="Approve" type="object"
                             class="oe_highlight"
                             groups="gs_hr_attendance_sheet.group_attendance_sheet_manager"/>
-                    <button name="action_draft" invisible="'state' != 'confirm'"
+                    <button name="action_draft" invisible="state != 'confirm'"
                             string="Set to Draft" type="object"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,confirm,done"/>
@@ -61,13 +61,13 @@
                     <div class="oe_button_box" name="button_box">
                         <button class="oe_stat_button" name="action_payslip"
                                 string="PaySlip" type="object"
-                                icon="fa-book" invisible="'state' != 'done'"/>
+                                icon="fa-book" invisible="state != 'done'"/>
                     </div>
                     <div class="oe_title">
                         <label for="employee_id" class="oe_edit_only"/>
                         <h1>
                             <field name="employee_id" placeholder="Employee"
-                                   readonly="'state'  != 'draft'"/>
+                                   readonly="state  != 'draft'"/>
                         </h1>
                     </div>
                     <group>
@@ -76,10 +76,10 @@
                         <label for="date_from" string="Period"/>
                         <div>
                             <field name="date_from" class="oe_inline"
-                                   readonly="'state'  != 'draft'"/>
+                                   readonly="state  != 'draft'"/>
                             -
                             <field name="date_to" class="oe_inline"
-                                   readonly="'state'  != 'draft'"/>
+                                   readonly="state  != 'draft'"/>
                         </div>
                     </group>
                     <group>
@@ -99,25 +99,25 @@
                         <field name="carry_forward_diff_amount" readonly="1"/>
                         <field name="carry_forward_overtime_amount" readonly="1"/>
                         <field name="carry_forward_early_checkout_amount" readonly="1"/>
-                        <field name="opening_carry_absence_amount" readonly="'state'  != 'draft'"/>
-                        <field name="opening_carry_late_amount" readonly="'state'  != 'draft'"/>
-                        <field name="opening_carry_diff_amount" readonly="'state'  != 'draft'"/>
-                        <field name="opening_carry_early_checkout_amount" readonly="'state'  != 'draft'"/>
-                        <field name="opening_carry_overtime_amount" readonly="'state'  != 'draft'"/>
+                        <field name="opening_carry_absence_amount" readonly="state  != 'draft'"/>
+                        <field name="opening_carry_late_amount" readonly="state  != 'draft'"/>
+                        <field name="opening_carry_diff_amount" readonly="state  != 'draft'"/>
+                        <field name="opening_carry_early_checkout_amount" readonly="state  != 'draft'"/>
+                        <field name="opening_carry_overtime_amount" readonly="state  != 'draft'"/>
                         <field name="contract_id"/>
                         <field name="predictive_mode"
-                               readonly="'state'  != 'draft'"/>
+                               readonly="state  != 'draft'"/>
                         <field name="predictive_cutoff_date"
-                               readonly="'state'  != 'draft'"/>
+                               readonly="state  != 'draft'"/>
                         <field name="name"
-                               readonly="'state'  != 'draft'"/>
+                               readonly="state  != 'draft'"/>
                         <field name="att_policy_id"
-                               readonly="'state'  != 'draft'"/>
+                               readonly="state  != 'draft'"/>
                     </group>
                     <notebook>
                         <page string="Attendances">
                             <field name="line_ids"
-                                   readonly="'state'  != 'draft'">
+                                   readonly="state  != 'draft'">
                                 <tree create="0">
                                     <field name="state" invisible="1"/>
                                     <field name="date"/>
@@ -178,7 +178,7 @@
                                             class="oe_stat_button"
                                             icon="fa-edit"
                                             type="action"
-                                            invisible="'state' != 'draft'"
+                                            invisible="state != 'draft'"
                                     />
                                 </tree>
                             </field>
