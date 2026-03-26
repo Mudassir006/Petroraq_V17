@@ -1,11 +1,8 @@
-
-
 from odoo import api, fields, models, _
 from odoo.tools import float_is_zero
 from itertools import groupby
 from odoo.exceptions import UserError
 from odoo.fields import Command
-
 
 
 class PurchaseOrder(models.Model):
@@ -78,8 +75,8 @@ class PurchaseOrder(models.Model):
                 ]
             )
             for grouping_keys, bills in groupby(bill_vals_list,
-                                                   key=lambda x: [x.get(grouping_key) for grouping_key in
-                                                                  invoice_grouping_keys]):
+                                                key=lambda x: [x.get(grouping_key) for grouping_key in
+                                                               invoice_grouping_keys]):
                 origins = set()
                 payment_refs = set()
                 refs = set()
@@ -105,7 +102,7 @@ class PurchaseOrder(models.Model):
                 sequence = 1
                 for line in invoice['invoice_line_ids']:
                     line[2]['sequence'] = PurchaseOrderLine._get_bill_line_sequence(new=sequence,
-                                                                                       old=line[2]['sequence'])
+                                                                                    old=line[2]['sequence'])
                     sequence += 1
         moves = self.env['account.move'].sudo().with_context(default_move_type='in_invoice').create(bill_vals_list)
         if final:
@@ -144,6 +141,15 @@ class PurchaseOrder(models.Model):
         billable_line_ids = []
         pending_section = None
         precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
+
+        # Keep service receipt based quantities in sync before deciding billable lines.
+        # The service_receipt_note module updates `qty_received` for service PO lines
+        # when SRN is validated; forcing a refresh here guarantees "Regular bill"
+        # behaves the same as delivered-quantity billing.
+        self.order_line.filtered(
+            lambda line: not line.display_type and line.product_id.detailed_type == 'service'
+        )._update_qty_received_from_srn()
+
         for line in self.order_line:
             # line.display_type = ''
             if line.display_type == 'line_section':
@@ -176,22 +182,22 @@ class PurchaseOrder(models.Model):
                 continue
 
             if any(
-                not float_is_zero(line.qty_to_invoice, precision_digits=precision)
-                for line in order.order_line.filtered(
-                    lambda order_line: not order_line.display_type
-                    and not order_line.is_downpayment
-                )
-                # Sodexis Override: added and not l.is_downpayment here
+                    not float_is_zero(line.qty_to_invoice, precision_digits=precision)
+                    for line in order.order_line.filtered(
+                        lambda order_line: not order_line.display_type
+                                           and not order_line.is_downpayment
+                    )
+                    # Sodexis Override: added and not l.is_downpayment here
             ):
                 order.invoice_status = "to invoice"
             elif (
-                all(
-                    float_is_zero(line.qty_to_invoice, precision_digits=precision)
-                    for line in order.order_line.filtered(
-                        lambda order_line: not order_line.display_type
+                    all(
+                        float_is_zero(line.qty_to_invoice, precision_digits=precision)
+                        for line in order.order_line.filtered(
+                            lambda order_line: not order_line.display_type
+                        )
                     )
-                )
-                and order.invoice_ids
+                    and order.invoice_ids
             ):
                 order.invoice_status = "invoiced"
             else:
@@ -206,6 +212,7 @@ class PurchaseOrder(models.Model):
         except AttributeError:
             pass
         return res
+
 
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
@@ -224,13 +231,12 @@ class PurchaseOrderLine(models.Model):
         sequence = self._context.get('sequence')
         if sequence is not None:
             res.update({
-                'sequence' : sequence
+                'sequence': sequence
             })
         if self.display_type:
             res['account_id'] = False
 
         return res
-
 
     def _get_bill_line_sequence(self, new=0, old=0):
         """
