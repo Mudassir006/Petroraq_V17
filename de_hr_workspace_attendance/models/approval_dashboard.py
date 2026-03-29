@@ -1,4 +1,4 @@
-from odoo import _, models
+from odoo import _, api, models
 
 
 class HrApprovalDashboardService(models.AbstractModel):
@@ -65,6 +65,7 @@ class HrApprovalDashboardService(models.AbstractModel):
             "domain": domain,
         }
 
+    @api.model
     def get_tiles(self):
         return [
             self._build_tile(
@@ -114,6 +115,7 @@ class HrApprovalDashboardService(models.AbstractModel):
             ),
         ]
 
+    @api.model
     def open_tile(self, action_xmlid, domain=None):
         action = self.env["ir.actions.actions"]._for_xml_id(action_xmlid)
         action["domain"] = domain or []
