@@ -19,6 +19,12 @@ class HrRecruitmentRequest(models.Model):
         help="Employee who required this request",
     )
     department_id = fields.Many2one('hr.department', string='Department', tracking=True)
+    department_manager_user_id = fields.Many2one(
+        'res.users',
+        string="Department Manager",
+        compute="_compute_department_manager_user_id",
+        store=True,
+    )
     job_id = fields.Many2one(
         "hr.job",
         string="Existing Job Position",
@@ -50,7 +56,9 @@ class HrRecruitmentRequest(models.Model):
     state = fields.Selection(
         [
             ("draft", "Draft"),
-            ("to_approve", "To Approve"),
+            ("dept_approval", "Department Manager Approval"),
+            ("hr_approval", "HR Supervisor Approval"),
+            ("md_approval", "MD Approval"),
             ("approved", "Approved"),
             ("rejected", "Rejected"),
             ("done", "Done"),
@@ -82,6 +90,15 @@ class HrRecruitmentRequest(models.Model):
         string="Created Job (from request)",
         readonly=True,
     )
+    department_approved_by_id = fields.Many2one("res.users", string="Department Approved By", readonly=True, copy=False)
+    department_approved_date = fields.Datetime(string="Department Approved On", readonly=True, copy=False)
+    hr_approved_by_id = fields.Many2one("res.users", string="HR Supervisor Approved By", readonly=True, copy=False)
+    hr_approved_date = fields.Datetime(string="HR Supervisor Approved On", readonly=True, copy=False)
+    md_approved_by_id = fields.Many2one("res.users", string="MD Approved By", readonly=True, copy=False)
+    md_approved_date = fields.Datetime(string="MD Approved On", readonly=True, copy=False)
+    is_department_manager_approver = fields.Boolean(compute="_compute_approval_permissions")
+    is_hr_supervisor_approver = fields.Boolean(compute="_compute_approval_permissions")
+    is_md_approver = fields.Boolean(compute="_compute_approval_permissions")
 
     @api.model
     def create(self, vals):
@@ -112,6 +129,20 @@ class HrRecruitmentRequest(models.Model):
                 else 0.0
             )
 
+    @api.depends("department_id")
+    def _compute_department_manager_user_id(self):
+        for rec in self:
+            rec.department_manager_user_id = rec.department_id.manager_id.user_id
+
+    def _compute_approval_permissions(self):
+        current_user = self.env.user
+        is_hr_supervisor = current_user.has_group("hr_recruitment.group_hr_recruitment_manager")
+        is_md = current_user.has_group("hr.group_hr_manager")
+        for rec in self:
+            rec.is_department_manager_approver = bool(rec.department_manager_user_id and rec.department_manager_user_id == current_user)
+            rec.is_hr_supervisor_approver = is_hr_supervisor
+            rec.is_md_approver = is_md
+
     def action_submit(self):
         for rec in self:
             if rec.requested_employees <= 0:
@@ -121,11 +152,51 @@ class HrRecruitmentRequest(models.Model):
                 raise UserError(_("New job name is required"))
             if not rec.is_new_position and not rec.job_id:
                 raise UserError(_("Job position is required"))
-            rec.write({"state": "to_approve"})
+            if not rec.department_manager_user_id:
+                raise UserError(_("Please set a manager user on the selected department manager employee."))
+            rec.write({"state": "dept_approval"})
 
-    def action_approve(self):
+    def _check_department_approver(self):
+        self.ensure_one()
+        if self.department_manager_user_id != self.env.user:
+            raise UserError(_("Only the selected department's manager can perform this approval."))
+
+    def _check_hr_supervisor_approver(self):
+        if not self.env.user.has_group("hr_recruitment.group_hr_recruitment_manager"):
+            raise UserError(_("Only HR Supervisor can perform this approval."))
+
+    def _check_md_approver(self):
+        if not self.env.user.has_group("hr.group_hr_manager"):
+            raise UserError(_("Only MD (HR Manager) can perform this approval."))
+
+    def action_approve_department(self):
+        for rec in self:
+            if rec.state != "dept_approval":
+                continue
+            rec._check_department_approver()
+            rec.sudo().write({
+                "state": "hr_approval",
+                "department_approved_by_id": self.env.user.id,
+                "department_approved_date": fields.Datetime.now(),
+            })
+
+    def action_approve_hr_supervisor(self):
+        for rec in self:
+            if rec.state != "hr_approval":
+                continue
+            rec._check_hr_supervisor_approver()
+            rec.sudo().write({
+                "state": "md_approval",
+                "hr_approved_by_id": self.env.user.id,
+                "hr_approved_date": fields.Datetime.now(),
+            })
+
+    def action_approve_md(self):
         HrJob = self.env["hr.job"]
         for rec in self:
+            if rec.state != "md_approval":
+                continue
+            rec._check_md_approver()
             job = rec.job_id
             if rec.is_new_position:
                 job_vals = {
@@ -149,7 +220,14 @@ class HrRecruitmentRequest(models.Model):
                 else:
                     raise UserError(_("no job position is configured for this request"))
 
-            rec.write({"state": "approved"})
+            rec.sudo().write({
+                "state": "approved",
+                "md_approved_by_id": self.env.user.id,
+                "md_approved_date": fields.Datetime.now(),
+            })
+
+    def action_approve(self):
+        return self.action_approve_md()
 
     def action_reject(self):
         for rec in self:

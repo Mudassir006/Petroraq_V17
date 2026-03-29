@@ -24,6 +24,7 @@
                             <li><a href="/" class="nav-link">HOME</a></li>
                             <li><a href="/about-us" class="nav-link">ABOUT</a></li>
                             <li><a href="/contact-us" class="nav-link">CONTACT US</a></li>
+                            <li><a href="/jobs" class="nav-link">Careers</a></li>
 
                             <!-- SERVICES DROPDOWN -->
                             <li class="dropdown">
