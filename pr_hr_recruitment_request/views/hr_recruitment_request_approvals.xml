@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
+    <record id="de_hr_workspace.menu_my_employee_approvals" model="ir.ui.menu">
+        <field name="groups_id" eval="[(4, ref('hr.group_hr_manager')), (4, ref('hr_recruitment.group_hr_recruitment_manager'))]"/>
+    </record>
 
     <record id="hr_recruitment_request_approvals_view_action" model="ir.actions.act_window">
         <field name="name">Recruitment Requests</field>
