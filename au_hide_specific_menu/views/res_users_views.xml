@@ -1,0 +1,19 @@
+<odoo>
+    <record id="view_users_form_inherit_hide_menu" model="ir.ui.view">
+        <field name="name">res.users.form.hide.menu</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Hidden Menus">
+                    <label for="hidden_menu_ids" string="Hidden Menus"/>
+                    <field name="hidden_menu_ids" widget="many2many">
+                        <tree editable="bottom">
+                            <field name="complete_name"/>
+                        </tree>
+                    </field>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

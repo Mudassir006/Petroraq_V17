@@ -1,0 +1,18 @@
+<odoo>
+    <record id="view_menu_form_inherit_hide_menu_add_page" model="ir.ui.view">
+        <field name="name">ir.ui.menu.form.inherit.add.hidden_users.page</field>
+        <field name="model">ir.ui.menu</field>
+        <field name="inherit_id" ref="base.edit_menu_access"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Hidden Users">
+                    <field name="hidden_user_ids" widget="many2many">
+                        <tree editable="bottom">
+                            <field name="name"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
