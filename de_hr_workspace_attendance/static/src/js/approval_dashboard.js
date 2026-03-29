@@ -11,7 +11,11 @@ class ApprovalDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
-        this.state = useState({ tiles: [], loading: true, userName: session.name || "" });
+        this.state = useState({
+            tiles: [],
+            loading: true,
+            userName: session.user_name || session.name || session.username || "",
+        });
 
         onWillStart(async () => {
             await this.loadTiles();
@@ -48,8 +52,8 @@ class ApprovalDashboard extends Component {
     }
 
     get greetingText() {
-        const name = this.state.userName ? `Mr. ${this.state.userName}` : "";
-        return `${this.salutation}${name ? `, ${name}` : ""}`;
+        const name = (this.state.userName || "").trim();
+        return name ? `${this.salutation}, Mr. ${name}` : this.salutation;
     }
 
     tileClass(tile) {

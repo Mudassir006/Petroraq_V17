@@ -1,8 +1,9 @@
 .de-dashboard-hero {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
   padding: 18px 20px;
   border-radius: 12px;
   background: linear-gradient(135deg, #0b5ed7, #0dcaf0);
@@ -26,6 +27,14 @@
   .de-dashboard-subtitle {
     font-size: 14px;
     opacity: 0.92;
+  }
+
+  .de-dashboard-hero-left {
+    text-align: center;
+  }
+
+  .de-dashboard-hero-right {
+    text-align: center;
   }
 
   .de-dashboard-refresh {
