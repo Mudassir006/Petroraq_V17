@@ -4,14 +4,16 @@
     <t t-name="de_hr_workspace_attendance.ApprovalDashboard">
         <div class="o_action_manager">
             <div class="o_content">
-                <div class="de-dashboard-header d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <h2 class="mb-0">Approvals Dashboard</h2>
-                        <small class="text-muted">All approval menus with live counts</small>
+                <div class="de-dashboard-hero mb-3">
+                    <div class="de-dashboard-hero-left">
+                        <h1 class="de-dashboard-title mb-1">Approvals Dashboard</h1>
+                        <p class="de-dashboard-subtitle mb-0">Track pending items across all approval menus and jump directly into action.</p>
                     </div>
-                    <button class="btn btn-outline-primary" t-on-click="refresh">
-                        <i class="fa fa-refresh me-1"/> Refresh
-                    </button>
+                    <div class="de-dashboard-hero-right">
+                        <button class="btn btn-light de-dashboard-refresh" t-on-click="refresh">
+                            <i class="fa fa-refresh me-1"/> Refresh
+                        </button>
+                    </div>
                 </div>
 
                 <t t-if="state.loading">

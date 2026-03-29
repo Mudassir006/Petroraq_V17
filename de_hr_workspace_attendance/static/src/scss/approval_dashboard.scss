@@ -1,3 +1,32 @@
+.de-dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0b5ed7, #0dcaf0);
+  color: #fff;
+
+  .de-dashboard-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+  }
+
+  .de-dashboard-subtitle {
+    font-size: 14px;
+    opacity: 0.92;
+  }
+
+  .de-dashboard-refresh {
+    border: 0;
+    font-weight: 600;
+    color: #0b5ed7;
+  }
+}
+
 .de-dashboard-grid {
   .de-dashboard-tile {
     border: none;
@@ -33,19 +62,19 @@
   }
 
   .de-dashboard-count {
-    font-size: 34px;
+    font-size: 38px;
     font-weight: 700;
     line-height: 1;
   }
 
   .de-dashboard-label {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     margin-top: 6px;
   }
 
   .de-dashboard-hint {
-    font-size: 12px;
+    font-size: 13px;
     opacity: 0.9;
     margin-top: 6px;
   }
