@@ -23,13 +23,11 @@ class ApprovalDashboard extends Component {
         this.state.loading = false;
     }
 
-    async openTile(tile) {
-        const action = await this.orm.call(
-            "de.hr.approval.dashboard.service",
-            "open_tile",
-            [tile.action_xmlid, tile.domain]
-        );
-        this.action.doAction(action);
+    openTile(ev) {
+        const actionId = Number(ev.currentTarget.dataset.actionId || 0);
+        if (actionId) {
+            this.action.doAction(actionId);
+        }
     }
 
     async refresh() {

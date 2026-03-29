@@ -7,7 +7,7 @@
                 <div class="de-dashboard-header d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h2 class="mb-0">Approvals Dashboard</h2>
-                        <small class="text-muted">Live pending approvals across HR and related modules</small>
+                        <small class="text-muted">All approval menus with live counts</small>
                     </div>
                     <button class="btn btn-outline-primary" t-on-click="refresh">
                         <i class="fa fa-refresh me-1"/> Refresh
@@ -22,7 +22,9 @@
                     <div class="row g-3 de-dashboard-grid">
                         <t t-foreach="state.tiles" t-as="tile" t-key="tile.key">
                             <div class="col-12 col-md-6 col-xl-4">
-                                <button t-att-class="tileClass(tile)" t-on-click="() => openTile(tile)">
+                                <button t-att-class="tileClass(tile)"
+                                        t-att-data-action-id="tile.action_id"
+                                        t-on-click="openTile">
                                     <div class="de-dashboard-icon">
                                         <i t-att-class="`fa ${tile.icon || 'fa-cubes'}`"/>
                                     </div>
