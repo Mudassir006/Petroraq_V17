@@ -6,6 +6,7 @@
             <div class="o_content">
                 <div class="de-dashboard-hero mb-3">
                     <div class="de-dashboard-hero-left">
+                        <p class="de-dashboard-greeting mb-1" t-esc="greetingText"/>
                         <h1 class="de-dashboard-title mb-1">Approvals Dashboard</h1>
                         <p class="de-dashboard-subtitle mb-0">Track pending items across all approval menus and jump directly into action.</p>
                     </div>

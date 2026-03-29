@@ -8,6 +8,14 @@
   background: linear-gradient(135deg, #0b5ed7, #0dcaf0);
   color: #fff;
 
+  .de-dashboard-greeting {
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.95;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
   .de-dashboard-title {
     font-size: 32px;
     font-weight: 700;
