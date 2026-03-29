@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="de_hr_workspace_attendance.ApprovalDashboard">
+        <div class="o_action_manager">
+            <div class="o_content">
+                <div class="de-dashboard-header d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="mb-0">Approvals Dashboard</h2>
+                        <small class="text-muted">Live pending approvals across HR and related modules</small>
+                    </div>
+                    <button class="btn btn-outline-primary" t-on-click="refresh">
+                        <i class="fa fa-refresh me-1"/> Refresh
+                    </button>
+                </div>
+
+                <t t-if="state.loading">
+                    <div class="text-center p-5 text-muted">Loading dashboard...</div>
+                </t>
+
+                <t t-else="">
+                    <div class="row g-3 de-dashboard-grid">
+                        <t t-foreach="state.tiles" t-as="tile" t-key="tile.key">
+                            <div class="col-12 col-md-6 col-xl-4">
+                                <button t-att-class="tileClass(tile)" t-on-click="() => openTile(tile)">
+                                    <div class="de-dashboard-icon">
+                                        <i t-att-class="`fa ${tile.icon || 'fa-cubes'}`"/>
+                                    </div>
+                                    <div class="de-dashboard-info">
+                                        <div class="de-dashboard-count" t-esc="tile.count"/>
+                                        <div class="de-dashboard-label" t-esc="tile.name"/>
+                                        <div class="de-dashboard-hint">Click to open list view</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>
