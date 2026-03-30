@@ -15,12 +15,21 @@ class HrApprovalDashboardService(models.AbstractModel):
         if not parent:
             return self.env["ir.ui.menu"]
 
-        menus = self.env["ir.ui.menu"].sudo().search([
+        menus = self.env["ir.ui.menu"].search([
             ("id", "child_of", parent.id),
             ("id", "!=", parent.id),
         ], order="sequence, id")
 
-        return menus.filtered(lambda m: bool(m.sudo().action))
+        filter_visible = getattr(self.env["ir.ui.menu"], "_filter_visible_menus", None)
+        if filter_visible:
+            menus = filter_visible(menus)
+        else:
+            user_groups = self.env.user.groups_id
+            menus = menus.filtered(
+                lambda m: not m.groups_id or bool(m.groups_id & user_groups)
+            )
+
+        return menus.filtered(lambda m: bool(m.action))
 
     @api.model
     def _domain_from_action(self, action):
