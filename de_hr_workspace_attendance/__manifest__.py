@@ -20,6 +20,7 @@
         'security/record_rules.xml',
         'views/hr_attendance_views.xml',
         'views/hr_shortage_request.xml',
+        'views/hr_approval_dashboard.xml',
         'views/thanks_template.xml',
         'views/shortage_request_template.xml',
         'views/hr_attendance_portal.xml',
@@ -33,7 +34,10 @@
     'assets': {
         'web.assets_backend': [
             'de_hr_workspace_attendance/static/src/js/shortage_request_button.js',
+            'de_hr_workspace_attendance/static/src/js/approval_dashboard.js',
             'de_hr_workspace_attendance/static/src/xml/request_button.xml',
+            'de_hr_workspace_attendance/static/src/xml/approval_dashboard.xml',
+            'de_hr_workspace_attendance/static/src/scss/approval_dashboard.scss',
         ],
     },
 

@@ -1,0 +1,98 @@
+.de-dashboard-hero {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0b5ed7, #0dcaf0);
+  color: #fff;
+
+  .de-dashboard-greeting {
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.95;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .de-dashboard-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+  }
+
+  .de-dashboard-subtitle {
+    font-size: 14px;
+    opacity: 0.92;
+  }
+
+  .de-dashboard-hero-left {
+    text-align: center;
+  }
+
+  .de-dashboard-hero-right {
+    text-align: center;
+  }
+
+  .de-dashboard-refresh {
+    border: 0;
+    font-weight: 600;
+    color: #0b5ed7;
+  }
+}
+
+.de-dashboard-grid {
+  .de-dashboard-tile {
+    border: none;
+    width: 100%;
+    min-height: 150px;
+    border-radius: 14px;
+    color: #fff;
+    text-align: left;
+    padding: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    transition: transform .2s ease, box-shadow .2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  .de-dashboard-tile-primary { background: linear-gradient(135deg, #0d6efd, #0b5ed7); }
+  .de-dashboard-tile-success { background: linear-gradient(135deg, #198754, #157347); }
+  .de-dashboard-tile-warning { background: linear-gradient(135deg, #fd7e14, #dc6a0f); }
+  .de-dashboard-tile-danger { background: linear-gradient(135deg, #dc3545, #bb2d3b); }
+  .de-dashboard-tile-info { background: linear-gradient(135deg, #0dcaf0, #31b0d5); }
+
+  .de-dashboard-icon {
+    font-size: 28px;
+    width: 48px;
+    text-align: center;
+    opacity: 0.9;
+  }
+
+  .de-dashboard-count {
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .de-dashboard-label {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  .de-dashboard-hint {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-top: 6px;
+  }
+}
