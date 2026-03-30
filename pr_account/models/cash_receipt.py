@@ -111,11 +111,15 @@ class AccountCashReceipt(models.Model):
     def action_post(self):
         for cash_receipt in self:
             if cash_receipt.cash_receipt_line_ids:
+                journal_voucher = self.env.ref(
+                    "pr_account.journal_journal_voucher", raise_if_not_found=False
+                )
                 journal_entry_id = self.env['account.move'].create({
                     # 'name': cash_receipt.name,
                     'ref': cash_receipt.name,
                     'date': cash_receipt.accounting_date,
                     'move_type': 'entry',
+                    'journal_id': journal_voucher.id if journal_voucher else False,
                 })
                 if journal_entry_id:
                     journal_entry_id = journal_entry_id.with_context(check_move_validity=False)
