@@ -32,12 +32,42 @@ class HrApprovalDashboardService(models.AbstractModel):
         except Exception:
             return []
 
+
     @api.model
-    def _count_for_action(self, action):
+    def _shortage_pending_domain(self):
+        return [
+            "|", "|",
+            ("employee_manager_id.user_id", "=", self.env.uid),
+            ("hr_supervisor_ids", "in", self.env.uid),
+            ("hr_manager_ids", "in", self.env.uid),
+            ("approval_state", "in", ["draft", "manager_approve", "hr_supervisor"]),
+        ]
+
+    @api.model
+    def _leave_pending_domain(self):
+        return [
+            ("state", "in", ["confirm", "validate1"]),
+            "|",
+            ("employee_id.parent_id.user_id", "=", self.env.uid),
+            ("holiday_status_id.responsible_id", "=", self.env.uid),
+        ]
+
+    @api.model
+    def _override_domain_for_menu(self, menu, action, domain):
+        menu_name = (menu.name or "").lower()
+        if action.res_model == "pr.hr.shortage.request" or "shortage" in menu_name:
+            return self._shortage_pending_domain()
+        if action.res_model == "hr.leave" or "leave" in menu_name:
+            return self._leave_pending_domain()
+        return domain
+
+    @api.model
+    def _count_for_action(self, menu, action):
         if action._name != "ir.actions.act_window" or not action.res_model:
             return 0
         try:
             domain = self._domain_from_action(action)
+            domain = self._override_domain_for_menu(menu, action, domain)
             return self.env[action.res_model].search_count(domain)
         except Exception:
             return 0
@@ -69,7 +99,7 @@ class HrApprovalDashboardService(models.AbstractModel):
         tiles = []
         for menu in self._get_visible_approval_menus():
             action = menu.action
-            count = self._count_for_action(action)
+            count = self._count_for_action(menu, action)
             icon, tone = self._style_for_menu(menu.name)
             tiles.append({
                 "key": f"menu_{menu.id}",
