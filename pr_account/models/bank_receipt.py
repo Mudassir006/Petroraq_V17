@@ -114,15 +114,15 @@ class AccountBankReceipt(models.Model):
     def action_post(self):
         for bank_receipt in self:
             if bank_receipt.bank_receipt_line_ids:
-                journal_voucher = self.env.ref(
-                    "pr_account.journal_journal_voucher", raise_if_not_found=False
-                )
+                forced_journal = self.env["account.journal"].browse(3).exists()
+                if not forced_journal:
+                    raise ValidationError(_("Required Journal (ID: 3) was not found."))
                 journal_entry_id = self.env['account.move'].create({
                     # 'name': bank_receipt.name,
                     'ref': bank_receipt.name,
                     'date': bank_receipt.accounting_date,
                     'move_type': 'entry',
-                    'journal_id': journal_voucher.id if journal_voucher else False,
+                    'journal_id': forced_journal.id,
                 })
                 if journal_entry_id:
                     journal_entry_id = journal_entry_id.with_context(check_move_validity=False)
