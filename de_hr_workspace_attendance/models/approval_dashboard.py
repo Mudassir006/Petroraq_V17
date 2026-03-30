@@ -8,15 +8,19 @@ class HrApprovalDashboardService(models.AbstractModel):
 
     @api.model
     def _get_visible_approval_menus(self):
-        parent = self.env.ref("de_hr_workspace.menu_my_employee_approvals", raise_if_not_found=False)
+        parent = self.env.ref(
+            "de_hr_workspace.menu_my_employee_approvals",
+            raise_if_not_found=False,
+        )
         if not parent:
             return self.env["ir.ui.menu"]
 
-        menus = self.env["ir.ui.menu"].search([
+        menus = self.env["ir.ui.menu"].sudo().search([
             ("id", "child_of", parent.id),
             ("id", "!=", parent.id),
         ], order="sequence, id")
-        return menus.filtered(lambda m: m.action)
+
+        return menus.filtered(lambda m: bool(m.sudo().action))
 
     @api.model
     def _domain_from_action(self, action):
@@ -31,7 +35,6 @@ class HrApprovalDashboardService(models.AbstractModel):
             return domain if isinstance(domain, (list, tuple)) else []
         except Exception:
             return []
-
 
     @api.model
     def _shortage_pending_domain(self):
@@ -71,7 +74,6 @@ class HrApprovalDashboardService(models.AbstractModel):
             return self.env[action.res_model].search_count(domain)
         except Exception:
             return 0
-
 
     @api.model
     def _style_for_menu(self, menu_name):
