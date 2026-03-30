@@ -23,7 +23,7 @@ class HrApprovalDashboardService(models.AbstractModel):
 
         filter_visible = getattr(self.env["ir.ui.menu"], "_filter_visible_menus", None)
         if filter_visible:
-            menus = filter_visible(menus)
+            menus = menus._filter_visible_menus()
         else:
             user_groups = self.env.user.groups_id
             menus = menus.filtered(
