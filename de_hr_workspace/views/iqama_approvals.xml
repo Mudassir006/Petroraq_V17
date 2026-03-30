@@ -18,6 +18,6 @@
               name="Employee Accommodations"
               action="de_hr_workspace_hr_employee_iqama_approvals_view_action"
               sequence="1"
-              groups="de_hr_workspace.group_hr_employee_approvals,hr.group_hr_manager"
+              groups="hr.group_hr_manager"
         />
 </odoo>
