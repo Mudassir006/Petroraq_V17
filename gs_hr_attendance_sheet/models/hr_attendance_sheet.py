@@ -155,7 +155,8 @@ class hrPayslip(models.Model):
                     # 'number_of_days': 0,
                     'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
                     'number_of_hours': rec.attendance_sheet_id.tot_overtime,
-                    'amount': (rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
+                    'amount': (
+                                rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
                 }]
                 if not attendances and not leave_ids:
                     num_weekend = 0
@@ -332,6 +333,26 @@ class AttendanceSheet(models.Model):
         copy=False,
         help='Early checkout amount carried from prior projected periods.',
     )
+    opening_carry_absence_amount = fields.Float(
+        string='Opening Carry Absence',
+        help='Manual one-time carry amount from legacy payroll periods before predictive mode was enabled.',
+    )
+    opening_carry_late_amount = fields.Float(
+        string='Opening Carry Late',
+        help='Manual one-time late carry amount from legacy payroll periods.',
+    )
+    opening_carry_diff_amount = fields.Float(
+        string='Opening Carry Diff',
+        help='Manual one-time diff-time carry amount from legacy payroll periods.',
+    )
+    opening_carry_early_checkout_amount = fields.Float(
+        string='Opening Carry Early Checkout',
+        help='Manual one-time early checkout carry amount from legacy payroll periods.',
+    )
+    opening_carry_overtime_amount = fields.Float(
+        string='Opening Carry Overtime',
+        help='Manual one-time overtime carry amount from legacy payroll periods.',
+    )
     carry_forward_processed = fields.Boolean(
         string='Carry Forward Processed',
         default=False,
@@ -501,16 +522,20 @@ class AttendanceSheet(models.Model):
             attendance_lines = sheet.line_ids.filtered(lambda l: l.status in ["weekend", "ph"] or not l.status)
             sheet.num_att = len(attendance_lines)
             sheet.attendance_amount = sum(attendance_lines.mapped("day_amount")) if attendance_lines else 0
-            # Compute Total Overtime
-            overtime_lines = sheet.line_ids.filtered(lambda l: l.worked_hours > 11)
+
+            calendar_hours_per_day = sheet.employee_id.resource_calendar_id.hours_per_day or 8.0
+            overtime_min_worked_hours = calendar_hours_per_day
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.worked_hours > overtime_min_worked_hours)
+
             # sheet.tot_overtime = sum([l.overtime for l in overtime_lines])
             # if sheet.employee_id.id == 133:
             if sheet.employee_id.resource_calendar_id.id == 6:
                 tot_overtime_hours_from_calc_def = 0
+                site_overtime_min_worked_hours = 11 if calendar_hours_per_day >= 9 else calendar_hours_per_day
                 # sheet.tot_overtime = sum([l.overtime for l in overtime_lines]) if sheet.employee_id.add_overtime else 0
                 overtime_lines = sheet.line_ids.filtered(
-                    lambda l: l.worked_hours > 11 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
-                )
+                    lambda l: l.worked_hours > site_overtime_min_worked_hours or (l.pl_sign_in == 0 and l.ac_sign_in > 0
+                                                                                  ))
                 # sheet.tot_overtime = sum([(l.worked_hours -1) - sheet.employee_id.resource_calendar_id.hours_per_day for l in overtime_lines]) if sheet.employee_id.add_overtime else 0
                 for overtime_line in overtime_lines:
                     tot_overtime_hours_from_calc_def += self.calculate_overtime_from_method(
@@ -527,8 +552,7 @@ class AttendanceSheet(models.Model):
                     sheet.tot_overtime_amount = 0
             else:
                 overtime_lines = sheet.line_ids.filtered(
-                    lambda l: l.worked_hours > 9 or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
-                )
+                    lambda l: l.worked_hours > overtime_min_worked_hours or (l.pl_sign_in == 0 and l.ac_sign_in > 0))
 
                 # Calculate overtime per-day (sum daily extra hours),
                 # instead of applying a monthly threshold.
@@ -576,9 +600,9 @@ class AttendanceSheet(models.Model):
     def calculate_overtime_from_method(self, l, resource_calendar_hours_per_day, add_overtime):
         if add_overtime:
             if l.pl_sign_in > 0 and l.ac_sign_in > 0:
-                return (l.worked_hours - 1) - resource_calendar_hours_per_day
+                return max(l.worked_hours - resource_calendar_hours_per_day, 0)
             elif l.pl_sign_in == 0 and l.ac_sign_in > 0:
-                return l.worked_hours - 1
+                return l.worked_hours
         return 0
 
     def _get_float_from_time(self, time):
@@ -1172,7 +1196,8 @@ class AttendanceSheet(models.Model):
             source_absence_amount = sum(pending_lines.mapped('absence_amount'))
             source_late_amount = sum(pending_lines.mapped('late_in_amount'))
             source_diff_amount = sum(pending_lines.mapped('diff_amount'))
-            source_early_checkout_amount = sum(pending_lines.mapped('early_check_out_amount')) if 'early_check_out_amount' in pending_lines._fields else 0.0
+            source_early_checkout_amount = sum(pending_lines.mapped(
+                'early_check_out_amount')) if 'early_check_out_amount' in pending_lines._fields else 0.0
             if prev_sheet.employee_id.add_overtime:
                 source_overtime_amount = sum([v for v in pending_lines.mapped('overtime_amount') if v > 0])
             else:
@@ -1192,6 +1217,17 @@ class AttendanceSheet(models.Model):
                 'carry_forward_amount': source_amount,
                 'carry_forward_settled_sheet_id': self.id,
             })
+
+        carry_absence_amount += (self.opening_carry_absence_amount or 0.0)
+        carry_late_amount += (self.opening_carry_late_amount or 0.0)
+        carry_diff_amount += (self.opening_carry_diff_amount or 0.0)
+        carry_early_checkout_amount += (self.opening_carry_early_checkout_amount or 0.0)
+        carry_overtime_amount += (self.opening_carry_overtime_amount or 0.0)
+        carry_amount += (self.opening_carry_absence_amount or 0.0)
+        carry_amount += (self.opening_carry_late_amount or 0.0)
+        carry_amount += (self.opening_carry_diff_amount or 0.0)
+        carry_amount += (self.opening_carry_early_checkout_amount or 0.0)
+        carry_amount -= (self.opening_carry_overtime_amount or 0.0)
 
         self.carry_forward_absence_amount = carry_absence_amount
         self.carry_forward_late_amount = carry_late_amount
