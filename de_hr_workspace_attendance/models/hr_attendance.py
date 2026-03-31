@@ -40,7 +40,7 @@ class HrAttendance(models.Model):
     def _get_local_checkin_and_cutoff(self, employee, check_in):
         employee_tz = employee.tz or self.env.user.tz or 'UTC'
         local_check_in = fields.Datetime.context_timestamp(self.with_context(tz=employee_tz), check_in)
-        cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+        cutoff_hour, cutoff_minute, machine_grace_minutes, normalize_minute_delta = self._get_cutoff_policy_values()
         local_cutoff = local_check_in.replace(hour=cutoff_hour, minute=cutoff_minute, second=0, microsecond=0)
         return local_check_in, local_cutoff
 
@@ -70,7 +70,7 @@ class HrAttendance(models.Model):
                 check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
                 late_minutes = self._get_late_minutes(employee, check_in_dt)
                 if late_minutes > 0:
-                    cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+                    cutoff_hour, cutoff_minute, machine_grace_minutes, normalize_minute_delta = self._get_cutoff_policy_values()
                     raise ValidationError(_(
                         'Cannot create attendance after %02d:%02d as per company policy. '
                         'This late attendance will be removed by cleanup policy.'
@@ -84,7 +84,7 @@ class HrAttendance(models.Model):
             for rec in self:
                 late_minutes = self._get_late_minutes(rec.employee_id, check_in_dt)
                 if late_minutes > 0:
-                    cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+                    cutoff_hour, cutoff_minute, machine_grace_minutes, normalize_minute_delta = self._get_cutoff_policy_values()
                     raise ValidationError(_(
                         'Cannot set attendance check-in after %02d:%02d as per company policy.'
                     ) % (cutoff_hour, cutoff_minute))
