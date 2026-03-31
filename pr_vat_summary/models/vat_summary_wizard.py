@@ -296,8 +296,8 @@ class VatSummaryWizard(models.TransientModel):
 
         sections = [
             ("Vated - Sales / Revenue", details["vated_sales"]),
-            ("Vated - Purchases / Expenses", details["vated_purchases"]),
             ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("Vated - Purchases / Expenses", details["vated_purchases"]),
             ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
         ]
         all_lines = []
