@@ -18,6 +18,7 @@
     'data': [
         'security/ir.model.access.csv',
         'security/record_rules.xml',
+        'data/ir_cron.xml',
         'views/hr_attendance_views.xml',
         'views/hr_shortage_request.xml',
         'views/hr_approval_dashboard.xml',
