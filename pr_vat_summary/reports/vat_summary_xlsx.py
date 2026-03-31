@@ -87,6 +87,15 @@ class VatSummaryXlsx(models.AbstractModel):
             "valign": "vcenter",
             "font_size": 14
         })
+        report_header_fmt = workbook.add_format({
+            "bold": True,
+            "border": 1,
+            "align": "center",
+            "valign": "vcenter",
+            "bg_color": "#1F497D",
+            "font_color": "white",
+            "font_size": 12,
+        })
 
         cell_right = workbook.add_format({
             "border": 2,
@@ -123,17 +132,28 @@ class VatSummaryXlsx(models.AbstractModel):
         sheet.set_column(1, 3, 26)
         sheet.set_column(4, 6, 18)
 
-        # ---------------------------------------------
-        # TITLE ROW (Merged across 5 columns)
-        # ---------------------------------------------
-        sheet.merge_range(0, 0, 0, 6,
-                          f"VAT Report {wizard.date_start} to {wizard.date_end}",
-                          title_fmt)
+        company = wizard.company_id
+        vat_no = company.vat or ""
+        sheet.merge_range(
+            0, 0, 0, 6,
+            f"{company.name} - VAT Number {vat_no}",
+            report_header_fmt
+        )
+        sheet.merge_range(
+            1, 0, 1, 6,
+            "Statement of VAT Summary",
+            report_header_fmt
+        )
+        sheet.merge_range(
+            2, 0, 2, 6,
+            f"Period: {wizard.date_start.strftime('%d-%b-%Y')} to {wizard.date_end.strftime('%d-%b-%Y')}",
+            report_header_fmt
+        )
 
         # ---------------------------------------------
         # HEADER ROW
         # ---------------------------------------------
-        row = 2
+        row = 4
         sheet.write(row, 0, "Sr. No", header_fmt)
         sheet.merge_range(row, 1, row, 3, "Description", header_fmt)
         sheet.write(row, 4, "Amount", header_fmt)
