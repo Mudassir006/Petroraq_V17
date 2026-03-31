@@ -6,6 +6,49 @@ class VatSummaryXlsx(models.AbstractModel):
     _name = "report.pr_vat_summary.vat_summary_xlsx"
     _inherit = "report.report_xlsx.abstract"
 
+    def _write_detail_section(self, sheet, row, title, details, header_fmt, cell_left, cell_right, section_fmt):
+        sheet.merge_range(row, 0, row, 6, title, header_fmt)
+        row += 1
+        headers = ["Journal Entry", "Reference", "Date", "Description", "Amount", "VAT Amount", "Total Amount"]
+        for col, value in enumerate(headers):
+            sheet.write(row, col, value, header_fmt)
+        row += 1
+
+        sections = [
+            ("Vated - Sales / Revenue", details["vated_sales"]),
+            ("Vated - Purchases / Expenses", details["vated_purchases"]),
+            ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
+        ]
+        all_lines = []
+        for section_title, lines in sections:
+            all_lines.extend(lines)
+            sheet.merge_range(row, 0, row, 6, section_title, section_fmt)
+            row += 1
+            if not lines:
+                sheet.merge_range(row, 0, row, 6, "No lines", cell_left)
+                row += 1
+                continue
+            for line in lines:
+                sheet.write(row, 0, line.get("entry", ""), cell_left)
+                sheet.write(row, 1, line.get("reference", ""), cell_left)
+                sheet.write(row, 2, str(line.get("date", "")), cell_left)
+                sheet.write(row, 3, line.get("label", ""), cell_left)
+                sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
+                sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
+                sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
+                row += 1
+
+        total = sum(line.get("amount", 0.0) for line in all_lines)
+        vat_total = sum(line.get("vat_amount", 0.0) for line in all_lines)
+        grand_total = sum(line.get("total_amount", 0.0) for line in all_lines)
+        sheet.merge_range(row, 0, row, 3, "Total", cell_left)
+        sheet.write_number(row, 4, total, cell_right)
+        sheet.write_number(row, 5, vat_total, cell_right)
+        sheet.write_number(row, 6, grand_total, cell_right)
+        row += 2
+        return row
+
     def generate_xlsx_report(self, workbook, data, wizards):
         wizard = wizards[0]
 
@@ -149,3 +192,16 @@ class VatSummaryXlsx(models.AbstractModel):
         sheet.write_number(row, 2, amount_total, total_fmt)
         sheet.write_number(row, 3, vat_total, total_fmt)
         sheet.write_number(row, 4, grand_total, total_fmt)
+
+        if wizard.is_detailed:
+            details = wizard._prepare_detailed_lines()
+            row += 2
+            sheet.set_column(0, 0, 20)
+            sheet.set_column(1, 1, 20)
+            sheet.set_column(2, 2, 14)
+            sheet.set_column(3, 3, 40)
+            sheet.set_column(4, 6, 18)
+            self._write_detail_section(
+                sheet, row, "Detailed Transactions", details,
+                header_fmt, cell_left, cell_right, section_fmt,
+            )
