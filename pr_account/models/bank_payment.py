@@ -170,11 +170,15 @@ class AccountBankPayment(models.Model):
     def action_post(self):
         for bank_payment in self:
             if bank_payment.bank_payment_line_ids:
+                forced_journal = self.env["account.journal"].browse(3).exists()
+                if not forced_journal:
+                    raise ValidationError(_("Required Journal (ID: 3) was not found."))
                 journal_entry_id = self.env['account.move'].create({
                     # 'name': bank_payment.name,
                     'ref': bank_payment.name,
                     'date': bank_payment.accounting_date,
                     'move_type': 'entry',
+                    'journal_id': forced_journal.id,
                     # 'line_ids': line_ids,
                 })
                 if journal_entry_id:

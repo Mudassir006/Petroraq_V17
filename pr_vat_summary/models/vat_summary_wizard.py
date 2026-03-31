@@ -3,6 +3,7 @@ from odoo import models, fields, api
 from odoo.exceptions import UserError
 from datetime import date
 from dateutil.relativedelta import relativedelta
+from markupsafe import escape
 
 
 class VatSummaryWizard(models.TransientModel):
@@ -58,6 +59,7 @@ class VatSummaryWizard(models.TransientModel):
     )
 
     summary_html = fields.Html(readonly=True)
+    is_detailed = fields.Boolean(string="Is Detailed", default=False)
 
     # -------------------------------------------------------------------------
     # Auto Compute Date Range
@@ -227,6 +229,118 @@ class VatSummaryWizard(models.TransientModel):
         # total_vat_payable = Sales VAT - Purchase VAT (abs for display)
         self.total_vat_payable = abs(sales_vat) - abs(pur_vat)
 
+    def _prepare_detail_line_vals(self, line, amount, vat_amount=0.0):
+        return {
+            "date": line.date or "",
+            "entry": line.move_id.name or line.move_name or "",
+            "reference": line.move_id.ref or "",
+            "account": f"{line.account_id.code or ''} {line.account_id.name or ''}".strip(),
+            "partner": line.partner_id.name or "",
+            "label": line.name or "",
+            "amount": amount or 0.0,
+            "vat_amount": vat_amount or 0.0,
+            "total_amount": (amount or 0.0) + (vat_amount or 0.0),
+        }
+
+    def _prepare_detailed_lines(self):
+        """Collect detailed base lines grouped by vated/non-vated and sales/purchase."""
+        self.ensure_one()
+        aml = self.env["account.move.line"]
+        base_domain = self._base_domain()
+
+        detail_lines = aml.search(base_domain + [
+            ("tax_line_id", "=", False),
+            ("account_id.account_type", "in", ["income", "other_income", "expense", "cost_of_revenue"]),
+        ], order="date, move_id, id")
+
+        details = {
+            "vated_sales": [],
+            "vated_purchases": [],
+            "non_vated_sales": [],
+            "non_vated_purchases": [],
+        }
+        for line in detail_lines:
+            amount = abs(line.balance)
+            vat_amount = 0.0
+            for tax in line.tax_ids:
+                if tax.amount_type in ("percent", "division"):
+                    vat_amount += abs(amount * tax.amount / 100.0)
+            line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
+            if line.account_id.account_type in ["income", "other_income"]:
+                if line.tax_ids:
+                    details["vated_sales"].append(line_vals)
+                else:
+                    details["non_vated_sales"].append(line_vals)
+            else:
+                if line.tax_ids:
+                    details["vated_purchases"].append(line_vals)
+                else:
+                    details["non_vated_purchases"].append(line_vals)
+
+        return details
+
+    def _prepare_detailed_html(self, details):
+        html = "<br/><h3>Detailed Breakdown</h3>"
+        html += """
+        <table style='width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;'>
+            <tr>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Journal Entry</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Reference</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Date</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Description</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Amount</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>VAT Amount</th>
+                <th style='border:1px solid #000;padding:5px;background:#efefef;'>Total Amount</th>
+            </tr>
+        """
+
+        sections = [
+            ("Vated - Sales / Revenue", details["vated_sales"]),
+            ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("Vated - Purchases / Expenses", details["vated_purchases"]),
+            ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
+        ]
+        all_lines = []
+        for title, lines in sections:
+            all_lines.extend(lines)
+            html += f"""
+            <tr>
+                <td colspan='7' style='border:1px solid #000;padding:5px;background:#f5f5f5;font-weight:bold;'>
+                    {escape(title)}
+                </td>
+            </tr>
+            """
+            if not lines:
+                html += """
+                <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
+                """
+                continue
+            for line in lines:
+                html += f"""
+                <tr>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['entry'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['reference'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['date'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['label'])}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['amount']:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['vat_amount']:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['total_amount']:,.2f}</td>
+                </tr>
+                """
+        amount_total = sum(l["amount"] for l in all_lines)
+        vat_total = sum(l["vat_amount"] for l in all_lines)
+        grand_total = sum(l["total_amount"] for l in all_lines)
+        html += f"""
+            <tr>
+                <td colspan='4' style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>Total</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>{amount_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>{vat_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>{grand_total:,.2f}</td>
+            </tr>
+        </table>
+        """
+        return html
+
     # -------------------------------------------------------------------------
     # Actions
     # -------------------------------------------------------------------------
@@ -339,6 +453,9 @@ class VatSummaryWizard(models.TransientModel):
 
         </table>
         """
+
+        if self.is_detailed:
+            html += self._prepare_detailed_html(self._prepare_detailed_lines())
 
         self.summary_html = html
 
