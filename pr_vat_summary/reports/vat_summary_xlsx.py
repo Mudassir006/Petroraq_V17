@@ -7,15 +7,15 @@ class VatSummaryXlsx(models.AbstractModel):
     _inherit = "report.report_xlsx.abstract"
 
     def _write_detail_section(self, sheet, row, title, lines, header_fmt, cell_left, cell_right):
-        sheet.merge_range(row, 0, row, 5, title, header_fmt)
+        sheet.merge_range(row, 0, row, 6, title, header_fmt)
         row += 1
-        headers = ["Date", "Entry", "Account", "Partner", "Label", "Amount"]
+        headers = ["Date", "Entry", "Account", "Partner", "Label", "Amount", "VAT Amount"]
         for col, value in enumerate(headers):
             sheet.write(row, col, value, header_fmt)
         row += 1
 
         if not lines:
-            sheet.merge_range(row, 0, row, 5, "No lines", cell_left)
+            sheet.merge_range(row, 0, row, 6, "No lines", cell_left)
             row += 1
         else:
             for line in lines:
@@ -25,11 +25,14 @@ class VatSummaryXlsx(models.AbstractModel):
                 sheet.write(row, 3, line.get("partner", ""), cell_left)
                 sheet.write(row, 4, line.get("label", ""), cell_left)
                 sheet.write_number(row, 5, line.get("amount", 0.0), cell_right)
+                sheet.write_number(row, 6, line.get("vat_amount", 0.0), cell_right)
                 row += 1
 
         total = sum(line.get("amount", 0.0) for line in lines)
+        vat_total = sum(line.get("vat_amount", 0.0) for line in lines)
         sheet.merge_range(row, 0, row, 4, "Total", cell_left)
         sheet.write_number(row, 5, total, cell_right)
+        sheet.write_number(row, 6, vat_total, cell_right)
         row += 2
         return row
 
@@ -180,7 +183,7 @@ class VatSummaryXlsx(models.AbstractModel):
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()
             row += 2
-            sheet.set_column(5, 5, 18)
+            sheet.set_column(5, 6, 18)
             row = self._write_detail_section(
                 sheet, row, "Detailed - Vated Sales / Revenue", details["vated_sales"],
                 header_fmt, cell_left, cell_right,

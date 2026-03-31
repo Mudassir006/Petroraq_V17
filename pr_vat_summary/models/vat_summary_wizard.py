@@ -229,7 +229,7 @@ class VatSummaryWizard(models.TransientModel):
         # total_vat_payable = Sales VAT - Purchase VAT (abs for display)
         self.total_vat_payable = abs(sales_vat) - abs(pur_vat)
 
-    def _prepare_detail_line_vals(self, line, amount):
+    def _prepare_detail_line_vals(self, line, amount, vat_amount=0.0):
         return {
             "date": line.date or "",
             "entry": line.move_id.name or line.move_name or "",
@@ -237,6 +237,7 @@ class VatSummaryWizard(models.TransientModel):
             "partner": line.partner_id.name or "",
             "label": line.name or "",
             "amount": amount or 0.0,
+            "vat_amount": vat_amount or 0.0,
         }
 
     def _prepare_detailed_lines(self):
@@ -259,7 +260,7 @@ class VatSummaryWizard(models.TransientModel):
             tax = line.tax_line_id
             if not tax:
                 continue
-            vals = self._prepare_detail_line_vals(line, line.balance)
+            vals = self._prepare_detail_line_vals(line, line.balance, line.balance)
             if tax.type_tax_use == "sale":
                 details["sales_vat"].append(vals)
             elif tax.type_tax_use == "purchase":
@@ -311,11 +312,12 @@ class VatSummaryWizard(models.TransientModel):
                     <th style='border:1px solid #000;padding:5px;background:#efefef;'>Partner</th>
                     <th style='border:1px solid #000;padding:5px;background:#efefef;'>Label</th>
                     <th style='border:1px solid #000;padding:5px;background:#efefef;'>Amount</th>
+                    <th style='border:1px solid #000;padding:5px;background:#efefef;'>VAT Amount</th>
                 </tr>
             """
             if not lines:
                 html += """
-                <tr><td colspan='6' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
+                <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
                 """
             for line in lines:
                 html += f"""
@@ -326,13 +328,16 @@ class VatSummaryWizard(models.TransientModel):
                     <td style='border:1px solid #000;padding:5px;'>{escape(line['partner'])}</td>
                     <td style='border:1px solid #000;padding:5px;'>{escape(line['label'])}</td>
                     <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['amount']:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['vat_amount']:,.2f}</td>
                 </tr>
                 """
             total = sum(l["amount"] for l in lines)
+            vat_total = sum(l["vat_amount"] for l in lines)
             html += f"""
                 <tr>
                     <td colspan='5' style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>Total</td>
                     <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>{total:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>{vat_total:,.2f}</td>
                 </tr>
             </table>
             """
