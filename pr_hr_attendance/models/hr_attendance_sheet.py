@@ -75,62 +75,10 @@ class HrAttendanceSheet(models.Model):
         return res
 
 
-    def _get_absence_grace_minutes(self):
-        return int(self.env['ir.config_parameter'].sudo().get_param(
-            'pr_hr_attendance.absence_grace_minutes',
-            default='3'
-        ))
-
-    def _get_grace_adjust_minutes(self):
-        return float(self.env['ir.config_parameter'].sudo().get_param(
-            'pr_hr_attendance.grace_adjust_minutes',
-            default='1'
-        ))
-
-    def _apply_late_cutoff_policy(self, line):
-        """Apply grace-and-cutoff policy before late/shortage/overtime calculations."""
-        if not line.ac_sign_in or not line.pl_sign_in:
-            return
-        if line.status in ('weekend', 'ph', 'leave'):
-            return
-
-        grace_minutes = self._get_absence_grace_minutes()
-        adjust_minutes = self._get_grace_adjust_minutes()
-        late_minutes = (line.ac_sign_in - line.pl_sign_in) * 60.0
-
-        if late_minutes <= 0:
-            return
-
-        if late_minutes <= grace_minutes:
-            normalized_sign_in = max(line.pl_sign_in - (adjust_minutes / 60.0), 0.0)
-            sign_in_diff = line.ac_sign_in - normalized_sign_in
-            line.ac_sign_in = normalized_sign_in
-            if line.ac_sign_out:
-                line.ac_sign_out = max(line.ac_sign_out - sign_in_diff, line.ac_sign_in)
-            line.worked_hours = max((line.ac_sign_out or 0.0) - line.ac_sign_in, 0.0)
-            line.late_in = 0.0
-            line.late_in_minutes = 0.0
-            return
-
-        line.status = 'ab'
-        line.ac_sign_in = 0.0
-        line.ac_sign_out = 0.0
-        line.worked_hours = 0.0
-        line.act_overtime = 0.0
-        line.overtime = 0.0
-        line.late_in = 0.0
-        line.late_in_minutes = 0.0
-        line.early_check_out = 0.0
-        line.early_check_out_minutes = 0.0
-        line.diff_time = 0.0
-
     def get_attendances(self):
         res = super().get_attendances()
         for att_sheet in self:
             for line in att_sheet.line_ids:
-                self._apply_late_cutoff_policy(line)
-                if line.status == "ab":
-                    continue
                 if line.ac_sign_in:
                     if line.pl_sign_in != 0:
                         if line.pl_sign_in + 1 >= line.ac_sign_in >= line.pl_sign_in - 1:
