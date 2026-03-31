@@ -295,6 +295,12 @@ class HrPayslip(models.Model):
                 for salary_rule_line_id in payslip.employee_id.contract_id.contract_salary_rule_ids:
                     if salary_rule_line_id.pay_in_payslip:
                         salary_rule_id = salary_rule_line_id.sudo().salary_rule_id.sudo()
+                        base_amount = salary_rule_line_id.sudo().amount or 0.0
+                        eligible_amount = self._compute_attendance_eligible_amount(
+                            payslip,
+                            salary_rule_id,
+                            base_amount,
+                        )
                         line_vals.append({
                             'sequence': salary_rule_id.sequence,
                             'code': salary_rule_id.code,
@@ -302,10 +308,10 @@ class HrPayslip(models.Model):
                             'salary_rule_id': salary_rule_id.id,
                             'contract_id': payslip.employee_id.contract_id.id,
                             'employee_id': payslip.employee_id.id,
-                            'amount': salary_rule_line_id.sudo().amount or 0,
+                            'amount': eligible_amount,
                             'quantity': 1,
                             'rate': 100,
-                            'total': salary_rule_line_id.sudo().amount or 0,
+                            'total': eligible_amount,
                             'slip_id': payslip.id,
                         })
 
@@ -353,6 +359,37 @@ class HrPayslip(models.Model):
                     val_line["amount"] = gross_amount
                     val_line["total"] = gross_amount
         return line_vals
+
+
+    def _compute_attendance_eligible_amount(self, payslip, salary_rule, base_amount):
+        """Prorate contract rule amount based on attendance eligibility in the payslip period."""
+        if not salary_rule.attendance_based_eligibility:
+            return base_amount
+
+        att_sheet = payslip.attendance_sheet_id
+        if not att_sheet:
+            return 0.0
+
+        sheet_lines = att_sheet.line_ids.filtered(
+            lambda l: payslip.date_from <= l.date <= payslip.date_to and (not l.status or l.status == 'ab')
+        )
+        considered_days = len(sheet_lines)
+        if not considered_days:
+            return 0.0
+
+        min_hours = salary_rule.attendance_min_worked_hours or 0.0
+        require_presence = salary_rule.attendance_require_presence
+
+        eligible_days = 0
+        for line in sheet_lines:
+            is_absent = line.status == 'ab'
+            if require_presence and is_absent:
+                continue
+            if line.worked_hours >= min_hours:
+                eligible_days += 1
+
+        return (base_amount * eligible_days / considered_days) if considered_days else 0.0
+
 
     def check_payslip_dates(self):
         for payslip in self:
