@@ -60,16 +60,19 @@ class ApprovalDashboard extends Component {
 
     randomGradient() {
         const gradients = [
-            ["#1C77C3", "#39A9DB"],
-            ["#5AA9E6", "#7FC8F8"],
-            ["#A0D2DB", "#BEE7E8"],
-            ["#838791", "#AAC0AF"],
-            ["#D3FAD6", "#D1EFB5"],
-            ["#F7E3AF", "#F3EEC3"],
-            ["#227C9D", "#17C3B2"],
-            ["#0B4F6E", "#145C9E"],
-            ["#EFECCA", "#A9CBB7"],
-            ["#1E3888", "#47A8BD"],
+            ["#2F4858", "#122AA0"],
+            ["#2C302E", "#474A48"],
+            ["#07004D", "#2D82B7"],
+            ["#1B4079", "#4D7C8A"],
+            ["#122AA0", "#657153"],
+            ["#5CC8FF", "#122AA0"],
+            ["#1D2F6F", "#F88DAD"],
+            ["#4D5057", "#4E6E5D"],
+            ["#593C8F", "#171738"],
+            ["#122AA0", "#2AB7CA"],
+            ["#122AA0", "#AF7A6D"],
+            ["#B33951", "#54494B"],
+            ["#4C2A85", "#253C78"],
         ];
         const [fromColor, toColor] = gradients[Math.floor(Math.random() * gradients.length)];
         return `linear-gradient(135deg, ${fromColor}, ${toColor})`;

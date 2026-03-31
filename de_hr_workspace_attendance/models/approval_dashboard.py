@@ -1,5 +1,6 @@
 from odoo import _, api, models
 from odoo.tools.safe_eval import safe_eval
+from odoo.osv import expression
 
 
 class HrApprovalDashboardService(models.AbstractModel):
@@ -15,12 +16,21 @@ class HrApprovalDashboardService(models.AbstractModel):
         if not parent:
             return self.env["ir.ui.menu"]
 
-        menus = self.env["ir.ui.menu"].sudo().search([
+        menus = self.env["ir.ui.menu"].search([
             ("id", "child_of", parent.id),
             ("id", "!=", parent.id),
         ], order="sequence, id")
 
-        return menus.filtered(lambda m: bool(m.sudo().action))
+        filter_visible = getattr(self.env["ir.ui.menu"], "_filter_visible_menus", None)
+        if filter_visible:
+            menus = menus._filter_visible_menus()
+        else:
+            user_groups = self.env.user.groups_id
+            menus = menus.filtered(
+                lambda m: not m.groups_id or bool(m.groups_id & user_groups)
+            )
+
+        return menus.filtered(lambda m: bool(m.action))
 
     @api.model
     def _domain_from_action(self, action):
@@ -56,10 +66,33 @@ class HrApprovalDashboardService(models.AbstractModel):
         ]
 
     @api.model
+    def _leave_request_pending_domain(self):
+        user = self.env.user
+        role_domains = [
+            [("employee_manager_id.user_id", "=", self.env.uid), ("state", "=", "draft")],
+            [("state", "=", "cancel_request")],
+        ]
+
+        if user.has_group("hr_holidays.group_hr_holidays_manager"):
+            role_domains.append([
+                ("state", "=", "hr_supervisor"),
+                ("hr_manager_ids", "in", self.env.uid),
+            ])
+        if user.has_group("pr_hr_holidays.custom_group_hr_holidays_supervisor"):
+            role_domains.append([
+                ("state", "=", "manager_approve"),
+                ("hr_supervisor_ids", "in", self.env.uid),
+            ])
+
+        return expression.OR(role_domains)
+
+    @api.model
     def _override_domain_for_menu(self, menu, action, domain):
         menu_name = (menu.name or "").lower()
         if action.res_model == "pr.hr.shortage.request" or "shortage" in menu_name:
             return self._shortage_pending_domain()
+        if action.res_model == "pr.hr.leave.request":
+            return self._leave_request_pending_domain()
         if action.res_model == "hr.leave" or "leave" in menu_name:
             return self._leave_pending_domain()
         return domain
