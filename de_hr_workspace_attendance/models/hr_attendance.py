@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from odoo import api, fields, models, _, SUPERUSER_ID
 from odoo.tools import date_utils
 from dateutil.relativedelta import relativedelta
+from odoo.exceptions import ValidationError
 
 
 class HrAttendance(models.Model):
@@ -32,61 +33,86 @@ class HrAttendance(models.Model):
         params = self.env['ir.config_parameter'].sudo()
         cutoff_hour = int(params.get_param('pr_hr_attendance.absence_cutoff_hour', default='9'))
         cutoff_minute = int(params.get_param('pr_hr_attendance.absence_cutoff_minute', default='0'))
-        grace_minutes = int(params.get_param('pr_hr_attendance.absence_grace_minutes', default='0'))
+        machine_grace_minutes = int(params.get_param('pr_hr_attendance.machine_grace_minutes', default='3'))
         normalize_minute_delta = int(params.get_param('pr_hr_attendance.grace_normalize_minutes', default='1'))
-        return cutoff_hour, cutoff_minute, grace_minutes, normalize_minute_delta
+        return cutoff_hour, cutoff_minute, machine_grace_minutes, normalize_minute_delta
 
-    def _apply_checkin_cutoff_policy(self, employee, check_in):
-        """Return normalized check_in or False (reject attendance) based on cutoff policy."""
-        if not employee or not check_in:
-            return check_in
-
-        cutoff_hour, cutoff_minute, grace_minutes, normalize_minute_delta = self._get_cutoff_policy_values()
+    def _get_local_checkin_and_cutoff(self, employee, check_in):
         employee_tz = employee.tz or self.env.user.tz or 'UTC'
         local_check_in = fields.Datetime.context_timestamp(self.with_context(tz=employee_tz), check_in)
-        local_cutoff = local_check_in.replace(
-            hour=cutoff_hour,
-            minute=cutoff_minute,
-            second=0,
-            microsecond=0,
-        )
+        cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+        local_cutoff = local_check_in.replace(hour=cutoff_hour, minute=cutoff_minute, second=0, microsecond=0)
+        return local_check_in, local_cutoff
 
+    def _get_late_minutes(self, employee, check_in):
+        local_check_in, local_cutoff = self._get_local_checkin_and_cutoff(employee, check_in)
         if local_check_in <= local_cutoff:
-            return check_in
+            return 0.0
+        return (local_check_in - local_cutoff).total_seconds() / 60.0
 
-        late_minutes = (local_check_in - local_cutoff).total_seconds() / 60.0
-        if grace_minutes and late_minutes <= grace_minutes:
+    def _normalize_machine_checkin(self, employee, check_in):
+        local_check_in, local_cutoff = self._get_local_checkin_and_cutoff(employee, check_in)
+        _, _, machine_grace_minutes, normalize_minute_delta = self._get_cutoff_policy_values()
+        late_minutes = self._get_late_minutes(employee, check_in)
+        if late_minutes <= 0:
+            return check_in
+        if late_minutes <= machine_grace_minutes:
             normalized_local = local_cutoff - timedelta(minutes=normalize_minute_delta)
             return fields.Datetime.to_datetime(normalized_local.astimezone(timezone.utc).replace(tzinfo=None))
-
         return False
 
     @api.model_create_multi
     def create(self, vals_list):
-        records = self.browse()
+        sync_from_device = self.env.context.get('sync_from_device', False)
         for vals in vals_list:
             employee = self.env['hr.employee'].browse(vals.get('employee_id')) if vals.get('employee_id') else False
-            if vals.get('check_in') and employee:
+            if vals.get('check_in') and employee and not sync_from_device:
                 check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
-                normalized_check_in = self._apply_checkin_cutoff_policy(employee, check_in_dt)
-                if not normalized_check_in:
-                    continue
-                vals['check_in'] = fields.Datetime.to_string(normalized_check_in)
-            records |= super(HrAttendance, self).create([vals])
-        return records
+                late_minutes = self._get_late_minutes(employee, check_in_dt)
+                if late_minutes > 0:
+                    cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+                    raise ValidationError(_(
+                        'Cannot create attendance after %02d:%02d as per company policy. '
+                        'This late attendance will be removed by cleanup policy.'
+                    ) % (cutoff_hour, cutoff_minute))
+        return super().create(vals_list)
 
     def write(self, vals):
-        if vals.get('check_in'):
+        sync_from_device = self.env.context.get('sync_from_device', False)
+        if vals.get('check_in') and not sync_from_device:
+            check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
             for rec in self:
-                employee = rec.employee_id
-                check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
-                normalized_check_in = self._apply_checkin_cutoff_policy(employee, check_in_dt)
-                if not normalized_check_in:
-                    rec.unlink()
-                    continue
-                super(HrAttendance, rec).write({**vals, 'check_in': fields.Datetime.to_string(normalized_check_in)})
-            return True
+                late_minutes = self._get_late_minutes(rec.employee_id, check_in_dt)
+                if late_minutes > 0:
+                    cutoff_hour, cutoff_minute, _, _ = self._get_cutoff_policy_values()
+                    raise ValidationError(_(
+                        'Cannot set attendance check-in after %02d:%02d as per company policy.'
+                    ) % (cutoff_hour, cutoff_minute))
         return super().write(vals)
+
+    @api.model
+    def cron_cleanup_late_machine_attendance(self):
+        """Cleanup machine-synced late attendances: normalize grace entries, remove others."""
+        today = fields.Date.context_today(self)
+        day_start = datetime.combine(today, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+
+        attendances = self.search([
+            ('check_in', '>=', fields.Datetime.to_string(day_start)),
+            ('check_in', '<', fields.Datetime.to_string(day_end)),
+        ])
+
+        for attendance in attendances:
+            if not attendance.employee_id or not attendance.check_in:
+                continue
+
+            normalized_check_in = self._normalize_machine_checkin(attendance.employee_id, attendance.check_in)
+            if not normalized_check_in:
+                attendance.unlink()
+                continue
+
+            if normalized_check_in != attendance.check_in:
+                attendance.write({'check_in': fields.Datetime.to_string(normalized_check_in)})
 
     @api.depends("employee_id", 'check_in', 'check_out', "worked_hours", "employee_id.resource_calendar_id")
     def _compute_shortage_time_text(self):
