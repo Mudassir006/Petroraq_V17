@@ -243,7 +243,7 @@ class VatSummaryWizard(models.TransientModel):
         }
 
     def _prepare_detailed_lines(self):
-        """Collect detailed base lines with amount, tax amount and total amount."""
+        """Collect detailed base lines grouped by vated/non-vated and sales/purchase."""
         self.ensure_one()
         aml = self.env["account.move.line"]
         base_domain = self._base_domain()
@@ -253,14 +253,29 @@ class VatSummaryWizard(models.TransientModel):
             ("account_id.account_type", "in", ["income", "other_income", "expense", "cost_of_revenue"]),
         ], order="date, move_id, id")
 
-        details = []
+        details = {
+            "vated_sales": [],
+            "vated_purchases": [],
+            "non_vated_sales": [],
+            "non_vated_purchases": [],
+        }
         for line in detail_lines:
             amount = abs(line.balance)
             vat_amount = 0.0
             for tax in line.tax_ids:
                 if tax.amount_type in ("percent", "division"):
                     vat_amount += abs(amount * tax.amount / 100.0)
-            details.append(self._prepare_detail_line_vals(line, amount, vat_amount))
+            line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
+            if line.account_id.account_type in ["income", "other_income"]:
+                if line.tax_ids:
+                    details["vated_sales"].append(line_vals)
+                else:
+                    details["non_vated_sales"].append(line_vals)
+            else:
+                if line.tax_ids:
+                    details["vated_purchases"].append(line_vals)
+                else:
+                    details["non_vated_purchases"].append(line_vals)
 
         return details
 
@@ -278,25 +293,43 @@ class VatSummaryWizard(models.TransientModel):
                 <th style='border:1px solid #000;padding:5px;background:#efefef;'>Total Amount</th>
             </tr>
         """
-        if not details:
-            html += """
-            <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
-            """
-        for line in details:
+
+        sections = [
+            ("Vated - Sales / Revenue", details["vated_sales"]),
+            ("Vated - Purchases / Expenses", details["vated_purchases"]),
+            ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
+        ]
+        all_lines = []
+        for title, lines in sections:
+            all_lines.extend(lines)
             html += f"""
             <tr>
-                <td style='border:1px solid #000;padding:5px;'>{escape(line['entry'])}</td>
-                <td style='border:1px solid #000;padding:5px;'>{escape(line['reference'])}</td>
-                <td style='border:1px solid #000;padding:5px;'>{escape(line['date'])}</td>
-                <td style='border:1px solid #000;padding:5px;'>{escape(line['label'])}</td>
-                <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['amount']:,.2f}</td>
-                <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['vat_amount']:,.2f}</td>
-                <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['total_amount']:,.2f}</td>
+                <td colspan='7' style='border:1px solid #000;padding:5px;background:#f5f5f5;font-weight:bold;'>
+                    {escape(title)}
+                </td>
             </tr>
             """
-        amount_total = sum(l["amount"] for l in details)
-        vat_total = sum(l["vat_amount"] for l in details)
-        grand_total = sum(l["total_amount"] for l in details)
+            if not lines:
+                html += """
+                <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
+                """
+                continue
+            for line in lines:
+                html += f"""
+                <tr>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['entry'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['reference'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['date'])}</td>
+                    <td style='border:1px solid #000;padding:5px;'>{escape(line['label'])}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['amount']:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['vat_amount']:,.2f}</td>
+                    <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['total_amount']:,.2f}</td>
+                </tr>
+                """
+        amount_total = sum(l["amount"] for l in all_lines)
+        vat_total = sum(l["vat_amount"] for l in all_lines)
+        grand_total = sum(l["total_amount"] for l in all_lines)
         html += f"""
             <tr>
                 <td colspan='4' style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;'>Total</td>
