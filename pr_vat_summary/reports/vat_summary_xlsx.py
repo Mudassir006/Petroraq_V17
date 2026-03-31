@@ -6,6 +6,33 @@ class VatSummaryXlsx(models.AbstractModel):
     _name = "report.pr_vat_summary.vat_summary_xlsx"
     _inherit = "report.report_xlsx.abstract"
 
+    def _write_detail_section(self, sheet, row, title, lines, header_fmt, cell_left, cell_right):
+        sheet.merge_range(row, 0, row, 5, title, header_fmt)
+        row += 1
+        headers = ["Date", "Entry", "Account", "Partner", "Label", "Amount"]
+        for col, value in enumerate(headers):
+            sheet.write(row, col, value, header_fmt)
+        row += 1
+
+        if not lines:
+            sheet.merge_range(row, 0, row, 5, "No lines", cell_left)
+            row += 1
+        else:
+            for line in lines:
+                sheet.write(row, 0, str(line.get("date", "")), cell_left)
+                sheet.write(row, 1, line.get("entry", ""), cell_left)
+                sheet.write(row, 2, line.get("account", ""), cell_left)
+                sheet.write(row, 3, line.get("partner", ""), cell_left)
+                sheet.write(row, 4, line.get("label", ""), cell_left)
+                sheet.write_number(row, 5, line.get("amount", 0.0), cell_right)
+                row += 1
+
+        total = sum(line.get("amount", 0.0) for line in lines)
+        sheet.merge_range(row, 0, row, 4, "Total", cell_left)
+        sheet.write_number(row, 5, total, cell_right)
+        row += 2
+        return row
+
     def generate_xlsx_report(self, workbook, data, wizards):
         wizard = wizards[0]
 
@@ -149,3 +176,32 @@ class VatSummaryXlsx(models.AbstractModel):
         sheet.write_number(row, 2, amount_total, total_fmt)
         sheet.write_number(row, 3, vat_total, total_fmt)
         sheet.write_number(row, 4, grand_total, total_fmt)
+
+        if wizard.is_detailed:
+            details = wizard._prepare_detailed_lines()
+            row += 2
+            sheet.set_column(5, 5, 18)
+            row = self._write_detail_section(
+                sheet, row, "Detailed - Vated Sales / Revenue", details["vated_sales"],
+                header_fmt, cell_left, cell_right,
+            )
+            row = self._write_detail_section(
+                sheet, row, "Detailed - Vated Purchases / Expenses", details["vated_purchases"],
+                header_fmt, cell_left, cell_right,
+            )
+            row = self._write_detail_section(
+                sheet, row, "Detailed - Non-Vated Sales / Revenue", details["non_vated_sales"],
+                header_fmt, cell_left, cell_right,
+            )
+            row = self._write_detail_section(
+                sheet, row, "Detailed - Non-Vated Purchases / Expenses", details["non_vated_purchases"],
+                header_fmt, cell_left, cell_right,
+            )
+            row = self._write_detail_section(
+                sheet, row, "Detailed - Sales VAT Lines", details["sales_vat"],
+                header_fmt, cell_left, cell_right,
+            )
+            self._write_detail_section(
+                sheet, row, "Detailed - Purchases VAT Lines", details["purchase_vat"],
+                header_fmt, cell_left, cell_right,
+            )
