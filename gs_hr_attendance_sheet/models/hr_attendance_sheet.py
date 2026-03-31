@@ -838,13 +838,18 @@ class AttendanceSheet(models.Model):
                 public_holiday.append(ph.id)
         return public_holiday
 
-    def _is_overtime_approved_for_day(self, employee, day_date):
+    def _is_overtime_approved_for_day(self, employee, day_date, tz):
         attendance_obj = self.env['hr.attendance']
+        day_start_local = tz.localize(datetime.combine(day_date, time.min))
+        day_end_local = tz.localize(datetime.combine(day_date, time.max))
+        day_start_utc = day_start_local.astimezone(pytz.utc).replace(tzinfo=None)
+        day_end_utc = day_end_local.astimezone(pytz.utc).replace(tzinfo=None)
         domain = [
             ('employee_id', '=', employee.id),
-            ('check_in', '>=', datetime.combine(day_date, time.min)),
-            ('check_in', '<=', datetime.combine(day_date, time.max)),
+            ('check_in', '<=', day_end_utc),
+            ('check_out', '>=', day_start_utc),
             ('overtime_approval_state', '=', 'approved'),
+            ('overtime_for_approval', '>', 0),
         ]
         return bool(attendance_obj.search_count(domain))
 
@@ -927,7 +932,7 @@ class AttendanceSheet(models.Model):
                                                       overtime_policy[
                                                           'ph_after']) * \
                                                      overtime_policy['ph_rate']
-                                if not self._is_overtime_approved_for_day(emp, day):
+                                if not self._is_overtime_approved_for_day(emp, day, tz):
                                     float_overtime = 0
                                     act_float_overtime = 0
                                 ac_sign_in = pytz.utc.localize(
@@ -1164,7 +1169,7 @@ class AttendanceSheet(models.Model):
                                 float_overtime = float_overtime * \
                                                  overtime_policy[
                                                      'wd_rate']
-                            if not self._is_overtime_approved_for_day(emp, day):
+                            if not self._is_overtime_approved_for_day(emp, day, tz):
                                 float_overtime = 0
                                 act_float_overtime = 0
                             float_late = late_in.total_seconds() / 3600
@@ -1227,7 +1232,7 @@ class AttendanceSheet(models.Model):
                                     act_float_overtime = float_overtime
                                     float_overtime = act_float_overtime * \
                                                      overtime_policy['wd_rate']
-                                if not self._is_overtime_approved_for_day(emp, day):
+                                if not self._is_overtime_approved_for_day(emp, day, tz):
                                     float_overtime = 0
                                     act_float_overtime = 0
                                 values = {
@@ -1264,7 +1269,7 @@ class AttendanceSheet(models.Model):
                                 act_float_overtime = float_overtime
                                 float_overtime = act_float_overtime * \
                                                  overtime_policy['we_rate']
-                            if not self._is_overtime_approved_for_day(emp, day):
+                            if not self._is_overtime_approved_for_day(emp, day, tz):
                                 float_overtime = 0
                                 act_float_overtime = 0
                             ac_sign_in = pytz.utc.localize(
