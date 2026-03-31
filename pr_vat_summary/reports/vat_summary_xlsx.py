@@ -16,8 +16,8 @@ class VatSummaryXlsx(models.AbstractModel):
 
         sections = [
             ("Vated - Sales / Revenue", details["vated_sales"]),
-            ("Vated - Purchases / Expenses", details["vated_purchases"]),
             ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("Vated - Purchases / Expenses", details["vated_purchases"]),
             ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
         ]
         all_lines = []
@@ -120,13 +120,13 @@ class VatSummaryXlsx(models.AbstractModel):
         # COLUMN WIDTHS
         # ---------------------------------------------
         sheet.set_column(0, 0, 8)
-        sheet.set_column(1, 1, 35)
-        sheet.set_column(2, 4, 18)
+        sheet.set_column(1, 3, 26)
+        sheet.set_column(4, 6, 18)
 
         # ---------------------------------------------
         # TITLE ROW (Merged across 5 columns)
         # ---------------------------------------------
-        sheet.merge_range(0, 0, 0, 4,
+        sheet.merge_range(0, 0, 0, 6,
                           f"VAT Report {wizard.date_start} to {wizard.date_end}",
                           title_fmt)
 
@@ -135,69 +135,69 @@ class VatSummaryXlsx(models.AbstractModel):
         # ---------------------------------------------
         row = 2
         sheet.write(row, 0, "Sr. No", header_fmt)
-        sheet.write(row, 1, "Description", header_fmt)
-        sheet.write(row, 2, "Amount", header_fmt)
-        sheet.write(row, 3, "VAT 15%", header_fmt)
-        sheet.write(row, 4, "Total", header_fmt)
+        sheet.merge_range(row, 1, row, 3, "Description", header_fmt)
+        sheet.write(row, 4, "Amount", header_fmt)
+        sheet.write(row, 5, "VAT 15%", header_fmt)
+        sheet.write(row, 6, "Total", header_fmt)
         row += 1
 
         # ---------------------------------------------
         # SALES SECTION
         # ---------------------------------------------
         sheet.write(row, 0, "1", section_fmt)
-        sheet.write(row, 1, "Sales:", section_fmt)
-        sheet.write(row, 2, "", section_fmt)
-        sheet.write(row, 3, "", section_fmt)
+        sheet.merge_range(row, 1, row, 3, "Sales:", section_fmt)
         sheet.write(row, 4, "", section_fmt)
+        sheet.write(row, 5, "", section_fmt)
+        sheet.write(row, 6, "", section_fmt)
         row += 1
 
         sheet.write(row, 0, "i", cell_center)
-        sheet.write(row, 1, "Sales Revenue / Income", cell_left)
-        sheet.write_number(row, 2, wizard.sales_amount, cell_right)
-        sheet.write_number(row, 3, sales_vat_abs, cell_right)
-        sheet.write_number(row, 4, sales_total, cell_right)
+        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income", cell_left)
+        sheet.write_number(row, 4, wizard.sales_amount, cell_right)
+        sheet.write_number(row, 5, sales_vat_abs, cell_right)
+        sheet.write_number(row, 6, sales_total, cell_right)
         row += 1
 
         # ---------------------------------------------
         # PURCHASES SECTION
         # ---------------------------------------------
         sheet.write(row, 0, "2", section_fmt)
-        sheet.write(row, 1, "Purchases :", section_fmt)
-        sheet.write(row, 2, "", section_fmt)
-        sheet.write(row, 3, "", section_fmt)
+        sheet.merge_range(row, 1, row, 3, "Purchases :", section_fmt)
         sheet.write(row, 4, "", section_fmt)
+        sheet.write(row, 5, "", section_fmt)
+        sheet.write(row, 6, "", section_fmt)
         row += 1
 
         sheet.write(row, 0, "i", cell_center)
-        sheet.write(row, 1, "Vated Purchase/Expenses", cell_left)
-        sheet.write_number(row, 2, wizard.vated_purchases_amount, cell_right)
-        sheet.write_number(row, 3, pur_vat_abs, cell_right)
-        sheet.write_number(row, 4, vated_pur_total, cell_right)
+        sheet.merge_range(row, 1, row, 3, "Vated Purchase/Expenses", cell_left)
+        sheet.write_number(row, 4, wizard.vated_purchases_amount, cell_right)
+        sheet.write_number(row, 5, pur_vat_abs, cell_right)
+        sheet.write_number(row, 6, vated_pur_total, cell_right)
         row += 1
 
         sheet.write(row, 0, "ii", cell_center)
-        sheet.write(row, 1, "Non Vated Purchase/Expenses", cell_left)
-        sheet.write_number(row, 2, wizard.non_vated_purchases_amount, cell_right)
-        sheet.write(row, 3, "-", cell_center)
-        sheet.write_number(row, 4, non_vated_total, cell_right)
+        sheet.merge_range(row, 1, row, 3, "Non Vated Purchase/Expenses", cell_left)
+        sheet.write_number(row, 4, wizard.non_vated_purchases_amount, cell_right)
+        sheet.write(row, 5, "-", cell_center)
+        sheet.write_number(row, 6, non_vated_total, cell_right)
         row += 1
 
         # ---------------------------------------------
         # FINAL TOTAL ROW (exact same as PDF/HTML)
         # ---------------------------------------------
-        sheet.merge_range(row, 0, row, 1,
+        sheet.merge_range(row, 0, row, 3,
                           "Total VAT Payable / Receivable",
                           section_fmt)
 
-        sheet.write_number(row, 2, amount_total, total_fmt)
-        sheet.write_number(row, 3, vat_total, total_fmt)
-        sheet.write_number(row, 4, grand_total, total_fmt)
+        sheet.write_number(row, 4, amount_total, total_fmt)
+        sheet.write_number(row, 5, vat_total, total_fmt)
+        sheet.write_number(row, 6, grand_total, total_fmt)
 
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()
             row += 2
             sheet.set_column(0, 0, 20)
-            sheet.set_column(1, 1, 20)
+            sheet.set_column(1, 1, 24)
             sheet.set_column(2, 2, 14)
             sheet.set_column(3, 3, 40)
             sheet.set_column(4, 6, 18)
