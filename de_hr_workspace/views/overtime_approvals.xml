@@ -2,9 +2,10 @@
 <odoo>
     <record id="de_hr_workspace_overtime_approvals_view_action" model="ir.actions.act_window">
         <field name="name">Overtime Approvals</field>
-        <field name="res_model">attendance.sheet</field>
+        <field name="res_model">attendance.sheet.line</field>
         <field name="view_mode">tree,form</field>
-        <field name="domain">[('overtime_approval_state', '=', 'pending')]</field>
+        <field name="view_id" ref="gs_hr_attendance_sheet.attendance_sheet_line_view_tree"/>
+        <field name="domain">[('overtime_approval_state', '=', 'pending'), ('overtime', '>', 0)]</field>
         <field name="context">{'create': False,'edit': False}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

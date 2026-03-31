@@ -183,6 +183,18 @@
                                     <field name="overtime"
                                            widget="float_time"
                                            sum="Total"/>
+                                    <field name="overtime_approval_state"/>
+                                    <button name="action_approve_overtime_line"
+                                            string="Approve OT"
+                                            type="object"
+                                            class="btn-primary"
+                                            invisible="overtime_approval_state != 'pending'"
+                                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+                                    <button name="action_reject_overtime_line"
+                                            string="Reject OT"
+                                            type="object"
+                                            invisible="overtime_approval_state != 'pending'"
+                                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
                                     <field name="overtime_amount" decoration-danger="1" column_invisible="1"/>
                                     <field name="act_diff_time"
                                            groups="base.group_no_one"
@@ -288,12 +300,26 @@
         <field name="model">attendance.sheet.line</field>
         <field name="arch" type="xml">
             <form string="Attendance Sheet Line">
+                <header>
+                    <button name="action_approve_overtime_line"
+                            string="Approve Overtime"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="overtime_approval_state != 'pending'"
+                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+                    <button name="action_reject_overtime_line"
+                            string="Reject Overtime"
+                            type="object"
+                            invisible="overtime_approval_state != 'pending'"
+                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+                </header>
                 <sheet>
                     <group>
                         <group>
                             <field name="employee_id"/>
                             <field name="date"/>
                             <field name="day"/>
+                            <field name="overtime_approval_state"/>
                         </group>
                     </group>
                     <group>
@@ -322,6 +348,33 @@
                     <field name="note"/>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="attendance_sheet_line_view_tree" model="ir.ui.view">
+        <field name="name">attendance.sheet.line.view.tree</field>
+        <field name="model">attendance.sheet.line</field>
+        <field name="arch" type="xml">
+            <tree create="0" edit="0">
+                <field name="employee_id"/>
+                <field name="att_sheet_id"/>
+                <field name="date"/>
+                <field name="worked_hours" widget="float_time"/>
+                <field name="overtime" widget="float_time"/>
+                <field name="overtime_amount"/>
+                <field name="overtime_approval_state"/>
+                <button name="action_approve_overtime_line"
+                        string="Approve OT"
+                        type="object"
+                        class="btn-primary"
+                        invisible="overtime_approval_state != 'pending'"
+                        groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+                <button name="action_reject_overtime_line"
+                        string="Reject OT"
+                        type="object"
+                        invisible="overtime_approval_state != 'pending'"
+                        groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+            </tree>
         </field>
     </record>
 
