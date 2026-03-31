@@ -7,17 +7,18 @@
         <field name="inherit_id" ref="hr_payroll.hr_salary_rule_form"/>
         <field name="arch" type="xml">
 
-            <xpath expr="//group[@name='general_information']" position="inside">
-                <group string="Attendance Eligibility">
-                    <field name="attendance_based_eligibility"/>
-                    <field name="attendance_min_worked_hours"
-                           attrs="{'invisible': [('attendance_based_eligibility', '=', False)], 'required': [('attendance_based_eligibility', '=', True)]}"/>
-                    <field name="attendance_require_presence"
-                           attrs="{'invisible': [('attendance_based_eligibility', '=', False)]}"/>
-                </group>
-            </xpath>
-
             <notebook position="inside">
+                <page name="attendance_eligibility" string="Attendance Eligibility">
+                    <group>
+                        <group>
+                            <field name="attendance_based_eligibility"/>
+                            <field name="attendance_min_worked_hours"
+                                   attrs="{'invisible': [('attendance_based_eligibility', '=', False)], 'required': [('attendance_based_eligibility', '=', True)]}"/>
+                            <field name="attendance_require_presence"
+                                   attrs="{'invisible': [('attendance_based_eligibility', '=', False)]}"/>
+                        </group>
+                    </group>
+                </page>
                 <page name="accounting_settings" string="Accounting Settings">
                     <group>
                         <group>
