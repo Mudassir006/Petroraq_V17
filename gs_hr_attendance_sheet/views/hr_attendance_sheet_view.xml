@@ -52,10 +52,28 @@
                             string="Approve" type="object"
                             class="oe_highlight"
                             groups="gs_hr_attendance_sheet.group_attendance_sheet_manager"/>
+                    <button name="action_submit_overtime_approval"
+                            invisible="state not in ('confirm','done') or overtime_approval_state != 'rejected'"
+                            string="Resubmit Overtime"
+                            type="object"
+                            class="oe_highlight"/>
+                    <button name="action_approve_overtime"
+                            invisible="state not in ('confirm','done') or overtime_approval_state != 'pending'"
+                            string="Approve Overtime"
+                            type="object"
+                            class="oe_highlight"
+                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
+                    <button name="action_reject_overtime"
+                            invisible="state not in ('confirm','done') or overtime_approval_state != 'pending'"
+                            string="Reject Overtime"
+                            type="object"
+                            groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
                     <button name="action_draft" invisible="state != 'confirm'"
                             string="Set to Draft" type="object"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,confirm,done"/>
+                    <field name="overtime_approval_state" widget="statusbar"
+                           statusbar_visible="not_required,pending,approved,rejected"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -105,6 +123,7 @@
                         <field name="opening_carry_early_checkout_amount" readonly="state  != 'draft'"/>
                         <field name="opening_carry_overtime_amount" readonly="state  != 'draft'"/>
                         <field name="contract_id"/>
+                        <field name="has_overtime" invisible="1"/>
                         <field name="predictive_mode"
                                readonly="state  != 'draft'"/>
                         <field name="predictive_cutoff_date"
@@ -190,6 +209,10 @@
                                     <field name="tot_overtime"
                                            widget="float_time"/>
                                     <field name="tot_overtime_amount" style="color: green;"/>
+                                    <field name="approved_overtime_hours"
+                                           widget="float_time"
+                                           readonly="1"/>
+                                    <field name="approved_overtime_amount" readonly="1"/>
                                 </group>
                                 <group string="Late In" name="late_in_group">
                                     <field name="no_late"/>
@@ -252,6 +275,7 @@
                 <field name="date_to"/>
                 <field name="no_overtime"/>
                 <field name="tot_overtime" widget="float_time"/>
+                <field name="overtime_approval_state"/>
                 <field name="no_absence"/>
                 <field name="tot_absence" widget="float_time"/>
             </tree>
@@ -309,6 +333,8 @@
                 <field name="name"/>
                 <filter domain="[('state','=','confirm')]"
                         string="To Approve" name="approve"/>
+                <filter domain="[('overtime_approval_state','=','pending')]"
+                        string="Overtime Pending" name="overtime_pending"/>
                 <filter string="Approved Sheets"
                         domain="[('state', '=', 'done')]" name="approved"/>
                 <separator/>

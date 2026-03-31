@@ -11,7 +11,7 @@
     """,
     'author': 'Dynexcel',
     'website': 'https://www.dynexcel.com',
-    'depends': ['pr_hr_contract'],
+    'depends': ['pr_hr_contract', 'gs_hr_attendance_sheet'],
     'data': [
         'security/security.xml',
         'security/ir.model.access.csv',
@@ -21,6 +21,7 @@
         'views/hr_contract_views.xml',
         'views/iqama_approvals.xml',
         'views/medical_insurance_approvals.xml',
+        'views/overtime_approvals.xml',
     ],
     # only loaded in demonstration mode
     'demo': [
