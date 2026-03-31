@@ -4,7 +4,6 @@
         <field name="name">Overtime Approvals</field>
         <field name="res_model">attendance.sheet.line</field>
         <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="gs_hr_attendance_sheet.attendance_sheet_line_view_tree"/>
         <field name="domain">[('overtime_approval_state', '=', 'pending'), ('overtime', '>', 0)]</field>
         <field name="context">{'create': False,'edit': False}</field>
         <field name="help" type="html">
