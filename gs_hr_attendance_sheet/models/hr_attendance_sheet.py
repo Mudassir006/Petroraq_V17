@@ -55,6 +55,66 @@ class HrAttendance(models.Model):
                                 ])
 
     run_compute = fields.Boolean(compute='_compute_day_name')
+    overtime_approval_state = fields.Selection([
+        ('not_required', 'Not Required'),
+        ('pending', 'Pending HR Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ], string='Overtime Approval', default='not_required', copy=False, tracking=True)
+    overtime_for_approval = fields.Float(
+        string='Overtime For Approval',
+        compute='_compute_overtime_for_approval',
+        store=True,
+    )
+
+    @api.depends('worked_hours', 'check_in', 'check_out', 'employee_id')
+    def _compute_overtime_for_approval(self):
+        for rec in self:
+            if not rec.employee_id or not rec.check_out:
+                rec.overtime_for_approval = 0.0
+                continue
+            allows_overtime = (
+                ('allow_overtime' in rec.employee_id._fields and rec.employee_id.allow_overtime)
+                or ('add_overtime' in rec.employee_id._fields and rec.employee_id.add_overtime)
+            )
+            if not allows_overtime:
+                rec.overtime_for_approval = 0.0
+                continue
+            hours_per_day = rec.employee_id.resource_calendar_id.hours_per_day or 8.0
+            rec.overtime_for_approval = max((rec.worked_hours or 0.0) - hours_per_day, 0.0)
+
+    def _sync_overtime_approval_state(self):
+        for rec in self:
+            if rec.overtime_for_approval > 0:
+                if rec.overtime_approval_state == 'not_required':
+                    rec.overtime_approval_state = 'pending'
+            else:
+                rec.overtime_approval_state = 'not_required'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._sync_overtime_approval_state()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        tracked_fields = {'check_in', 'check_out', 'employee_id', 'worked_hours'}
+        if tracked_fields.intersection(vals.keys()):
+            self._sync_overtime_approval_state()
+        return result
+
+    def action_approve_overtime(self):
+        for rec in self:
+            if rec.overtime_for_approval <= 0:
+                raise ValidationError(_('No overtime to approve for this attendance record.'))
+            rec.overtime_approval_state = 'approved'
+
+    def action_reject_overtime(self):
+        for rec in self:
+            if rec.overtime_for_approval <= 0:
+                raise ValidationError(_('No overtime to reject for this attendance record.'))
+            rec.overtime_approval_state = 'rejected'
 
     def _compute_day_name(self):
         for rec in self:
@@ -762,6 +822,16 @@ class AttendanceSheet(models.Model):
                 public_holiday.append(ph.id)
         return public_holiday
 
+    def _is_overtime_approved_for_day(self, employee, day_date):
+        attendance_obj = self.env['hr.attendance']
+        domain = [
+            ('employee_id', '=', employee.id),
+            ('check_in', '>=', datetime.combine(day_date, time.min)),
+            ('check_in', '<=', datetime.combine(day_date, time.max)),
+            ('overtime_approval_state', '=', 'approved'),
+        ]
+        return bool(attendance_obj.search_count(domain))
+
     def get_attendances(self):
         for att_sheet in self:
             att_sheet.line_ids.unlink()
@@ -841,6 +911,9 @@ class AttendanceSheet(models.Model):
                                                       overtime_policy[
                                                           'ph_after']) * \
                                                      overtime_policy['ph_rate']
+                                if not self._is_overtime_approved_for_day(emp, day):
+                                    float_overtime = 0
+                                    act_float_overtime = 0
                                 ac_sign_in = pytz.utc.localize(
                                     attendance_interval[0]).astimezone(tz)
                                 float_ac_sign_in = self._get_float_from_time(
@@ -1075,6 +1148,9 @@ class AttendanceSheet(models.Model):
                                 float_overtime = float_overtime * \
                                                  overtime_policy[
                                                      'wd_rate']
+                            if not self._is_overtime_approved_for_day(emp, day):
+                                float_overtime = 0
+                                act_float_overtime = 0
                             float_late = late_in.total_seconds() / 3600
                             act_float_late = late_in.total_seconds() / 3600
                             policy_late, late_cnt = policy_id.get_late(
@@ -1135,6 +1211,9 @@ class AttendanceSheet(models.Model):
                                     act_float_overtime = float_overtime
                                     float_overtime = act_float_overtime * \
                                                      overtime_policy['wd_rate']
+                                if not self._is_overtime_approved_for_day(emp, day):
+                                    float_overtime = 0
+                                    act_float_overtime = 0
                                 values = {
                                     'date': date,
                                     'day': day_str,
@@ -1169,6 +1248,9 @@ class AttendanceSheet(models.Model):
                                 act_float_overtime = float_overtime
                                 float_overtime = act_float_overtime * \
                                                  overtime_policy['we_rate']
+                            if not self._is_overtime_approved_for_day(emp, day):
+                                float_overtime = 0
+                                act_float_overtime = 0
                             ac_sign_in = pytz.utc.localize(
                                 attendance_interval[0]).astimezone(tz)
                             ac_sign_out = pytz.utc.localize(
