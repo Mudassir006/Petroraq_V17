@@ -9,7 +9,7 @@ class VatSummaryXlsx(models.AbstractModel):
     def _write_detail_section(self, sheet, row, title, lines, header_fmt, cell_left, cell_right):
         sheet.merge_range(row, 0, row, 6, title, header_fmt)
         row += 1
-        headers = ["Date", "Entry", "Account", "Partner", "Label", "Amount", "VAT Amount"]
+        headers = ["Journal Entry", "Reference", "Date", "Description", "Amount", "VAT Amount", "Total Amount"]
         for col, value in enumerate(headers):
             sheet.write(row, col, value, header_fmt)
         row += 1
@@ -19,20 +19,22 @@ class VatSummaryXlsx(models.AbstractModel):
             row += 1
         else:
             for line in lines:
-                sheet.write(row, 0, str(line.get("date", "")), cell_left)
-                sheet.write(row, 1, line.get("entry", ""), cell_left)
-                sheet.write(row, 2, line.get("account", ""), cell_left)
-                sheet.write(row, 3, line.get("partner", ""), cell_left)
-                sheet.write(row, 4, line.get("label", ""), cell_left)
-                sheet.write_number(row, 5, line.get("amount", 0.0), cell_right)
-                sheet.write_number(row, 6, line.get("vat_amount", 0.0), cell_right)
+                sheet.write(row, 0, line.get("entry", ""), cell_left)
+                sheet.write(row, 1, line.get("reference", ""), cell_left)
+                sheet.write(row, 2, str(line.get("date", "")), cell_left)
+                sheet.write(row, 3, line.get("label", ""), cell_left)
+                sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
+                sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
+                sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
                 row += 1
 
         total = sum(line.get("amount", 0.0) for line in lines)
         vat_total = sum(line.get("vat_amount", 0.0) for line in lines)
-        sheet.merge_range(row, 0, row, 4, "Total", cell_left)
-        sheet.write_number(row, 5, total, cell_right)
-        sheet.write_number(row, 6, vat_total, cell_right)
+        grand_total = sum(line.get("total_amount", 0.0) for line in lines)
+        sheet.merge_range(row, 0, row, 3, "Total", cell_left)
+        sheet.write_number(row, 4, total, cell_right)
+        sheet.write_number(row, 5, vat_total, cell_right)
+        sheet.write_number(row, 6, grand_total, cell_right)
         row += 2
         return row
 
@@ -183,28 +185,12 @@ class VatSummaryXlsx(models.AbstractModel):
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()
             row += 2
-            sheet.set_column(5, 6, 18)
-            row = self._write_detail_section(
-                sheet, row, "Detailed - Vated Sales / Revenue", details["vated_sales"],
-                header_fmt, cell_left, cell_right,
-            )
-            row = self._write_detail_section(
-                sheet, row, "Detailed - Vated Purchases / Expenses", details["vated_purchases"],
-                header_fmt, cell_left, cell_right,
-            )
-            row = self._write_detail_section(
-                sheet, row, "Detailed - Non-Vated Sales / Revenue", details["non_vated_sales"],
-                header_fmt, cell_left, cell_right,
-            )
-            row = self._write_detail_section(
-                sheet, row, "Detailed - Non-Vated Purchases / Expenses", details["non_vated_purchases"],
-                header_fmt, cell_left, cell_right,
-            )
-            row = self._write_detail_section(
-                sheet, row, "Detailed - Sales VAT Lines", details["sales_vat"],
-                header_fmt, cell_left, cell_right,
-            )
+            sheet.set_column(0, 0, 20)
+            sheet.set_column(1, 1, 20)
+            sheet.set_column(2, 2, 14)
+            sheet.set_column(3, 3, 40)
+            sheet.set_column(4, 6, 18)
             self._write_detail_section(
-                sheet, row, "Detailed - Purchases VAT Lines", details["purchase_vat"],
+                sheet, row, "Detailed Transactions", details,
                 header_fmt, cell_left, cell_right,
             )
