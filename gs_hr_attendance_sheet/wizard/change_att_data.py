@@ -47,3 +47,16 @@ class attendance_sheet_line_change(models.TransientModel):
         atts_line_id.write(res)
         # atts_line_id.att_sheet_id.calculate_att_data()
         return {'type': 'ir.actions.act_window_close'}
+
+
+class AttendanceOvertimeRejectWizard(models.TransientModel):
+    _name = 'attendance.overtime.reject.wizard'
+    _description = 'Attendance Overtime Rejection Wizard'
+
+    attendance_id = fields.Many2one('hr.attendance', string='Attendance', required=True)
+    rejection_reason = fields.Text(string='Rejection Reason', required=True)
+
+    def action_confirm_reject(self):
+        self.ensure_one()
+        self.attendance_id.action_reject_overtime(self.rejection_reason)
+        return {'type': 'ir.actions.act_window_close'}

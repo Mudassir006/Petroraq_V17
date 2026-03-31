@@ -10,13 +10,14 @@
                 <field name="day_name"/>
                 <field name="overtime_for_approval" invisible="1"/>
                 <field name="overtime_approval_state"/>
+                <field name="overtime_reject_reason"/>
                 <button name="action_approve_overtime"
                         string="Approve OT"
                         type="object"
                         class="btn-primary"
                         invisible="overtime_approval_state != 'pending'"
                         groups="gs_hr_attendance_sheet.group_attendance_sheet_manager,hr.group_hr_manager"/>
-                <button name="action_reject_overtime"
+                <button name="action_open_reject_overtime_wizard"
                         string="Reject OT"
                         type="object"
                         invisible="overtime_approval_state != 'pending'"

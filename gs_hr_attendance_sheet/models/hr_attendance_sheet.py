@@ -66,6 +66,7 @@ class HrAttendance(models.Model):
         compute='_compute_overtime_for_approval',
         store=True,
     )
+    overtime_reject_reason = fields.Text(string='Overtime Rejection Reason', copy=False)
 
     @api.depends('worked_hours', 'check_in', 'check_out', 'employee_id')
     def _compute_overtime_for_approval(self):
@@ -109,12 +110,27 @@ class HrAttendance(models.Model):
             if rec.overtime_for_approval <= 0:
                 raise ValidationError(_('No overtime to approve for this attendance record.'))
             rec.overtime_approval_state = 'approved'
+            rec.overtime_reject_reason = False
 
-    def action_reject_overtime(self):
+    def action_open_reject_overtime_wizard(self):
+        self.ensure_one()
+        if self.overtime_for_approval <= 0:
+            raise ValidationError(_('No overtime to reject for this attendance record.'))
+        return {
+            'name': _('Reject Overtime'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'attendance.overtime.reject.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_attendance_id': self.id},
+        }
+
+    def action_reject_overtime(self, reason=False):
         for rec in self:
             if rec.overtime_for_approval <= 0:
                 raise ValidationError(_('No overtime to reject for this attendance record.'))
             rec.overtime_approval_state = 'rejected'
+            rec.overtime_reject_reason = reason or _('Rejected by HR Manager')
 
     def _compute_day_name(self):
         for rec in self:
