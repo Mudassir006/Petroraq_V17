@@ -40,6 +40,8 @@ class HrPayslip(models.Model):
     no_overtime = fields.Integer(related="attendance_sheet_id.no_overtime", readonly=True)
     tot_overtime = fields.Float(related="attendance_sheet_id.tot_overtime", readonly=True)
     tot_overtime_amount = fields.Float(related="attendance_sheet_id.tot_overtime_amount", readonly=True)
+    approved_overtime_hours = fields.Float(related="attendance_sheet_id.approved_overtime_hours", readonly=True)
+    approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
@@ -321,7 +323,7 @@ class HrPayslip(models.Model):
                 late_amount = -((att_sheet.tot_late_amount or 0.0) + (getattr(att_sheet, 'carry_forward_late_amount', 0.0) or 0.0))
                 eco_amount = -((getattr(att_sheet, 'tot_early_checkout_amount', 0.0) or 0.0) + (getattr(att_sheet, 'carry_forward_early_checkout_amount', 0.0) or 0.0))
                 diff_amount = -((att_sheet.tot_difftime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_diff_amount', 0.0) or 0.0))
-                ovt_amount = ((att_sheet.tot_overtime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_overtime_amount', 0.0) or 0.0)) if payslip.employee_id.add_overtime else 0.0
+                ovt_amount = ((att_sheet.approved_overtime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_overtime_amount', 0.0) or 0.0)) if payslip.employee_id.add_overtime else 0.0
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'OVT', ovt_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'ABS', abs_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'LATE', late_amount)

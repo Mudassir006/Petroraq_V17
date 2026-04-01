@@ -46,3 +46,5 @@ access_hr_diff_rule_line_user,access.hr.diff.rule.line.user,model_hr_diff_rule_l
 
 access_attendance_sheet_line_change_user,access.attendance.sheet.line.change.user,model_attendance_sheet_line_change,group_attendance_sheet_user,1,1,1,1
 access_attendance_sheet_line_change_manager,access.attendance.sheet.line.change.manager,model_attendance_sheet_line_change,group_attendance_sheet_manager,1,1,1,1
+access_attendance_overtime_reject_wizard_user,access.attendance.overtime.reject.wizard.user,model_attendance_overtime_reject_wizard,group_attendance_sheet_user,1,1,1,1
+access_attendance_overtime_reject_wizard_manager,access.attendance.overtime.reject.wizard.manager,model_attendance_overtime_reject_wizard,group_attendance_sheet_manager,1,1,1,1
