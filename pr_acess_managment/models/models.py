@@ -471,8 +471,11 @@ class BaseModel(models.AbstractModel):
                 delete = 'true'
                 edit = 'true'
                 create = 'true'
+                default_move_type = self.env.context.get('default_move_type') or self.env.context.get('move_type') or 'entry'
                 for access_model in access_model_recs:
                     if access_model.restrict_create:
+                        if self._name == 'account.move' and access_model.access_management_id.restrict_invoice_create and default_move_type == 'entry':
+                            continue
                         create = 'false'
                     if access_model.restrict_edit:
                         edit = 'false'
