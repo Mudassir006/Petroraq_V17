@@ -14,6 +14,18 @@ class AccountMove(models.Model):
         'in_receipt',
     }
 
+    def _allow_restricted_invoice_create(self, vals):
+        """Allow non-direct invoice creation flows (e.g., Sale Order invoicing)."""
+        ctx = self.env.context
+        if ctx.get('active_model') == 'sale.order':
+            return True
+
+        # Sale-generated invoices usually carry source order reference.
+        if vals.get('invoice_origin'):
+            return True
+
+        return False
+
     @api.model_create_multi
     def create(self, vals_list):
         access_records = self.env['access.management'].sudo().search([
@@ -28,9 +40,9 @@ class AccountMove(models.Model):
         if access_records:
             for vals in vals_list:
                 move_type = vals.get('move_type') or self.env.context.get('default_move_type') or 'entry'
-                if move_type in self._BLOCKED_MOVE_TYPES:
+                if move_type in self._BLOCKED_MOVE_TYPES and not self._allow_restricted_invoice_create(vals):
                     raise AccessError(_(
-                        "You are not allowed to create Invoices/Bills/Credit Notes/Receipts. "
+                        "Direct creation of Invoices/Bills/Credit Notes/Receipts is not allowed. "
                         "You can still create Journal Entries."
                     ))
 
