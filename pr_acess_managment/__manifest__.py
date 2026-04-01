@@ -4,7 +4,7 @@
     "summary": "Unified access management and advanced domain widget tools.",
     "category": "Tools",
     "license": "OPL-1",
-    "depends": ["web"],
+    "depends": ["web", "account"],
     "data": [
         "security/res_groups.xml",
         "security/ir.model.access.csv",

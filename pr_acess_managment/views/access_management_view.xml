@@ -43,6 +43,7 @@
                                 <field name="user_ids" widget='many2many_tags' options="{'no_create': True}"
                                        domain="[('share','=',False)]"/>
                                 <field name="disable_debug_mode"/>
+                                <field name="restrict_invoice_create"/>
                             </group>
                         </group>
                         <group>

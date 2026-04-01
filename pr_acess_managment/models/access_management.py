@@ -51,6 +51,10 @@ class access_management(models.Model):
 
     disable_debug_mode = fields.Boolean('Disable Developer Mode',
                                         help="Developer mode will be hidden from the defined users.")
+    restrict_invoice_create = fields.Boolean(
+        'Restrict Invoice/Bill Create',
+        help="Block creation of invoices, bills, refunds and receipts while keeping Journal Entries allowed."
+    )
 
     company_ids = fields.Many2many('res.company', 'access_management_comapnay_rel', 'access_management_id',
                                    'company_id', 'Companies', default=lambda self: self.env.company)

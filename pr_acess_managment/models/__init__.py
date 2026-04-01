@@ -18,3 +18,4 @@ from . import ir_model
 from . import hide_chatter
 from . import menu_item
 from . import domain_prepare
+from . import account_move
