@@ -370,7 +370,7 @@
         </record>
 
         <menuitem id="main_menu_pr_acess_managment" name="Access Studio" action="action_access_management_ah"
-                  groups="group_access_management_bits"/>
+                  groups="group_access_management_bits" web_icon="pr_acess_managment,static/description/icon.png"/>
 
     </data>
 </odoo>
