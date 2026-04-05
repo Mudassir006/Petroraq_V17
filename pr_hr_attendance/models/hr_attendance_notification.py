@@ -210,9 +210,6 @@ class HrAttendanceNotification(models.Model):
                     'company_id': company.id,
                 })
 
-            if notification.state == 'done':
-                continue
-
             employees = self.env['hr.employee'].search([
                 ('company_id', '=', company.id),
                 ('active', '=', True),
