@@ -64,6 +64,11 @@ class HrLeaveRequest(models.Model):
     hr_supervisor_check = fields.Boolean(compute="_compute_hr_supervisor_check")
     hr_manager_check = fields.Boolean(compute="_compute_hr_manager_check")
     leave_id = fields.Many2one("hr.leave", string="Leave", readonly=True)
+    is_public_holiday = fields.Boolean(
+        string="Public Holiday Request",
+        compute="_compute_is_public_holiday",
+        store=True,
+    )
 
     # endregion [Fields]
 
@@ -100,6 +105,12 @@ class HrLeaveRequest(models.Model):
                 rec.hr_manager_check = True
             else:
                 rec.hr_manager_check = False
+
+    @api.depends("leave_type_id", "leave_type_id.name")
+    def _compute_is_public_holiday(self):
+        for rec in self:
+            leave_name = (rec.leave_type_id.name or "").strip().lower()
+            rec.is_public_holiday = "public holiday" in leave_name
 
     # endregion [Compute Methods]
 
@@ -254,6 +265,9 @@ class HrLeaveRequest(models.Model):
     def action_manager_approve(self):
         for rec in self:
             rec = rec.sudo()
+            if rec.is_public_holiday:
+                rec.action_hr_manager_approve()
+                continue
             rec.state = "manager_approve"
             rec.approval_state = "manager_approve"
             rec._send_hr_supervisor_email()
@@ -402,7 +416,10 @@ class HrLeaveRequest(models.Model):
             res.hr_supervisor_ids = hr_supervisor_ids.ids
         if hr_manager_ids:
             res.hr_manager_ids = hr_manager_ids.ids
-        res.sudo()._send_manager_email()
+        if res.is_public_holiday:
+            res.sudo()._send_hr_manager_email()
+        else:
+            res.sudo()._send_manager_email()
         return res
 
     def unlink(self):

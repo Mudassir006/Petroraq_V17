@@ -66,7 +66,6 @@ class LeaveRequestTemplate(http.Controller):
                     attachment_ids.append(att_record.id)
             # if attachment_ids:
             #     leave_request_id.update({'attachment_ids': [(6, 0, attachment_ids)]})
-            leave_request_id.sudo()._send_manager_email()
             return http.request.render('de_hr_workspace_timeoff.thanks_template')
         else:
             print(kw, 'False')
@@ -170,4 +169,3 @@ class LeaveRequestTemplate(http.Controller):
                 'chart': chart_data,
             }
         return None
-
