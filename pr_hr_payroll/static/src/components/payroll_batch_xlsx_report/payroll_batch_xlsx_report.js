@@ -279,12 +279,12 @@ get payrollMonth() {
         this._sortRows(this.state.rows);
     }
 
-    toggleEmployeeSort() {
-        this.toggleSort("emp_code");
-    }
-
-    toggleColumnSort(code) {
-        this.toggleSort(code);
+    onSortHeaderClick(ev) {
+        const field = ev?.currentTarget?.dataset?.sortField;
+        if (!field) {
+            return;
+        }
+        this.toggleSort(field);
     }
 
     getSortIcon(field) {
