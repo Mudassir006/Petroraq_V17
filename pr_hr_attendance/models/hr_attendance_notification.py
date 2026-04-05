@@ -78,7 +78,13 @@ class HrAttendanceNotification(models.Model):
         for notification in self:
             date = notification.date
             employee_ids = self.env['hr.employee'].search(
-                [('company_id', '=', notification.company_id.id), ("active", "=", True), ("compute_attendance", "=", True)])
+                [
+                    ('company_id', '=', notification.company_id.id),
+                    ("active", "=", True),
+                    ("compute_attendance", "=", True),
+                    ("attendance_email_enabled", "=", True),
+                ]
+            )
 
             if not employee_ids:
                 raise UserError(_("There is no  Employees In This Company"))
@@ -121,3 +127,41 @@ class HrAttendanceNotification(models.Model):
                 if sheet.state == 'confirm':
                     sheet._send_notification()
             notification.write({'state': 'done'})
+
+    @api.model
+    def cron_send_daily_attendance_notifications(self):
+        """Send same-day attendance alerts from already generated attendance sheets."""
+        today = fields.Date.context_today(self)
+        companies = self.env['res.company'].search([])
+        attendance_sheet_obj = self.env['attendance.sheet']
+        for company in companies:
+            notification = self.search(
+                [('date', '=', today), ('company_id', '=', company.id)],
+                order='id desc',
+                limit=1,
+            )
+            if not notification:
+                notification = self.create({
+                    'name': f"Attendance Notifications For {today}",
+                    'date': today,
+                    'company_id': company.id,
+                })
+
+            today_sheets = attendance_sheet_obj.search([
+                ('company_id', '=', company.id),
+                ('date_from', '=', today),
+                ('date_to', '=', today),
+                ('employee_id.active', '=', True),
+                ('employee_id.compute_attendance', '=', True),
+                ('employee_id.attendance_email_enabled', '=', True),
+            ])
+
+            if today_sheets:
+                today_sheets.write({'att_notification_id': notification.id})
+
+            if notification.state == 'draft':
+                notification.write({'state': 'gen'})
+            if notification.state == 'gen':
+                notification.submit_att_sheet()
+            if notification.state == 'sub':
+                notification.action_done()
