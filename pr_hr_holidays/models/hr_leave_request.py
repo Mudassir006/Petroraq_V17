@@ -268,8 +268,17 @@ class HrLeaveRequest(models.Model):
         if allocation_type in ("no", "no_limit"):
             return float("inf")
 
-        leave_days = self.leave_type_id.get_days(self.employee_id.id).get(self.leave_type_id.id, {})
-        virtual_remaining = float(leave_days.get("virtual_remaining_leaves", leave_days.get("remaining_leaves", 0.0)))
+        leave_days = {}
+        leave_type = self.leave_type_id
+        if hasattr(leave_type, "get_days"):
+            leave_days = leave_type.get_days(self.employee_id.id).get(leave_type.id, {})
+            virtual_remaining = float(leave_days.get("virtual_remaining_leaves", leave_days.get("remaining_leaves", 0.0)))
+        else:
+            leave_type_ctx = leave_type.with_context(employee_id=self.employee_id.id)
+            virtual_remaining = float(
+                getattr(leave_type_ctx, "virtual_remaining_leaves", getattr(leave_type_ctx, "remaining_leaves", 0.0))
+                or 0.0
+            )
 
         pending_states = ["draft", "manager_approve", "hr_supervisor"]
         pending_requests = self.search([
