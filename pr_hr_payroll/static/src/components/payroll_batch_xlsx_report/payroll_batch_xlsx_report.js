@@ -24,6 +24,7 @@ class PayrollBatchXlsxReport extends Component {
             columns: [],     // [{code, name, hidden}]
             rows: [],        // [{emp_code, emp_name, dept, valsByCode}]
             totals: new Map(),// code -> sum
+            sortByEmployeeAsc: true,
         });
 
         onWillStart(async () => {
@@ -216,6 +217,7 @@ get payrollMonth() {
             }
 
             rows.push({
+                emp_id: emp[0] || 0,
                 emp_code: empRec.code || "",
                 emp_name: empRec.name || emp[1] || "",
                 dept: dept || "",
@@ -223,11 +225,32 @@ get payrollMonth() {
             });
         }
 
+        this._sortRowsByEmployeeId(rows);
+
         this.state.slips = slips;
         this.state.linesBySlipId = linesBySlipId;
         this.state.columns = columns;
         this.state.rows = rows;
         this.state.totals = totals;
+    }
+
+    _sortRowsByEmployeeId(rows) {
+        const direction = this.state.sortByEmployeeAsc ? 1 : -1;
+        rows.sort((a, b) => {
+            const aId = Number(a.emp_id || 0);
+            const bId = Number(b.emp_id || 0);
+            if (aId === bId) return 0;
+            return aId > bId ? direction : -direction;
+        });
+    }
+
+    toggleEmployeeSort() {
+        this.state.sortByEmployeeAsc = !this.state.sortByEmployeeAsc;
+        this._sortRowsByEmployeeId(this.state.rows);
+    }
+
+    get employeeSortLabel() {
+        return this.state.sortByEmployeeAsc ? "Employee ID ▲" : "Employee ID ▼";
     }
 
 async _buildColumns(slips) {

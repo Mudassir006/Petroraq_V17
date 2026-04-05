@@ -35,6 +35,12 @@
                     <t t-esc="dateEnd"/>
                 </div>
 
+                <div class="pr_table_controls">
+                    <button type="button" class="btn btn-outline-primary btn-sm" t-on-click="toggleEmployeeSort">
+                        Sort: <t t-esc="employeeSortLabel"/>
+                    </button>
+                </div>
+
                 <!-- Table -->
                 <div class="pr_table_wrap">
                     <table class="pr_table">

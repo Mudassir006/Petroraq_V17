@@ -12,10 +12,16 @@
 .pr_xlsx_subtitle { padding: 6px 12px; font-size: 17px; border-top: none; }
 
 .pr_table_wrap {
-    margin-top: 10px;sale
+    margin-top: 10px;
     border: 1px solid #d0d7e2;
     border-radius: 6px;
     overflow: auto;
+}
+
+.pr_table_controls {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .pr_table { width: 100%; border-collapse: collapse; }
