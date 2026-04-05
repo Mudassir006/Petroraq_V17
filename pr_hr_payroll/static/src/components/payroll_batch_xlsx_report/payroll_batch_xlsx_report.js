@@ -225,7 +225,7 @@ get payrollMonth() {
             });
         }
 
-        this._sortRowsByEmployeeId(rows);
+        this._sortRowsByEmployeeCode(rows);
 
         this.state.slips = slips;
         this.state.linesBySlipId = linesBySlipId;
@@ -234,23 +234,33 @@ get payrollMonth() {
         this.state.totals = totals;
     }
 
-    _sortRowsByEmployeeId(rows) {
+    _sortRowsByEmployeeCode(rows) {
         const direction = this.state.sortByEmployeeAsc ? 1 : -1;
         rows.sort((a, b) => {
-            const aId = Number(a.emp_id || 0);
-            const bId = Number(b.emp_id || 0);
-            if (aId === bId) return 0;
-            return aId > bId ? direction : -direction;
+            const aCode = (a.emp_code || "").toString().trim();
+            const bCode = (b.emp_code || "").toString().trim();
+
+            const aNum = Number(aCode);
+            const bNum = Number(bCode);
+            const aIsNum = !Number.isNaN(aNum) && aCode !== "";
+            const bIsNum = !Number.isNaN(bNum) && bCode !== "";
+
+            if (aIsNum && bIsNum) {
+                if (aNum === bNum) return 0;
+                return aNum > bNum ? direction : -direction;
+            }
+
+            return aCode.localeCompare(bCode, undefined, { numeric: true }) * direction;
         });
     }
 
     toggleEmployeeSort() {
         this.state.sortByEmployeeAsc = !this.state.sortByEmployeeAsc;
-        this._sortRowsByEmployeeId(this.state.rows);
+        this._sortRowsByEmployeeCode(this.state.rows);
     }
 
-    get employeeSortLabel() {
-        return this.state.sortByEmployeeAsc ? "Employee ID ▲" : "Employee ID ▼";
+    get employeeSortIcon() {
+        return this.state.sortByEmployeeAsc ? "▲" : "▼";
     }
 
 async _buildColumns(slips) {

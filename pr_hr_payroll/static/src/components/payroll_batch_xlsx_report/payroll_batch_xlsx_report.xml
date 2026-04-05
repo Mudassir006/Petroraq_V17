@@ -35,18 +35,14 @@
                     <t t-esc="dateEnd"/>
                 </div>
 
-                <div class="pr_table_controls">
-                    <button type="button" class="btn btn-outline-primary btn-sm" t-on-click="toggleEmployeeSort">
-                        Sort: <t t-esc="employeeSortLabel"/>
-                    </button>
-                </div>
-
                 <!-- Table -->
                 <div class="pr_table_wrap">
                     <table class="pr_table">
                         <thead>
                             <tr>
-                                <th class="pr_th">Employee ID</th>
+                                <th class="pr_th pr_sortable_th" t-on-click="toggleEmployeeSort">
+                                    Employee ID <span class="pr_sort_icon"><t t-esc="employeeSortIcon"/></span>
+                                </th>
                                 <th class="pr_th">Employee Name</th>
                                 <th class="pr_th">Department</th>
 
