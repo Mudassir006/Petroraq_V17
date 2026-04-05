@@ -24,6 +24,8 @@ class PayrollBatchXlsxReport extends Component {
             columns: [],     // [{code, name, hidden}]
             rows: [],        // [{emp_code, emp_name, dept, valsByCode}]
             totals: new Map(),// code -> sum
+            sortField: "emp_code",
+            sortAsc: true,
         });
 
         onWillStart(async () => {
@@ -216,6 +218,7 @@ get payrollMonth() {
             }
 
             rows.push({
+                emp_id: emp[0] || 0,
                 emp_code: empRec.code || "",
                 emp_name: empRec.name || emp[1] || "",
                 dept: dept || "",
@@ -223,11 +226,64 @@ get payrollMonth() {
             });
         }
 
+        this._sortRows(rows);
+
         this.state.slips = slips;
         this.state.linesBySlipId = linesBySlipId;
         this.state.columns = columns;
         this.state.rows = rows;
         this.state.totals = totals;
+    }
+
+    _compareEmployeeCode(a, b, direction) {
+        const aCode = (a.emp_code || "").toString().trim();
+        const bCode = (b.emp_code || "").toString().trim();
+
+        const aNum = Number(aCode);
+        const bNum = Number(bCode);
+        const aIsNum = !Number.isNaN(aNum) && aCode !== "";
+        const bIsNum = !Number.isNaN(bNum) && bCode !== "";
+
+        if (aIsNum && bIsNum) {
+            if (aNum === bNum) return 0;
+            return aNum > bNum ? direction : -direction;
+        }
+
+        return aCode.localeCompare(bCode, undefined, { numeric: true }) * direction;
+    }
+
+    _sortRows(rows) {
+        const direction = this.state.sortAsc ? 1 : -1;
+        const sortField = this.state.sortField;
+        rows.sort((a, b) => {
+            if (sortField === "emp_code") {
+                return this._compareEmployeeCode(a, b, direction);
+            }
+
+            const aVal = Number(a.valsByCode.get(sortField) || 0);
+            const bVal = Number(b.valsByCode.get(sortField) || 0);
+            if (aVal === bVal) {
+                return this._compareEmployeeCode(a, b, 1);
+            }
+            return aVal > bVal ? direction : -direction;
+        });
+    }
+
+    toggleSort(field) {
+        if (this.state.sortField === field) {
+            this.state.sortAsc = !this.state.sortAsc;
+        } else {
+            this.state.sortField = field;
+            this.state.sortAsc = true;
+        }
+        this._sortRows(this.state.rows);
+    }
+
+    getSortIcon(field) {
+        if (this.state.sortField !== field) {
+            return "↓";
+        }
+        return this.state.sortAsc ? "↑" : "↓";
     }
 
 async _buildColumns(slips) {

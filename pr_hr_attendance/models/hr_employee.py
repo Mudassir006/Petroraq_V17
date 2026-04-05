@@ -25,6 +25,10 @@ class HrEmployee(models.Model):
     # region [Fields]
 
     add_overtime = fields.Boolean(string="Attendance Overtime")
+    attendance_email_enabled = fields.Boolean(
+        string="Attendance Email Alerts",
+        default=True,
+        help="When enabled, daily attendance alert emails are sent for late, early check-out, or absence.",
+    )
 
     # endregion [Fields]
-

@@ -78,7 +78,13 @@ class HrAttendanceNotification(models.Model):
         for notification in self:
             date = notification.date
             employee_ids = self.env['hr.employee'].search(
-                [('company_id', '=', notification.company_id.id), ("active", "=", True), ("compute_attendance", "=", True)])
+                [
+                    ('company_id', '=', notification.company_id.id),
+                    ("active", "=", True),
+                    ("compute_attendance", "=", True),
+                    ("attendance_email_enabled", "=", True),
+                ]
+            )
 
             if not employee_ids:
                 raise UserError(_("There is no  Employees In This Company"))
@@ -120,4 +126,116 @@ class HrAttendanceNotification(models.Model):
             for sheet in notification.att_sheet_ids:
                 if sheet.state == 'confirm':
                     sheet._send_notification()
+            notification.write({'state': 'done'})
+
+    @api.model
+    def _get_employee_expected_hours_for_date(self, employee, target_date):
+        """Return planned working hours for the employee on the provided date."""
+        calendar = employee.resource_calendar_id or employee.contract_id.resource_calendar_id
+        if not calendar:
+            return 0.0
+
+        weekday = str(target_date.weekday())
+        has_date_from = 'date_from' in calendar.attendance_ids._fields
+        has_date_to = 'date_to' in calendar.attendance_ids._fields
+        attendance_lines = calendar.attendance_ids.filtered(
+            lambda a: a.dayofweek == weekday
+            and (not has_date_from or not a.date_from or a.date_from <= target_date)
+            and (not has_date_to or not a.date_to or a.date_to >= target_date)
+        )
+        return sum((line.hour_to - line.hour_from) for line in attendance_lines)
+
+    @api.model
+    def _send_daily_attendance_email(self, employee, target_date, expected_hours, worked_hours):
+        """Send a daily attendance email for shortage/absence based on hr.attendance."""
+        if not employee.attendance_email_enabled:
+            return
+
+        if not employee.work_email:
+            _logger.warning("Skipping attendance email for %s because work email is not configured.", employee.name)
+            return
+
+        shortage_hours = max(expected_hours - worked_hours, 0.0)
+        is_absent = worked_hours <= 0.0 and expected_hours > 0.0
+        if shortage_hours <= 0.0 and not is_absent:
+            return
+
+        whole_hours = int(shortage_hours)
+        remaining_minutes = int(round((shortage_hours - whole_hours) * 60))
+        issue_parts = []
+        if is_absent:
+            issue_parts.append("absence")
+        if shortage_hours > 0:
+            issue_parts.append(
+                f"shortage of <strong>{whole_hours} hour(s)</strong> and "
+                f"<strong>{remaining_minutes} minute(s)</strong>"
+            )
+        issues_html = " and ".join(issue_parts)
+
+        body_message = f"""
+            Dear Mr/Mrs. {employee.name},<br/><br/>
+            We wish to inform you that a discrepancy in your attendance has been identified for
+            <strong>{target_date}</strong>. Your record reflects {issues_html}.<br/><br/>
+            Thank you for your attention to this matter.<br/><br/>
+            Best regards,<br/>
+            <strong>HR Department</strong><br/>
+            Petroraq Engineering
+        """
+        message = {
+            "email_from": "hr@petroraq.com",
+            "subject": f"{employee.code} - Attendance Notification Of {target_date}",
+            "body_html": body_message,
+            "email_to": employee.work_email,
+        }
+        mail_id = self.env["mail.mail"].sudo().create(message)
+        if mail_id:
+            mail_id.sudo().send()
+
+    @api.model
+    def cron_send_daily_attendance_notifications(self):
+        """Send same-day attendance alerts directly from hr.attendance records."""
+        today = fields.Date.context_today(self)
+        companies = self.env['res.company'].search([])
+        attendance_obj = self.env['hr.attendance']
+        for company in companies:
+            notification = self.search(
+                [('date', '=', today), ('company_id', '=', company.id)],
+                order='id desc',
+                limit=1,
+            )
+            if not notification:
+                notification = self.create({
+                    'name': f"Attendance Notifications For {today}",
+                    'date': today,
+                    'company_id': company.id,
+                })
+
+            employees = self.env['hr.employee'].search([
+                ('company_id', '=', company.id),
+                ('active', '=', True),
+                ('compute_attendance', '=', True),
+                ('attendance_email_enabled', '=', True),
+            ])
+            start_dt = datetime.combine(today, datetime.min.time())
+            end_dt = start_dt + timedelta(days=1)
+
+            for employee in employees:
+                expected_hours = self._get_employee_expected_hours_for_date(employee, today)
+                if expected_hours <= 0:
+                    continue
+                attendances = attendance_obj.search([
+                    ('employee_id', '=', employee.id),
+                    ('check_in', '>=', fields.Datetime.to_string(start_dt)),
+                    ('check_in', '<', fields.Datetime.to_string(end_dt)),
+                ])
+                worked_hours = sum(attendances.mapped('worked_hours')) if attendances else 0.0
+                self._send_daily_attendance_email(
+                    employee=employee,
+                    target_date=today,
+                    expected_hours=expected_hours,
+                    worked_hours=worked_hours,
+                )
+
+            if notification.state == 'draft':
+                notification.write({'state': 'gen'})
             notification.write({'state': 'done'})

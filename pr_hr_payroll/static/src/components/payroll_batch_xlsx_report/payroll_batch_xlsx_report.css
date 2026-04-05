@@ -12,7 +12,7 @@
 .pr_xlsx_subtitle { padding: 6px 12px; font-size: 17px; border-top: none; }
 
 .pr_table_wrap {
-    margin-top: 10px;sale
+    margin-top: 10px;
     border: 1px solid #d0d7e2;
     border-radius: 6px;
     overflow: auto;
@@ -28,6 +28,16 @@
     border: 1px solid #0B2A8F;
     text-align: center;
     white-space: nowrap;
+}
+
+.pr_sortable_th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.pr_sort_icon {
+    margin-left: 4px;
+    font-size: 12px;
 }
 
 .pr_td {

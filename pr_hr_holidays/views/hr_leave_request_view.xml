@@ -45,24 +45,25 @@
                 <field name="hr_supervisor_check" invisible="1"/>
                 <field name="approval_state" invisible="1"/>
                 <field name="leave_id" invisible="1"/>
+                <field name="is_public_holiday" invisible="1"/>
                 <header>
                     <button name="action_manager_approve" string="APPROVE" class="btn-success"
-                            invisible="state != 'draft' or employee_manager_check == False"
+                            invisible="state != 'draft' or employee_manager_check == False or is_public_holiday == True"
                             type="object"/>
                     <button name="action_manager_reject" string="REJECT" class="btn-danger"
-                            invisible="state != 'draft' or employee_manager_check == False"
+                            invisible="state != 'draft' or employee_manager_check == False or is_public_holiday == True"
                             type="object"/>
                     <button name="action_hr_supervisor_approve" string="APPROVE" class="btn-success"
-                            invisible="state != 'manager_approve' or hr_supervisor_check == False"
+                            invisible="state != 'manager_approve' or hr_supervisor_check == False or is_public_holiday == True"
                             type="object"/>
                     <button name="action_hr_supervisor_reject" string="REJECT" class="btn-danger"
-                            invisible="state != 'manager_approve' or hr_supervisor_check == False"
+                            invisible="state != 'manager_approve' or hr_supervisor_check == False or is_public_holiday == True"
                             type="object"/>
                     <button name="action_hr_manager_approve" string="APPROVE" class="btn-success"
-                            invisible="state != 'hr_supervisor' or hr_manager_check == False"
+                            invisible="(state != 'hr_supervisor' and not (state == 'draft' and is_public_holiday == True)) or hr_manager_check == False"
                             type="object"/>
                     <button name="action_hr_manager_reject" string="REJECT" class="btn-danger"
-                            invisible="state != 'hr_supervisor' or hr_manager_check == False"
+                            invisible="(state != 'hr_supervisor' and not (state == 'draft' and is_public_holiday == True)) or hr_manager_check == False"
                             type="object"/>
                     <button name="action_employee_cancel_request" string="REQUEST CANCELLATION" class="btn-warning"
                             invisible="state != 'hr_approve' or employee_user_check == False" type="object"/>

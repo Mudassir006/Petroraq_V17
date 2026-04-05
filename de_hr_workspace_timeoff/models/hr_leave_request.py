@@ -35,6 +35,11 @@ class HrLeaveRequest(models.Model):
                     ('state', '=', 'hr_supervisor'),
                     ('hr_manager_ids', 'in', user.id),
                 ])
+                role_domains.append([
+                    ('state', '=', 'draft'),
+                    ('is_public_holiday', '=', True),
+                    ('hr_manager_ids', 'in', user.id),
+                ])
             # HR Supervisor
             # elif user.has_group("hr_holidays.group_hr_holidays_user"):
             elif user.has_group("pr_hr_holidays.custom_group_hr_holidays_supervisor"):
