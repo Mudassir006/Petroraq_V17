@@ -40,7 +40,7 @@
                     <table class="pr_table">
                         <thead>
                             <tr>
-                                <th class="pr_th pr_sortable_th" data-sort-field="emp_code" t-on-click="onSortHeaderClick">
+                                <th class="pr_th pr_sortable_th" t-on-click="toggleSort.bind(this, 'emp_code')">
                                     Employee ID <span class="pr_sort_icon"><t t-esc="getSortIcon('emp_code')"/></span>
                                 </th>
                                 <th class="pr_th">Employee Name</th>
@@ -49,8 +49,7 @@
                                 <t t-foreach="state.columns" t-as="c" t-key="c.code">
                                     <th class="pr_th pr_sortable_th"
                                         t-att-class="c.hidden ? 'pr_hidden_col' : ''"
-                                        t-att-data-sort-field="c.code"
-                                        t-on-click="onSortHeaderClick">
+                                        t-on-click="toggleSort.bind(this, c.code)">
                                         <t t-esc="c.name"/> <span class="pr_sort_icon"><t t-esc="getSortIcon(c.code)"/></span>
                                     </th>
                                 </t>
