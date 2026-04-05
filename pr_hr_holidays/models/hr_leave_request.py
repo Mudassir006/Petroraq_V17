@@ -287,7 +287,7 @@ class HrLeaveRequest(models.Model):
             ("leave_type_id", "=", self.leave_type_id.id),
             ("state", "in", pending_states),
         ])
-        pending_days = sum(pending_requests.mapped("_get_requested_days_count"))
+        pending_days = sum(req._get_requested_days_count() for req in pending_requests)
         return virtual_remaining - pending_days
 
     def _check_requested_days_with_allocation(self):
