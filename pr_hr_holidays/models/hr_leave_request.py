@@ -267,25 +267,19 @@ class HrLeaveRequest(models.Model):
         leave_type = self.leave_type_id
         employee = self.employee_id
 
-        # Keep calculation aligned with dashboard logic in de_hr_workspace_timeoff/controllers/controllers.py
-        if leave_type.requires_allocation == "yes":
-            allocation_ids = self.env["hr.leave.allocation"].sudo().search([
-                ("employee_id", "=", employee.id),
-                ("holiday_status_id", "=", leave_type.id),
-                ("state", "=", "validate"),
-            ])
-            allocation_days = round(sum(allocation_ids.mapped("number_of_days")), 2) if allocation_ids else 0.0
-        else:
-            # Existing business rule in this codebase: sick leave gets 30 days even without allocation
-            allocation_days = 30.0 if getattr(leave_type, "leave_type", False) == "sick_leave" else 0.0
+        # Match the same source used by Time Off dashboard cards as much as possible.
+        leave_type_ctx = leave_type.with_context(
+            employee_id=employee.id,
+            default_employee_id=employee.id,
+        )
+        virtual_remaining = float(
+            getattr(leave_type_ctx, "virtual_remaining_leaves", getattr(leave_type_ctx, "remaining_leaves", 0.0))
+            or 0.0
+        )
 
-        leave_ids = self.env["hr.leave"].sudo().search([
-            ("employee_id", "=", employee.id),
-            ("holiday_status_id", "=", leave_type.id),
-            ("state", "=", "validate"),
-        ])
-        leave_days = round(sum(leave_ids.mapped("number_of_days")), 2) if leave_ids else 0.0
-        virtual_remaining = allocation_days - leave_days
+        # Fallback for custom leave types where dashboard-like computed balances are not available.
+        if abs(virtual_remaining) < 1e-6 and leave_type.requires_allocation != "yes":
+            virtual_remaining = 30.0 if getattr(leave_type, "leave_type", False) == "sick_leave" else 0.0
 
         pending_states = ["draft", "manager_approve", "hr_supervisor"]
         pending_requests = self.search([
