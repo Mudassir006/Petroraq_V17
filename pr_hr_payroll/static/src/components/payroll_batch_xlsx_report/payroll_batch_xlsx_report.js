@@ -289,9 +289,9 @@ get payrollMonth() {
 
     getSortIcon(field) {
         if (this.state.sortField !== field) {
-            return "↕";
+            return "↓";
         }
-        return this.state.sortAsc ? "▲" : "▼";
+        return this.state.sortAsc ? "↑" : "↓";
     }
 
 async _buildColumns(slips) {
