@@ -41,14 +41,16 @@
                         <thead>
                             <tr>
                                 <th class="pr_th pr_sortable_th" t-on-click="toggleEmployeeSort">
-                                    Employee ID <span class="pr_sort_icon"><t t-esc="employeeSortIcon"/></span>
+                                    Employee ID <span class="pr_sort_icon"><t t-esc="getSortIcon('emp_code')"/></span>
                                 </th>
                                 <th class="pr_th">Employee Name</th>
                                 <th class="pr_th">Department</th>
 
                                 <t t-foreach="state.columns" t-as="c" t-key="c.code">
-                                    <th class="pr_th" t-att-class="c.hidden ? 'pr_hidden_col' : ''">
-                                        <t t-esc="c.name"/>
+                                    <th class="pr_th pr_sortable_th"
+                                        t-att-class="c.hidden ? 'pr_hidden_col' : ''"
+                                        t-on-click="() => toggleColumnSort(c.code)">
+                                        <t t-esc="c.name"/> <span class="pr_sort_icon"><t t-esc="getSortIcon(c.code)"/></span>
                                     </th>
                                 </t>
                             </tr>

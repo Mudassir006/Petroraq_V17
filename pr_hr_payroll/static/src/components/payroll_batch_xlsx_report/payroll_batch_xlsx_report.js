@@ -24,7 +24,8 @@ class PayrollBatchXlsxReport extends Component {
             columns: [],     // [{code, name, hidden}]
             rows: [],        // [{emp_code, emp_name, dept, valsByCode}]
             totals: new Map(),// code -> sum
-            sortByEmployeeAsc: true,
+            sortField: "emp_code",
+            sortAsc: true,
         });
 
         onWillStart(async () => {
@@ -225,7 +226,7 @@ get payrollMonth() {
             });
         }
 
-        this._sortRowsByEmployeeCode(rows);
+        this._sortRows(rows);
 
         this.state.slips = slips;
         this.state.linesBySlipId = linesBySlipId;
@@ -234,33 +235,63 @@ get payrollMonth() {
         this.state.totals = totals;
     }
 
-    _sortRowsByEmployeeCode(rows) {
-        const direction = this.state.sortByEmployeeAsc ? 1 : -1;
+    _compareEmployeeCode(a, b, direction) {
+        const aCode = (a.emp_code || "").toString().trim();
+        const bCode = (b.emp_code || "").toString().trim();
+
+        const aNum = Number(aCode);
+        const bNum = Number(bCode);
+        const aIsNum = !Number.isNaN(aNum) && aCode !== "";
+        const bIsNum = !Number.isNaN(bNum) && bCode !== "";
+
+        if (aIsNum && bIsNum) {
+            if (aNum === bNum) return 0;
+            return aNum > bNum ? direction : -direction;
+        }
+
+        return aCode.localeCompare(bCode, undefined, { numeric: true }) * direction;
+    }
+
+    _sortRows(rows) {
+        const direction = this.state.sortAsc ? 1 : -1;
+        const sortField = this.state.sortField;
         rows.sort((a, b) => {
-            const aCode = (a.emp_code || "").toString().trim();
-            const bCode = (b.emp_code || "").toString().trim();
-
-            const aNum = Number(aCode);
-            const bNum = Number(bCode);
-            const aIsNum = !Number.isNaN(aNum) && aCode !== "";
-            const bIsNum = !Number.isNaN(bNum) && bCode !== "";
-
-            if (aIsNum && bIsNum) {
-                if (aNum === bNum) return 0;
-                return aNum > bNum ? direction : -direction;
+            if (sortField === "emp_code") {
+                return this._compareEmployeeCode(a, b, direction);
             }
 
-            return aCode.localeCompare(bCode, undefined, { numeric: true }) * direction;
+            const aVal = Number(a.valsByCode.get(sortField) || 0);
+            const bVal = Number(b.valsByCode.get(sortField) || 0);
+            if (aVal === bVal) {
+                return this._compareEmployeeCode(a, b, 1);
+            }
+            return aVal > bVal ? direction : -direction;
         });
     }
 
-    toggleEmployeeSort() {
-        this.state.sortByEmployeeAsc = !this.state.sortByEmployeeAsc;
-        this._sortRowsByEmployeeCode(this.state.rows);
+    toggleSort(field) {
+        if (this.state.sortField === field) {
+            this.state.sortAsc = !this.state.sortAsc;
+        } else {
+            this.state.sortField = field;
+            this.state.sortAsc = true;
+        }
+        this._sortRows(this.state.rows);
     }
 
-    get employeeSortIcon() {
-        return this.state.sortByEmployeeAsc ? "▲" : "▼";
+    toggleEmployeeSort() {
+        this.toggleSort("emp_code");
+    }
+
+    toggleColumnSort(code) {
+        this.toggleSort(code);
+    }
+
+    getSortIcon(field) {
+        if (this.state.sortField !== field) {
+            return "↕";
+        }
+        return this.state.sortAsc ? "▲" : "▼";
     }
 
 async _buildColumns(slips) {
