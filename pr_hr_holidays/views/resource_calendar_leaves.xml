@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pr_resource_calendar_leaves_tree_approval" model="ir.ui.view">
+        <field name="name">resource.calendar.leaves.tree.approval</field>
+        <field name="model">resource.calendar.leaves</field>
+        <field name="inherit_id" ref="hr_holidays.resource_calendar_leaves_tree_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="attributes">
+                <attribute name="editable">false</attribute>
+            </xpath>
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="approval_state" widget="badge"
+                       decoration-warning="approval_state == 'to_approve'"
+                       decoration-success="approval_state == 'approved'"
+                       decoration-danger="approval_state == 'rejected'"/>
+            </xpath>
+            <xpath expr="//tree" position="inside">
+                <button name="action_submit_public_holiday" string="Submit" type="object"
+                        invisible="resource_id or approval_state != 'draft'"/>
+                <button name="action_approve_public_holiday" string="Approve" type="object"
+                        class="btn-primary"
+                        invisible="resource_id or approval_state != 'to_approve'"
+                        groups="hr.group_hr_manager"/>
+                <button name="action_reject_public_holiday" string="Reject" type="object"
+                        class="btn-secondary"
+                        invisible="resource_id or approval_state not in ['to_approve', 'approved']"
+                        groups="hr.group_hr_manager"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="pr_resource_calendar_leaves_form_approval" model="ir.ui.view">
+        <field name="name">resource.calendar.leaves.form.approval</field>
+        <field name="model">resource.calendar.leaves</field>
+        <field name="inherit_id" ref="resource.view_resource_calendar_leaves_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/header" position="inside">
+                <button name="action_submit_public_holiday" string="Submit" type="object"
+                        class="oe_highlight"
+                        invisible="resource_id or approval_state != 'draft'"/>
+                <button name="action_approve_public_holiday" string="Approve" type="object"
+                        class="oe_highlight"
+                        invisible="resource_id or approval_state != 'to_approve'"
+                        groups="hr.group_hr_manager"/>
+                <button name="action_reject_public_holiday" string="Reject" type="object"
+                        invisible="resource_id or approval_state not in ['to_approve', 'approved']"
+                        groups="hr.group_hr_manager"/>
+                <field name="approval_state" widget="statusbar" statusbar_visible="draft,to_approve,approved,rejected"
+                       invisible="resource_id"/>
+            </xpath>
+            <xpath expr="//field[@name='calendar_id']" position="after">
+                <field name="approved_by_id" readonly="1" invisible="resource_id"/>
+                <field name="approved_on" readonly="1" invisible="resource_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

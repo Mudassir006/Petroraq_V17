@@ -21,6 +21,7 @@
         'security/record_rules.xml',
         'views/hr_holidays_views.xml',
         'views/hr_leave_request.xml',
+        'views/public_holiday_approvals.xml',
         'views/leave_request_template.xml',
         'views/thanks_template.xml',
         'views/hr_leave_employee_portal.xml',

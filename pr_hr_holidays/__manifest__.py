@@ -29,6 +29,7 @@
         'views/hr_leave_type.xml',
         'views/hr_leave.xml',
         'views/hr_employee.xml',
+        'views/resource_calendar_leaves.xml',
         'data/data.xml',
         'data/ir_sequence.xml',
     ],
