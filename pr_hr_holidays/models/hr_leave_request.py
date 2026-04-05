@@ -281,7 +281,9 @@ class HrLeaveRequest(models.Model):
         if abs(virtual_remaining) < 1e-6 and leave_type.requires_allocation != "yes":
             virtual_remaining = 30.0 if getattr(leave_type, "leave_type", False) == "sick_leave" else 0.0
 
-        pending_states = ["draft", "manager_approve", "hr_supervisor"]
+        # Do not count "draft" requests here to avoid showing misleading "0 available"
+        # on initial portal submission; drafts are not yet manager-confirmed commitments.
+        pending_states = ["manager_approve", "hr_supervisor"]
         pending_requests = self.search([
             ("id", "!=", self.id),
             ("employee_id", "=", employee.id),
