@@ -130,7 +130,7 @@ class HrAttendanceNotification(models.Model):
 
     @api.model
     def cron_send_daily_attendance_notifications(self):
-        """Send same-day attendance alerts from already generated attendance sheets."""
+        """Send same-day attendance alerts, generating attendance sheets if missing."""
         today = fields.Date.context_today(self)
         companies = self.env['res.company'].search([])
         attendance_sheet_obj = self.env['attendance.sheet']
@@ -147,6 +147,9 @@ class HrAttendanceNotification(models.Model):
                     'company_id': company.id,
                 })
 
+            if notification.state == 'done':
+                continue
+
             today_sheets = attendance_sheet_obj.search([
                 ('company_id', '=', company.id),
                 ('date_from', '=', today),
@@ -154,10 +157,15 @@ class HrAttendanceNotification(models.Model):
                 ('employee_id.active', '=', True),
                 ('employee_id.compute_attendance', '=', True),
                 ('employee_id.attendance_email_enabled', '=', True),
+                '|',
+                ('att_notification_id', '=', False),
+                ('att_notification_id', '=', notification.id),
             ])
 
             if today_sheets:
                 today_sheets.write({'att_notification_id': notification.id})
+            elif notification.state == 'draft':
+                notification.gen_att_sheet()
 
             if notification.state == 'draft':
                 notification.write({'state': 'gen'})
