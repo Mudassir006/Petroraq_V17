@@ -201,3 +201,18 @@ export class LeaveAvailabilityCard extends Component {
 }
 LeaveAvailabilityCard.template = 'de_hr_workspace_leave_management.LeaveAvailabilityCard';
 LeaveAvailabilityCard.props = ['id'];
+
+export class CurrentLeaveBalanceCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.state = useState({ rows: [] });
+        onWillStart(async () => {
+            this.state.rows = await this.orm.call('hr.leave', 'get_current_employee_leave_breakdown', [], {
+                context: { employee_id: this.props.id, show_all_leave_dashboard: true },
+            });
+        });
+    }
+}
+CurrentLeaveBalanceCard.template = 'de_hr_workspace_leave_management.CurrentLeaveBalanceCard';
+CurrentLeaveBalanceCard.props = ['id'];

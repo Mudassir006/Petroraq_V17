@@ -1,12 +1,15 @@
 .o_timeoff_dashboard {
-    display: flex;
-    justify-content: space-between;
+    display: block;
     height: auto;
     box-shadow: inset 0 -1px 0 $border-color;
     position: sticky;
     top: 0;
     z-index: 100;
     background-color: $o-webclient-background-color;
+}
+
+.o_timeoff_dashboard > .o_timeoff_card {
+    display: none;
 }
 
 .o_timeoff_dashboard .o_timeoff_card {
@@ -16,6 +19,12 @@
     min-width: 300px;
     padding: 12px !important;
     box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+}
+
+@media (max-width: 1400px) {
+    .o_timeoff_dashboard .o_timeoff_card {
+        min-width: 260px;
+    }
 }
 
 .o_timeoff_dashboard .table th {

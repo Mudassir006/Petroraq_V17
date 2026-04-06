@@ -35,7 +35,7 @@
                                         all_validated_leaves="all_validated_leaves"
                                         approval_status_count="approval_status_count"/>
                     <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
-                    <LeaveAvailabilityCard id="currentEmployee.data.id"/>
+                    <CurrentLeaveBalanceCard id="currentEmployee.data.id"/>
                 </div>
                 <div class="w-100 d-flex flex-wrap gap-2">
                     <LeaveCategoryCard id="currentEmployee.data.id"

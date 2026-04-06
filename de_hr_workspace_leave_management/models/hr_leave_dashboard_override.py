@@ -319,3 +319,32 @@ class HrLeaveDashboardOverride(models.Model):
                 'total_remaining': round(values['annual'] + values['sick'] + values['other'], 2),
             })
         return rows
+
+    @api.model
+    def get_current_employee_leave_breakdown(self):
+        employee = self.env.user.employee_id
+        if not employee and self.env.context.get('employee_id'):
+            employee = self.env['hr.employee'].browse(self.env.context['employee_id'])
+        if not employee:
+            return []
+        leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)])
+        allocations = self.env['hr.leave.allocation'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+        leaves = self.env['hr.leave'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+        allocated = {}
+        consumed = {}
+        for allocation in allocations:
+            allocated[allocation.holiday_status_id.id] = allocated.get(allocation.holiday_status_id.id, 0.0) + (allocation.number_of_days or 0.0)
+        for leave in leaves:
+            consumed[leave.holiday_status_id.id] = consumed.get(leave.holiday_status_id.id, 0.0) + (leave.number_of_days or 0.0)
+        return [{
+            'leave_type': leave_type.name,
+            'remaining_days': round(allocated.get(leave_type.id, 0.0) - consumed.get(leave_type.id, 0.0), 2),
+        } for leave_type in leave_types]

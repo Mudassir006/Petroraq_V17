@@ -148,4 +148,22 @@
             </tbody>
         </table>
     </div>
+
+    <div t-name="de_hr_workspace_leave_management.CurrentLeaveBalanceCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo" style="flex:auto; max-height: 475px; overflow-y: auto;">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+            <strong>My Remaining Leaves</strong>
+        </div>
+        <div class="d-flex flex-column gap-1">
+            <t t-if="!state.rows.length">
+                <div class="text-muted">No leave balance data found.</div>
+            </t>
+            <t t-foreach="state.rows" t-as="row" t-key="row.leave_type">
+                <div class="d-flex justify-content-between border-bottom pb-1">
+                    <span><t t-esc="row.leave_type"/></span>
+                    <span class="fw-bold"><t t-esc="row.remaining_days"/> days</span>
+                </div>
+            </t>
+        </div>
+    </div>
 </templates>
