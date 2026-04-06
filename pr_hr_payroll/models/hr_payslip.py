@@ -451,6 +451,9 @@ class HrPayslip(models.Model):
 
     def prepare_payslip_entry_line_vals(self, line):
         if (line.total != 0 or line.total > 0 or line.total < 0) and line.salary_rule_id.code not in ["GROSS", "NET"]:
+            payslip_date_to = line.slip_id.date_to or self.date_to
+            month_name = payslip_date_to.strftime('%B') if payslip_date_to else ""
+            year_name = payslip_date_to.year if payslip_date_to else ""
             analytic_distribution = {
                 str(self.employee_id.department_cost_center_id.id): 100,
                 str(self.employee_id.section_cost_center_id.id): 100,
@@ -471,13 +474,13 @@ class HrPayslip(models.Model):
 
             if line.category_id.code in ["BASIC", "ALW"]:
                 line_vals.update({
-                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of month {self.date_to.month} year {self.date_to.year}",
+                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of Month {month_name} {year_name}",
                     "debit": abs(line.total),
                     "credit": 0.0,
                 })
             elif line.category_id.code == "DED":
                 line_vals.update({
-                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of month {self.date_to.month} year {self.date_to.year}",
+                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of Month {month_name} {year_name}",
                     "credit": abs(line.total),
                     "debit": 0.0,
                 })

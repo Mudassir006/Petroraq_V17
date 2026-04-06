@@ -216,7 +216,7 @@ class HrLeaveRequest(models.Model):
                     employee_id = self.env["hr.employee"].sudo().search([("user_id", "=", user.id)], limit=1)
                     if employee_id and employee_id.work_email:
                         body_message = f"""Dear Mr/Mrs. {employee_id.name},<br/><br/>
-            
+
                             We wish to inform you that your employee {rec.employee_id.name} has been asked for <strong>Leave Request From {rec.date_from} To {rec.date_to}</strong>.<br/><br/>
                             You can check the request to take a decision by clicking this button <a class="btn btn-primary" href="{record_url}" role="button">Leave Request</a><br/><br/><br/>
                             Thank you for your attention to this matter.<br/><br/>
@@ -250,6 +250,65 @@ class HrLeaveRequest(models.Model):
     # endregion [Emails]
 
     # region [Actions]
+
+    def _get_requested_days_count(self):
+        self.ensure_one()
+        if not self.date_from or not self.date_to:
+            return 0.0
+        if self.date_to < self.date_from:
+            raise ValidationError(_("Date To must be greater than or equal to Date From."))
+        return float((self.date_to - self.date_from).days + 1)
+
+    def _get_available_days_for_request(self):
+        self.ensure_one()
+        if not self.employee_id or not self.leave_type_id:
+            return 0.0
+
+        leave_type = self.leave_type_id
+        employee = self.employee_id
+
+        # Match the same source used by Time Off dashboard cards as much as possible.
+        leave_type_ctx = leave_type.with_context(
+            employee_id=employee.id,
+            default_employee_id=employee.id,
+        )
+        virtual_remaining = float(
+            getattr(leave_type_ctx, "virtual_remaining_leaves", getattr(leave_type_ctx, "remaining_leaves", 0.0))
+            or 0.0
+        )
+
+        # Fallback for custom leave types where dashboard-like computed balances are not available.
+        if abs(virtual_remaining) < 1e-6 and leave_type.requires_allocation != "yes":
+            virtual_remaining = 30.0 if getattr(leave_type, "leave_type", False) == "sick_leave" else 0.0
+
+        # Do not count "draft" requests here to avoid showing misleading "0 available"
+        # on initial portal submission; drafts are not yet manager-confirmed commitments.
+        pending_states = ["manager_approve", "hr_supervisor"]
+        pending_requests = self.search([
+            ("id", "!=", self.id),
+            ("employee_id", "=", employee.id),
+            ("leave_type_id", "=", leave_type.id),
+            ("state", "in", pending_states),
+        ])
+        pending_days = sum(req._get_requested_days_count() for req in pending_requests)
+        return virtual_remaining - pending_days
+
+    def _check_requested_days_with_allocation(self):
+        for rec in self:
+            requested_days = rec._get_requested_days_count()
+            if requested_days <= 0:
+                continue
+
+            available_days = rec._get_available_days_for_request()
+            if available_days != float("inf") and requested_days > (available_days + 1e-6):
+                raise ValidationError(_(
+                    "You cannot request %(requested).2f day(s) for %(leave_type)s. "
+                    "Only %(available).2f day(s) are available."
+                ) % {
+                                          "requested": requested_days,
+                                          "leave_type": rec.leave_type_id.display_name,
+                                          "available": max(0.0, available_days),
+                                      })
 
     def action_manager_approve(self):
         for rec in self:
@@ -314,6 +373,7 @@ class HrLeaveRequest(models.Model):
     def action_hr_manager_approve(self):
         for rec in self:
             rec = rec.sudo()
+            rec._check_requested_days_with_allocation()
             rec.state = "hr_approve"
             rec.approval_state = "hr_approve"
             leave_id = rec._create_employee_leave()
@@ -402,7 +462,15 @@ class HrLeaveRequest(models.Model):
             res.hr_supervisor_ids = hr_supervisor_ids.ids
         if hr_manager_ids:
             res.hr_manager_ids = hr_manager_ids.ids
+        res._check_requested_days_with_allocation()
         res.sudo()._send_manager_email()
+        return res
+
+    def write(self, vals):
+        res = super().write(vals)
+        watched_fields = {"employee_id", "leave_type_id", "date_from", "date_to", "state"}
+        if watched_fields.intersection(vals.keys()):
+            self._check_requested_days_with_allocation()
         return res
 
     def unlink(self):

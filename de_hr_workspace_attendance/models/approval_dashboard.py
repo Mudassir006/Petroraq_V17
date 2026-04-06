@@ -16,7 +16,7 @@ class HrApprovalDashboardService(models.AbstractModel):
         if not parent:
             return self.env["ir.ui.menu"]
 
-        menus = self.env["ir.ui.menu"].search([
+        menus = self.env["ir.ui.menu"].sudo().search([
             ("id", "child_of", parent.id),
             ("id", "!=", parent.id),
         ], order="sequence, id")
@@ -133,7 +133,7 @@ class HrApprovalDashboardService(models.AbstractModel):
     def get_tiles(self):
         tiles = []
         for menu in self._get_visible_approval_menus():
-            action = menu.action
+            action = menu.sudo().action
             count = self._count_for_action(menu, action)
             icon, tone = self._style_for_menu(menu.name)
             tiles.append({

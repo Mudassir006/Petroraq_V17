@@ -2,6 +2,7 @@
 
 from odoo import http, fields
 from odoo.http import request
+from odoo.exceptions import ValidationError, UserError
 from datetime import datetime
 import base64
 
@@ -17,6 +18,8 @@ class LeaveRequestTemplate(http.Controller):
             "current_employee_id": current_employee_id,
             "employee_email": email,
             "company_name": current_employee_id.company_id.name,
+            "form_values": {},
+            "error_message": False,
         })
 
     @http.route('/leave_request/create', type='http', auth="user")
@@ -36,17 +39,28 @@ class LeaveRequestTemplate(http.Controller):
         hr_supervisor_ids = request.env['res.users'].sudo().search([('groups_id', 'in', hr_supervisor_group_ids)])
         hr_manager_ids = request.env['res.users'].sudo().search([('groups_id', 'in', hr_manager_group_ids)])
         notes = kw.get('message') if kw.get('message') else False
-        leave_request_id = request.env['pr.hr.leave.request'].sudo().create({
-            'employee_id': employee_id,
-            'leave_type_id': leave_type_id,
-            'date_from': date_from,
-            'date_to': date_to,
-            'note': notes if notes else False,
-            'company_id': employee_obj.company_id.id if employee_obj.company_id else request.env.company.id,
-            'employee_manager_id': employee_manager_id.id if employee_manager_id else False,
-            'hr_supervisor_ids': hr_supervisor_ids.ids if hr_supervisor_ids else False,
-            'hr_manager_ids': hr_manager_ids.ids if hr_manager_ids else False,
-        })
+        try:
+            leave_request_id = request.env['pr.hr.leave.request'].sudo().create({
+                'employee_id': employee_id,
+                'leave_type_id': leave_type_id,
+                'date_from': date_from,
+                'date_to': date_to,
+                'note': notes if notes else False,
+                'company_id': employee_obj.company_id.id if employee_obj.company_id else request.env.company.id,
+                'employee_manager_id': employee_manager_id.id if employee_manager_id else False,
+                'hr_supervisor_ids': hr_supervisor_ids.ids if hr_supervisor_ids else False,
+                'hr_manager_ids': hr_manager_ids.ids if hr_manager_ids else False,
+            })
+        except (ValidationError, UserError) as ex:
+            current_user = request.env.user
+            current_employee_id = request.env["hr.employee"].sudo().search([("user_id", "=", current_user.id)], limit=1)
+            return http.request.render('de_hr_workspace_timeoff.leave_request_template', {
+                "current_employee_id": current_employee_id,
+                "employee_email": current_employee_id.work_email,
+                "company_name": current_employee_id.company_id.name,
+                "form_values": kw,
+                "error_message": str(ex),
+            })
         if leave_request_id:
             # Create Attachments And Add Them To Leave Request
             attachment_ids = []
@@ -170,4 +184,3 @@ class LeaveRequestTemplate(http.Controller):
                 'chart': chart_data,
             }
         return None
-

@@ -1,0 +1,79 @@
+.o_timeoff_dashboard {
+    display: block;
+    height: auto;
+    box-shadow: inset 0 -1px 0 $border-color;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: $o-webclient-background-color;
+}
+
+.o_timeoff_dashboard > .o_timeoff_card {
+    display: none;
+}
+
+.o_timeoff_dashboard .o_timeoff_card {
+    border: 1px solid #d8dee9;
+    border-radius: 12px;
+    background: #fff;
+    min-width: 300px;
+    padding: 14px !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.o_timeoff_dashboard .o_timeoff_card:hover {
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+    transform: translateY(-1px);
+}
+
+.o_timeoff_dashboard .o_timeoff_card strong {
+    color: #1e293b;
+    font-size: 0.95rem;
+    letter-spacing: 0.2px;
+}
+
+.o_timeoff_dashboard .o_timeoff_card .duration {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 2px 8px;
+    min-height: 30px;
+    background: #f8fafc;
+}
+
+.o_timeoff_dashboard .o_timeoff_card .btn {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+@media (max-width: 1400px) {
+    .o_timeoff_dashboard .o_timeoff_card {
+        min-width: 260px;
+    }
+}
+
+.o_timeoff_dashboard .table th {
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.o_timeoff_dashboard .table td {
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: middle;
+    color: #1f2937;
+}
+
+.o_timeoff_dashboard .table-hover tbody tr:hover {
+    background: #f8fbff;
+}
+
+.o_timeoff_dashboard .border-bottom {
+    border-color: #e2e8f0 !important;
+}
+
+.o_timeoff_dashboard .fw-bold {
+    color: #0f172a;
+}
