@@ -19,6 +19,25 @@ class HomeLoginRedirect(Home):
         "pr_work_order.custom_group_work_order_management",
     )
 
+    def _get_approval_dashboard_url(self):
+        """Build a stable dashboard URL using XMLIDs instead of DB ids."""
+        env = request.env
+        action = env.ref("de_hr_workspace_attendance.action_hr_approval_dashboard", raise_if_not_found=False)
+        menu = env.ref("de_hr_workspace_attendance.menu_hr_approval_dashboard", raise_if_not_found=False)
+
+        if not action:
+            return False
+
+        fragments = [f"action={action.id}"]
+        if menu:
+            fragments.append(f"menu_id={menu.id}")
+
+        allowed_company_ids = request.session.context.get("allowed_company_ids") if request.session.context else []
+        if allowed_company_ids:
+            fragments.append("cids=%s" % ",".join(str(company_id) for company_id in allowed_company_ids))
+
+        return "/web#%s" % "&".join(fragments)
+
     @http.route('')
     def web_login(self, redirect=None, **kw):
         response = super().web_login(redirect=redirect, **kw)
@@ -30,6 +49,8 @@ class HomeLoginRedirect(Home):
         if not any(user.has_group(group_xmlid) for group_xmlid in self._APPROVER_GROUPS):
             return response
 
-        dashboard_url = "web#action=1286&cids=2&menu_id=606"
+        dashboard_url = self._get_approval_dashboard_url()
+        if not dashboard_url:
+            return response
         server_url = request.env["ir.config_parameter"].sudo().get_param("web.base.url")
         return request.redirect(f"{server_url}/{dashboard_url}")
