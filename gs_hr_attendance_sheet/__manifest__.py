@@ -22,6 +22,7 @@
         'data/data2.xml',
         'security/security.xml',
         'security/ir.model.access.csv',
+        'security/remove_transient_acl.xml',
         'wizard/change_att_data_view.xml',
         'views/hr_employee.xml',
         'views/hr_attendance_sheet_view.xml',
@@ -29,6 +30,7 @@
         'views/hr_contract_view.xml',
         'views/hr_public_holiday_view.xml',
         'views/attendance_sheet_batch_view.xml',
+
 
     ],
 
