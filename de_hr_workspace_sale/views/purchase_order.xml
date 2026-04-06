@@ -39,12 +39,12 @@
               name="Purchase Orders"
               action="pr_sale_purchase_order_md_approvals_action"
               sequence="1"
-              groups="de_hr_workspace.group_hr_employee_approvals,pr_custom_purchase.managing_director"/>
+              groups="pr_custom_purchase.managing_director"/>
 
     <menuitem id="purchase_requisition_supervisor_approvals_view_menu"
               parent="menu_my_purchase_approvals"
               name="Purchase Requisitions"
               action="pr_sale_purchase_requisition_supervisor_approvals_action"
               sequence="2"
-              groups="de_hr_workspace.group_hr_employee_approvals"/>
+              groups="pr_custom_purchase.project_manager,pr_custom_purchase.managing_director,account.group_account_manager,account.group_account_user"/>
 </odoo>

@@ -261,67 +261,43 @@ class HrAttendanceSheet(models.Model):
     def _send_notification(self):
         for sheet in self:
             employee_id = sheet.employee_id
+            if not employee_id.attendance_email_enabled:
+                _logger.info("Skipping attendance email for %s because attendance_email_enabled is disabled.", employee_id.name)
+                sheet.write({'state': 'done'})
+                continue
             employee_email = employee_id.work_email
             minutes = sheet.tot_late_in_minutes + sheet.early_check_out_minutes
             total_hours = minutes // 60
             total_minutes = minutes % 60
             no_absence = sheet.no_absence
             if not employee_email:
-                raise ValidationError(f"The Employee {employee_id.name} Does Not Have Email, Please Check !!")
-            if minutes > 0:
+                _logger.warning("Skipping attendance email for %s because work email is not configured.", employee_id.name)
+                sheet.write({'state': 'done'})
+                continue
+            if minutes > 0 or no_absence > 0:
                 # mail_server = self.env["ir.mail_server"]
                 mail = self.env["mail.mail"]
                 try:
-                    # body_message = f"Hello {employee_id.name},\nWe Want To Inform You That: According To Your Attendance {sheet.date_from}\nWe Deduct From You {round(amount, 2)} SR\n\nThanks"
+                    issue_messages = []
+                    if minutes > 0:
+                        issue_messages.append(
+                            f"shortage of <strong>{int(round(total_hours, 2))} hours</strong> and "
+                            f"<strong>{int(round(total_minutes, 2))} minutes</strong>"
+                        )
+                    if no_absence > 0:
+                        issue_messages.append(f"absence of <strong>{int(round(no_absence, 2))} day(s)</strong>")
+
+                    issues_html = " and ".join(issue_messages)
                     body_message = f"""
-                                    Dear Mr/Mrs. {employee_id.name},<br/><br/>
-    
-    We wish to inform you that a discrepancy in your recorded work hours has been identified for <strong>{sheet.date_from}</strong>. On this date, your attendance reflects a shortage of <strong>{int(round(total_hours, 2))} hours </strong> and <strong>{int(round(total_minutes, 2))} minutes.</strong><br/><br/>
-    
-    Thank you for your attention to this matter.<br/><br/>
-    Best regards,<br/>
-    <strong>HR Department</strong><br/>
-    Petroraq Engineering
-    """
-                    receivers_emails = [employee_email]
-                    for receiver in receivers_emails:
-                        # message = mail_server.build_email(
-                        #     # email_from=self.env.company.email or self.env.user.company_id.email,
-                        #     email_from="hr@petroraq.com",
-                        #     subject=f"{employee_id.code} - Shortage Notifications Of {sheet.date_from} Attendance",
-                        #     body=body_message,
-                        #     subtype="html",
-                        #     email_to=[receiver],
-                        # )
+                        Dear Mr/Mrs. {employee_id.name},<br/><br/>
 
-                        message = {
-                            # email_from=self.env.company.email or self.env.user.company_id.email,
-                            "email_from": "hr@petroraq.com",
-                            "subject": f"{employee_id.code} - Shortage Notifications Of {sheet.date_from} Attendance",
-                            "body_html": body_message,
-                            # "recipient_ids": [receiver],
-                            "email_to": receiver,
-                        }
+                        We wish to inform you that a discrepancy in your recorded work hours has been identified for
+                        <strong>{sheet.date_from}</strong>. On this date, your attendance reflects a {issues_html}.<br/><br/>
 
-                        # mail_server.send_email(message)
-                        mail_id = mail.sudo().create(message)
-                        if mail_id:
-                            mail_id.sudo().send()
-                except Exception as e:
-                    _logger.error("Success email is not sent {}".format(e))
-            elif no_absence > 0:
-                mail = self.env["mail.mail"]
-                try:
-                    # body_message = f"Hello {employee_id.name},\nWe Want To Inform You That: According To Your Attendance {sheet.date_from}\nWe Deduct From You {round(amount, 2)} SR\n\nThanks"
-                    body_message = f"""
-                                                    Dear Mr/Mrs. {employee_id.name},<br/><br/>
-
-                    We wish to inform you that a discrepancy in your recorded work hours has been identified for <strong>{sheet.date_from}</strong>. On this date, your attendance reflects an absence of <strong>{int(round(no_absence, 2))} days </strong>.</strong><br/><br/>
-
-                    Thank you for your attention to this matter.<br/><br/>
-                    Best regards,<br/>
-                    <strong>HR Department</strong><br/>
-                    Petroraq Engineering
+                        Thank you for your attention to this matter.<br/><br/>
+                        Best regards,<br/>
+                        <strong>HR Department</strong><br/>
+                        Petroraq Engineering
                     """
                     receivers_emails = [employee_email]
                     for receiver in receivers_emails:
@@ -336,8 +312,8 @@ class HrAttendanceSheet(models.Model):
                         if mail_id:
                             mail_id.sudo().send()
                 except Exception as e:
-                    _logger.error("Success email is not sent {}".format(e))
-            self.write({'state': 'done'})
+                    _logger.error("Attendance email was not sent for %s: %s", employee_id.name, e)
+            sheet.write({'state': 'done'})
 
 
 class AttendanceSheetLine(models.Model):

@@ -40,6 +40,8 @@ class HrPayslip(models.Model):
     no_overtime = fields.Integer(related="attendance_sheet_id.no_overtime", readonly=True)
     tot_overtime = fields.Float(related="attendance_sheet_id.tot_overtime", readonly=True)
     tot_overtime_amount = fields.Float(related="attendance_sheet_id.tot_overtime_amount", readonly=True)
+    approved_overtime_hours = fields.Float(related="attendance_sheet_id.approved_overtime_hours", readonly=True)
+    approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
@@ -295,6 +297,12 @@ class HrPayslip(models.Model):
                 for salary_rule_line_id in payslip.employee_id.contract_id.contract_salary_rule_ids:
                     if salary_rule_line_id.pay_in_payslip:
                         salary_rule_id = salary_rule_line_id.sudo().salary_rule_id.sudo()
+                        base_amount = salary_rule_line_id.sudo().amount or 0.0
+                        eligible_amount = self._compute_attendance_eligible_amount(
+                            payslip,
+                            salary_rule_id,
+                            base_amount,
+                        )
                         line_vals.append({
                             'sequence': salary_rule_id.sequence,
                             'code': salary_rule_id.code,
@@ -302,10 +310,10 @@ class HrPayslip(models.Model):
                             'salary_rule_id': salary_rule_id.id,
                             'contract_id': payslip.employee_id.contract_id.id,
                             'employee_id': payslip.employee_id.id,
-                            'amount': salary_rule_line_id.sudo().amount or 0,
+                            'amount': eligible_amount,
                             'quantity': 1,
                             'rate': 100,
-                            'total': salary_rule_line_id.sudo().amount or 0,
+                            'total': eligible_amount,
                             'slip_id': payslip.id,
                         })
 
@@ -315,7 +323,7 @@ class HrPayslip(models.Model):
                 late_amount = -((att_sheet.tot_late_amount or 0.0) + (getattr(att_sheet, 'carry_forward_late_amount', 0.0) or 0.0))
                 eco_amount = -((getattr(att_sheet, 'tot_early_checkout_amount', 0.0) or 0.0) + (getattr(att_sheet, 'carry_forward_early_checkout_amount', 0.0) or 0.0))
                 diff_amount = -((att_sheet.tot_difftime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_diff_amount', 0.0) or 0.0))
-                ovt_amount = ((att_sheet.tot_overtime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_overtime_amount', 0.0) or 0.0)) if payslip.employee_id.add_overtime else 0.0
+                ovt_amount = ((att_sheet.approved_overtime_amount or 0.0) + (getattr(att_sheet, 'carry_forward_overtime_amount', 0.0) or 0.0)) if payslip.employee_id.add_overtime else 0.0
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'OVT', ovt_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'ABS', abs_amount)
                 self._upsert_attendance_deduction_line(line_vals, payslip, 'LATE', late_amount)
@@ -353,6 +361,37 @@ class HrPayslip(models.Model):
                     val_line["amount"] = gross_amount
                     val_line["total"] = gross_amount
         return line_vals
+
+
+    def _compute_attendance_eligible_amount(self, payslip, salary_rule, base_amount):
+        """Prorate contract rule amount based on attendance eligibility in the payslip period."""
+        if not salary_rule.attendance_based_eligibility:
+            return base_amount
+
+        att_sheet = payslip.attendance_sheet_id
+        if not att_sheet:
+            return 0.0
+
+        sheet_lines = att_sheet.line_ids.filtered(
+            lambda l: payslip.date_from <= l.date <= payslip.date_to and (not l.status or l.status == 'ab')
+        )
+        considered_days = len(sheet_lines)
+        if not considered_days:
+            return 0.0
+
+        min_hours = salary_rule.attendance_min_worked_hours or 0.0
+        require_presence = salary_rule.attendance_require_presence
+
+        eligible_days = 0
+        for line in sheet_lines:
+            is_absent = line.status == 'ab'
+            if require_presence and is_absent:
+                continue
+            if line.worked_hours >= min_hours:
+                eligible_days += 1
+
+        return (base_amount * eligible_days / considered_days) if considered_days else 0.0
+
 
     def check_payslip_dates(self):
         for payslip in self:
@@ -412,6 +451,9 @@ class HrPayslip(models.Model):
 
     def prepare_payslip_entry_line_vals(self, line):
         if (line.total != 0 or line.total > 0 or line.total < 0) and line.salary_rule_id.code not in ["GROSS", "NET"]:
+            payslip_date_to = line.slip_id.date_to or self.date_to
+            month_name = payslip_date_to.strftime('%B') if payslip_date_to else ""
+            year_name = payslip_date_to.year if payslip_date_to else ""
             analytic_distribution = {
                 str(self.employee_id.department_cost_center_id.id): 100,
                 str(self.employee_id.section_cost_center_id.id): 100,
@@ -432,13 +474,13 @@ class HrPayslip(models.Model):
 
             if line.category_id.code in ["BASIC", "ALW"]:
                 line_vals.update({
-                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of month {self.date_to.month} year {self.date_to.year}",
+                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of Month {month_name} {year_name}",
                     "debit": abs(line.total),
                     "credit": 0.0,
                 })
             elif line.category_id.code == "DED":
                 line_vals.update({
-                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of month {self.date_to.month} year {self.date_to.year}",
+                    "name": f"{line.slip_id.employee_id.code} - {line.slip_id.employee_id.name} {line.salary_rule_id.name} of Month {month_name} {year_name}",
                     "credit": abs(line.total),
                     "debit": 0.0,
                 })

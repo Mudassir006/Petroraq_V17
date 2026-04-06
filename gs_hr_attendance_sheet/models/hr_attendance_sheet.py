@@ -55,6 +55,82 @@ class HrAttendance(models.Model):
                                 ])
 
     run_compute = fields.Boolean(compute='_compute_day_name')
+    overtime_approval_state = fields.Selection([
+        ('not_required', 'Not Required'),
+        ('pending', 'Pending HR Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ], string='Overtime Approval', default='not_required', copy=False, tracking=True)
+    overtime_for_approval = fields.Float(
+        string='Overtime For Approval',
+        compute='_compute_overtime_for_approval',
+        store=True,
+    )
+    overtime_reject_reason = fields.Text(string='Overtime Rejection Reason', copy=False)
+
+    @api.depends('worked_hours', 'check_in', 'check_out', 'employee_id')
+    def _compute_overtime_for_approval(self):
+        for rec in self:
+            if not rec.employee_id or not rec.check_out:
+                rec.overtime_for_approval = 0.0
+                continue
+            allows_overtime = (
+                ('allow_overtime' in rec.employee_id._fields and rec.employee_id.allow_overtime)
+                or ('add_overtime' in rec.employee_id._fields and rec.employee_id.add_overtime)
+            )
+            if not allows_overtime:
+                rec.overtime_for_approval = 0.0
+                continue
+            hours_per_day = rec.employee_id.resource_calendar_id.hours_per_day or 8.0
+            rec.overtime_for_approval = max((rec.worked_hours or 0.0) - hours_per_day, 0.0)
+
+    def _sync_overtime_approval_state(self):
+        for rec in self:
+            if rec.overtime_for_approval > 0:
+                if rec.overtime_approval_state == 'not_required':
+                    rec.overtime_approval_state = 'pending'
+            else:
+                rec.overtime_approval_state = 'not_required'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._sync_overtime_approval_state()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        tracked_fields = {'check_in', 'check_out', 'employee_id', 'worked_hours'}
+        if tracked_fields.intersection(vals.keys()):
+            self._sync_overtime_approval_state()
+        return result
+
+    def action_approve_overtime(self):
+        for rec in self:
+            if rec.overtime_for_approval <= 0:
+                raise ValidationError(_('No overtime to approve for this attendance record.'))
+            rec.overtime_approval_state = 'approved'
+            rec.overtime_reject_reason = False
+
+    def action_open_reject_overtime_wizard(self):
+        self.ensure_one()
+        if self.overtime_for_approval <= 0:
+            raise ValidationError(_('No overtime to reject for this attendance record.'))
+        return {
+            'name': _('Reject Overtime'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'attendance.overtime.reject.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_attendance_id': self.id},
+        }
+
+    def action_reject_overtime(self, reason=False):
+        for rec in self:
+            if rec.overtime_for_approval <= 0:
+                raise ValidationError(_('No overtime to reject for this attendance record.'))
+            rec.overtime_approval_state = 'rejected'
+            rec.overtime_reject_reason = reason or _('Rejected by HR Manager')
 
     def _compute_day_name(self):
         for rec in self:
@@ -153,10 +229,10 @@ class hrPayslip(models.Model):
                     'work_entry_type_id': overtime_work_entry[0].id,
                     'sequence': 30,
                     # 'number_of_days': 0,
-                    'number_of_days': rec.attendance_sheet_id.tot_overtime / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
-                    'number_of_hours': rec.attendance_sheet_id.tot_overtime,
+                    'number_of_days': rec.attendance_sheet_id.approved_overtime_hours / rec.employee_id.contract_id.resource_calendar_id.hours_per_day,
+                    'number_of_hours': rec.attendance_sheet_id.approved_overtime_hours,
                     'amount': (
-                                rec.attendance_sheet_id.tot_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
+                                rec.attendance_sheet_id.approved_overtime_amount + rec.attendance_sheet_id.carry_forward_overtime_amount) if rec.employee_id.add_overtime else 0.0,
                 }]
                 if not attendances and not leave_ids:
                     num_weekend = 0
@@ -250,6 +326,27 @@ class AttendanceSheet(models.Model):
         help=' * The \'Draft\' status is used when a HR user is creating a new  attendance sheet. '
              '\n* The \'Confirmed\' status is used when  attendance sheet is confirmed by HR user.'
              '\n* The \'Approved\' status is used when  attendance sheet is accepted by the HR Manager.')
+    overtime_approval_state = fields.Selection([
+        ('not_required', 'Not Required'),
+        ('pending', 'Pending HR Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ], string='Overtime Approval', compute='_compute_overtime_approval_state', store=True, tracking=True, copy=False)
+    has_overtime = fields.Boolean(
+        string='Has Overtime',
+        compute='_compute_has_overtime',
+        store=True,
+    )
+    approved_overtime_hours = fields.Float(
+        string="Approved Overtime Hours",
+        compute='_compute_approved_overtime',
+        store=True,
+    )
+    approved_overtime_amount = fields.Float(
+        string="Approved Overtime Amount",
+        compute='_compute_approved_overtime',
+        store=True,
+    )
     no_overtime = fields.Integer(compute="_compute_sheet_total",
                                  string="No of overtimes", readonly=True,
                                  store=True)
@@ -394,6 +491,52 @@ class AttendanceSheet(models.Model):
     total_sick_leave = fields.Float(compute='_compute_total_unpaid_leave')
     total_business_trip_leave = fields.Float(compute='_compute_total_unpaid_leave')
 
+    def _employee_allows_overtime(self):
+        self.ensure_one()
+        return bool(
+            self.employee_id and (
+                ('allow_overtime' in self.employee_id._fields and self.employee_id.allow_overtime)
+                or ('add_overtime' in self.employee_id._fields and self.employee_id.add_overtime)
+            )
+        )
+
+    @api.depends('line_ids.overtime')
+    def _compute_has_overtime(self):
+        for rec in self:
+            rec.has_overtime = any(line.overtime > 0 for line in rec.line_ids)
+
+    @api.depends('line_ids.overtime_approval_state', 'line_ids.approved_overtime_hours', 'line_ids.approved_overtime_amount')
+    def _compute_approved_overtime(self):
+        for rec in self:
+            approved_lines = rec.line_ids.filtered(lambda l: l.overtime_approval_state == 'approved')
+            rec.approved_overtime_hours = sum(approved_lines.mapped('approved_overtime_hours'))
+            rec.approved_overtime_amount = sum(approved_lines.mapped('approved_overtime_amount'))
+
+    @api.depends('line_ids.overtime', 'line_ids.overtime_approval_state')
+    def _compute_overtime_approval_state(self):
+        for rec in self:
+            overtime_lines = rec.line_ids.filtered(lambda l: l.overtime > 0)
+            if not rec._employee_allows_overtime() or not overtime_lines:
+                rec.overtime_approval_state = 'not_required'
+                continue
+            pending_count = len(overtime_lines.filtered(lambda l: l.overtime_approval_state == 'pending'))
+            approved_count = len(overtime_lines.filtered(lambda l: l.overtime_approval_state == 'approved'))
+            if pending_count:
+                rec.overtime_approval_state = 'pending'
+            elif approved_count and approved_count == len(overtime_lines):
+                rec.overtime_approval_state = 'approved'
+            else:
+                rec.overtime_approval_state = 'rejected'
+
+    def _refresh_line_overtime_approvals(self):
+        for sheet in self:
+            allows_overtime = sheet._employee_allows_overtime()
+            for line in sheet.line_ids:
+                if not allows_overtime or line.overtime <= 0:
+                    line.overtime_approval_state = 'not_required'
+                elif line.overtime_approval_state == 'not_required':
+                    line.overtime_approval_state = 'pending'
+
     @api.depends("line_ids.status", "line_ids.date", "employee_id", "paid_leave", "unpaid_leave", "sick_leave",
                  "business_trip_leave")
     def _compute_total_unpaid_leave(self):
@@ -468,7 +611,9 @@ class AttendanceSheet(models.Model):
 
     def action_confirm(self):
         # if self.line_ids:
-        self.write({'state': 'confirm'})
+        for sheet in self:
+            sheet._refresh_line_overtime_approvals()
+            sheet.write({'state': 'confirm'})
 
     def action_approve(self):
         payslips = self.action_create_payslip()
@@ -476,6 +621,31 @@ class AttendanceSheet(models.Model):
 
     def action_draft(self):
         self.write({'state': 'draft'})
+
+    def action_submit_overtime_approval(self):
+        for sheet in self:
+            if not sheet._employee_allows_overtime():
+                raise UserError(_("This employee is not eligible for overtime approval."))
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0)
+            if not overtime_lines:
+                raise UserError(_("There is no overtime to submit for approval."))
+            overtime_lines.filtered(lambda l: l.overtime_approval_state == 'rejected').write({
+                'overtime_approval_state': 'pending'
+            })
+
+    def action_approve_overtime(self):
+        for sheet in self:
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0 and l.overtime_approval_state == 'pending')
+            if not overtime_lines or not sheet._employee_allows_overtime():
+                raise UserError(_("This attendance sheet has no eligible overtime to approve."))
+            overtime_lines.write({'overtime_approval_state': 'approved'})
+
+    def action_reject_overtime(self):
+        for sheet in self:
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0 and l.overtime_approval_state == 'pending')
+            if not overtime_lines or not sheet._employee_allows_overtime():
+                raise UserError(_("This attendance sheet has no eligible overtime to reject."))
+            overtime_lines.write({'overtime_approval_state': 'rejected'})
 
     @api.onchange('employee_id', 'date_from', 'date_to')
     def onchange_employee(self):
@@ -668,6 +838,21 @@ class AttendanceSheet(models.Model):
                 public_holiday.append(ph.id)
         return public_holiday
 
+    def _is_overtime_approved_for_day(self, employee, day_date, tz):
+        attendance_obj = self.env['hr.attendance']
+        day_start_local = tz.localize(datetime.combine(day_date, time.min))
+        day_end_local = tz.localize(datetime.combine(day_date, time.max))
+        day_start_utc = day_start_local.astimezone(pytz.utc).replace(tzinfo=None)
+        day_end_utc = day_end_local.astimezone(pytz.utc).replace(tzinfo=None)
+        domain = [
+            ('employee_id', '=', employee.id),
+            ('check_in', '<=', day_end_utc),
+            ('check_out', '>=', day_start_utc),
+            ('overtime_approval_state', '=', 'approved'),
+            ('overtime_for_approval', '>', 0),
+        ]
+        return bool(attendance_obj.search_count(domain))
+
     def get_attendances(self):
         for att_sheet in self:
             att_sheet.line_ids.unlink()
@@ -747,6 +932,9 @@ class AttendanceSheet(models.Model):
                                                       overtime_policy[
                                                           'ph_after']) * \
                                                      overtime_policy['ph_rate']
+                                if not self._is_overtime_approved_for_day(emp, day, tz):
+                                    float_overtime = 0
+                                    act_float_overtime = 0
                                 ac_sign_in = pytz.utc.localize(
                                     attendance_interval[0]).astimezone(tz)
                                 float_ac_sign_in = self._get_float_from_time(
@@ -981,6 +1169,9 @@ class AttendanceSheet(models.Model):
                                 float_overtime = float_overtime * \
                                                  overtime_policy[
                                                      'wd_rate']
+                            if not self._is_overtime_approved_for_day(emp, day, tz):
+                                float_overtime = 0
+                                act_float_overtime = 0
                             float_late = late_in.total_seconds() / 3600
                             act_float_late = late_in.total_seconds() / 3600
                             policy_late, late_cnt = policy_id.get_late(
@@ -1041,6 +1232,9 @@ class AttendanceSheet(models.Model):
                                     act_float_overtime = float_overtime
                                     float_overtime = act_float_overtime * \
                                                      overtime_policy['wd_rate']
+                                if not self._is_overtime_approved_for_day(emp, day, tz):
+                                    float_overtime = 0
+                                    act_float_overtime = 0
                                 values = {
                                     'date': date,
                                     'day': day_str,
@@ -1075,6 +1269,9 @@ class AttendanceSheet(models.Model):
                                 act_float_overtime = float_overtime
                                 float_overtime = act_float_overtime * \
                                                  overtime_policy['we_rate']
+                            if not self._is_overtime_approved_for_day(emp, day, tz):
+                                float_overtime = 0
+                                act_float_overtime = 0
                             ac_sign_in = pytz.utc.localize(
                                 attendance_interval[0]).astimezone(tz)
                             ac_sign_out = pytz.utc.localize(
@@ -1150,6 +1347,7 @@ class AttendanceSheet(models.Model):
             att_sheet.paid_leave = paid_leave
             att_sheet.sick_leave = sick_leave
             att_sheet.business_trip_leave = business_trip_leave
+            att_sheet._refresh_line_overtime_approvals()
 
     def _collect_carry_forward_deduction(self):
         self.ensure_one()
@@ -1454,6 +1652,22 @@ class AttendanceSheetLine(models.Model):
     overtime = fields.Float("Overtime", readonly=True)
     act_overtime = fields.Float("Actual Overtime", readonly=True)
     overtime_amount = fields.Float("Overtime Amount", compute="_compute_overtime_amount", store=True)
+    overtime_approval_state = fields.Selection([
+        ('not_required', 'Not Required'),
+        ('pending', 'Pending HR Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ], string="Overtime Approval", default='not_required', copy=False)
+    approved_overtime_hours = fields.Float(
+        string="Approved Overtime Hours",
+        compute="_compute_approved_overtime",
+        store=True,
+    )
+    approved_overtime_amount = fields.Float(
+        string="Approved Overtime Amount",
+        compute="_compute_approved_overtime",
+        store=True,
+    )
     late_in = fields.Float("Late In", readonly=True)
     late_in_amount = fields.Float("Late In Amount", compute="_compute_late_in_amount", store=True)
     absence_amount = fields.Float("Absence Amount", compute="_compute_absence_amount", store=True)
@@ -1472,6 +1686,28 @@ class AttendanceSheetLine(models.Model):
                                          ('leave', 'Leave'), ],
                               required=False, readonly=True)
     note = fields.Text("Note", readonly=True)
+
+    @api.depends('overtime', 'overtime_amount', 'overtime_approval_state')
+    def _compute_approved_overtime(self):
+        for line in self:
+            if line.overtime_approval_state == 'approved' and line.overtime > 0:
+                line.approved_overtime_hours = line.overtime
+                line.approved_overtime_amount = line.overtime_amount
+            else:
+                line.approved_overtime_hours = 0.0
+                line.approved_overtime_amount = 0.0
+
+    def action_approve_overtime_line(self):
+        for line in self:
+            if line.overtime <= 0:
+                raise UserError(_("No overtime found on this day."))
+            line.overtime_approval_state = 'approved'
+
+    def action_reject_overtime_line(self):
+        for line in self:
+            if line.overtime <= 0:
+                raise UserError(_("No overtime found on this day."))
+            line.overtime_approval_state = 'rejected'
 
     def _get_month_days_divisor(self, the_date):
         return 30

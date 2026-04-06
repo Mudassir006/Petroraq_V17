@@ -34,6 +34,7 @@
         'wizards/hr_attendance_import_wizard.xml',
         'data/data.xml',
         'data/ir_sequence.xml',
+        'data/attendance_notification_cron.xml',
     ],
     # only loaded in demonstration mode
     'demo': [],
