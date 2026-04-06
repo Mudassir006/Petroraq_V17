@@ -105,3 +105,79 @@ export class PeriodAbsenteesCard extends Component {
 }
 PeriodAbsenteesCard.template = 'de_hr_workspace_leave_management.PeriodAbsenteesCard';
 PeriodAbsenteesCard.props = ['id'];
+
+export class PeriodLeavesCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.actionService = useService("action");
+        this.state = useState({
+            duration: 'this_month',
+            rows: [],
+        });
+        onWillStart(async () => {
+            await this.loadRows();
+        });
+    }
+
+    async loadRows() {
+        const rows = await this.orm.call('hr.leave', 'get_period_leaves', [this.state.duration], {
+            context: { employee_id: this.props.id, show_all_leave_dashboard: true },
+        });
+        this.state.rows = rows.map((row, index) => ({ ...row, row_key: `${row.employee_id || 0}-${index}` }));
+    }
+
+    async onChangeDuration(ev) {
+        this.state.duration = ev.target.value;
+        await this.loadRows();
+    }
+
+    exportPdf() {
+        return this.actionService.doAction({
+            type: "ir.actions.report",
+            report_type: "qweb-pdf",
+            report_name: "de_hr_workspace_leave_management.period_absentees_pdf",
+            report_file: "de_hr_workspace_leave_management.period_absentees_pdf",
+            data: { duration: this.state.duration },
+        });
+    }
+
+    exportXlsx() {
+        return this.actionService.doAction({
+            type: "ir.actions.report",
+            report_type: "xlsx",
+            report_name: "de_hr_workspace_leave_management.period_absentees_xlsx",
+            report_file: "period_absentees",
+            data: { duration: this.state.duration },
+        });
+    }
+}
+PeriodLeavesCard.template = 'de_hr_workspace_leave_management.PeriodLeavesCard';
+PeriodLeavesCard.props = ['id'];
+
+export class LeaveTypeMetricsCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.state = useState({
+            duration: 'this_month',
+            rows: [],
+        });
+        onWillStart(async () => {
+            await this.loadRows();
+        });
+    }
+
+    async loadRows() {
+        this.state.rows = await this.orm.call('hr.leave', 'get_period_leave_type_metrics', [this.state.duration], {
+            context: { employee_id: this.props.id, show_all_leave_dashboard: true },
+        });
+    }
+
+    async onChangeDuration(ev) {
+        this.state.duration = ev.target.value;
+        await this.loadRows();
+    }
+}
+LeaveTypeMetricsCard.template = 'de_hr_workspace_leave_management.LeaveTypeMetricsCard';
+LeaveTypeMetricsCard.props = ['id'];

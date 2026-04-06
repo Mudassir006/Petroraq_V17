@@ -5,6 +5,7 @@
     <!--    It takes in various props such as department ID, employee count, and absentees.-->
     <div t-name="de_hr_workspace_leave_management.EmpDepartmentCard" owl="1"
          class="o_timeoff_card py-3 text-odoo" style="width:18%;">
+        <div class="fw-bold mb-2">Leave Allocations</div>
         <t t-set="id" t-value="props.id"/>
         <t t-set="department_id" t-value="props.department_id"/>
         <t t-set="emp_count" t-value="0"/>

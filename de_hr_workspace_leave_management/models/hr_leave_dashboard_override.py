@@ -154,3 +154,53 @@ class HrLeaveDashboardOverride(models.Model):
             'date_to': leave.request_date_to,
             'number_of_days': leave.number_of_days,
         } for leave in leaves]
+
+    @api.model
+    def get_period_leaves(self, duration='this_month'):
+        date_from, date_to = self._get_period_date_range(duration or 'this_month')
+        domain = [
+            ('state', 'in', ['confirm', 'validate', 'refuse']),
+            ('request_date_from', '<=', date_to),
+            ('request_date_to', '>=', date_from),
+        ]
+        leaves = self.env['hr.leave'].sudo().search(domain, order='request_date_from asc')
+        return [{
+            'employee_id': leave.employee_id.id,
+            'employee_name': leave.employee_id.name,
+            'leave_type': leave.holiday_status_id.name,
+            'state': leave.state,
+            'date_from': leave.request_date_from,
+            'date_to': leave.request_date_to,
+            'number_of_days': leave.number_of_days,
+        } for leave in leaves]
+
+    @api.model
+    def get_period_leave_type_metrics(self, duration='this_month'):
+        metrics = {}
+        for leave in self.get_period_leaves(duration):
+            leave_type = leave['leave_type'] or 'Unknown'
+            if leave_type not in metrics:
+                metrics[leave_type] = {
+                    'leave_type': leave_type,
+                    'approved_days': 0.0,
+                    'approved_count': 0,
+                    'pending_count': 0,
+                    'refused_count': 0,
+                }
+            if leave['state'] == 'validate':
+                metrics[leave_type]['approved_days'] += leave['number_of_days'] or 0.0
+                metrics[leave_type]['approved_count'] += 1
+            elif leave['state'] == 'confirm':
+                metrics[leave_type]['pending_count'] += 1
+            elif leave['state'] == 'refuse':
+                metrics[leave_type]['refused_count'] += 1
+        return list(metrics.values())
+
+    @api.model
+    def get_period_dashboard_data(self, duration='this_month'):
+        return {
+            'duration': duration,
+            'absentees': self.get_period_absentees(duration),
+            'leaves': self.get_period_leaves(duration),
+            'leave_type_metrics': self.get_period_leave_type_metrics(duration),
+        }

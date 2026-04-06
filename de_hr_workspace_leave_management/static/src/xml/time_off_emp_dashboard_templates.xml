@@ -38,6 +38,8 @@
                                 children="currentEmployee.data.children"
                                 all_validated_leaves="all_validated_leaves"
                                 approval_status_count="approval_status_count"/>
+            <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
+            <PeriodLeavesCard id="currentEmployee.data.id"/>
             <PeriodAbsenteesCard id="currentEmployee.data.id"/>
         </xpath>
     </t>

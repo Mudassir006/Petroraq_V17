@@ -6,6 +6,8 @@
                 <div class="page">
                     <h2>Employee Absentees</h2>
                     <p>Period: <span t-esc="duration"/></p>
+
+                    <h4>Absentees (Approved Leaves)</h4>
                     <table class="table table-sm table-bordered">
                         <thead>
                             <tr>
@@ -17,12 +19,58 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr t-foreach="leaves" t-as="leave" t-key="leave.get('employee_id')">
+                            <tr t-foreach="absentees" t-as="leave" t-key="leave.get('employee_id')">
                                 <td><span t-esc="leave.get('employee_name')"/></td>
                                 <td><span t-esc="leave.get('leave_type')"/></td>
                                 <td><span t-esc="leave.get('date_from')"/></td>
                                 <td><span t-esc="leave.get('date_to')"/></td>
                                 <td><span t-esc="leave.get('number_of_days')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4>All Leaves (Approved/Pending/Refused)</h4>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th>State</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="leaves" t-as="leave" t-key="leave.get('employee_id')">
+                                <td><span t-esc="leave.get('employee_name')"/></td>
+                                <td><span t-esc="leave.get('leave_type')"/></td>
+                                <td><span t-esc="leave.get('state')"/></td>
+                                <td><span t-esc="leave.get('date_from')"/></td>
+                                <td><span t-esc="leave.get('date_to')"/></td>
+                                <td><span t-esc="leave.get('number_of_days')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4>Leave Type Metrics</h4>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Leave Type</th>
+                                <th>Approved Days</th>
+                                <th>Approved</th>
+                                <th>Pending</th>
+                                <th>Refused</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="leave_type_metrics" t-as="metric" t-key="metric.get('leave_type')">
+                                <td><span t-esc="metric.get('leave_type')"/></td>
+                                <td><span t-esc="metric.get('approved_days')"/></td>
+                                <td><span t-esc="metric.get('approved_count')"/></td>
+                                <td><span t-esc="metric.get('pending_count')"/></td>
+                                <td><span t-esc="metric.get('refused_count')"/></td>
                             </tr>
                         </tbody>
                     </table>

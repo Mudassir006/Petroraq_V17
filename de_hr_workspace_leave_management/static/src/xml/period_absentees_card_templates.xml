@@ -41,4 +41,82 @@
             </tbody>
         </table>
     </div>
+
+    <div t-name="de_hr_workspace_leave_management.PeriodLeavesCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo" style="flex:auto; max-height: 475px; overflow-y: auto;">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+            <strong>Period Leaves (All States)</strong>
+            <select class="duration" t-att-value="state.duration" t-on-change="onChangeDuration">
+                <option value="today">Today</option>
+                <option value="this_week">This week</option>
+                <option value="this_month">This month</option>
+                <option value="this_year">This year</option>
+            </select>
+        </div>
+        <div class="d-flex gap-2 mb-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" t-on-click="exportPdf">Export PDF</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="exportXlsx">Export Excel</button>
+        </div>
+        <table class="table table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>State</th>
+                    <th>Days</th>
+                </tr>
+            </thead>
+            <tbody>
+                <t t-if="!state.rows.length">
+                    <tr><td colspan="4" class="text-muted">No leave records in selected period.</td></tr>
+                </t>
+                <t t-foreach="state.rows" t-as="row" t-key="row.row_key">
+                    <tr>
+                        <td><t t-esc="row.employee_name"/></td>
+                        <td><t t-esc="row.leave_type"/></td>
+                        <td><t t-esc="row.state"/></td>
+                        <td><t t-esc="row.number_of_days"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+    </div>
+
+    <div t-name="de_hr_workspace_leave_management.LeaveTypeMetricsCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo" style="flex:auto; max-height: 475px; overflow-y: auto;">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+            <strong>Leave Type Metrics</strong>
+            <select class="duration" t-att-value="state.duration" t-on-change="onChangeDuration">
+                <option value="today">Today</option>
+                <option value="this_week">This week</option>
+                <option value="this_month">This month</option>
+                <option value="this_year">This year</option>
+            </select>
+        </div>
+        <table class="table table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Leave Type</th>
+                    <th>Approved Days</th>
+                    <th>Approved</th>
+                    <th>Pending</th>
+                    <th>Refused</th>
+                </tr>
+            </thead>
+            <tbody>
+                <t t-if="!state.rows.length">
+                    <tr><td colspan="5" class="text-muted">No leave type metrics in selected period.</td></tr>
+                </t>
+                <t t-foreach="state.rows" t-as="row" t-key="row.leave_type">
+                    <tr>
+                        <td><t t-esc="row.leave_type"/></td>
+                        <td><t t-esc="row.approved_days"/></td>
+                        <td><t t-esc="row.approved_count"/></td>
+                        <td><t t-esc="row.pending_count"/></td>
+                        <td><t t-esc="row.refused_count"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+    </div>
 </templates>
