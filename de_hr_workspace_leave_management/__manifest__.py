@@ -1,17 +1,14 @@
 {
     'name': 'Workspace Leave Management Dashboard',
-    'version': '17.0.1.0.0',
-    'summary': 'Management dashboard and reporting for all employees leave data',
-    'description': 'Adds management leave dashboard and exportable leave analytics under Employee Workspace.',
+    'version': '17.0.1.0.1',
+    'summary': 'Advanced leave dashboard for all active employees',
+    'description': 'Adds a single advanced leave dashboard under Employee Workspace with all-active-employee visibility.',
     'author': 'Aual Faisal',
     'website': 'https://petroraq.com',
     'category': 'Human Resources',
-    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'pr_hr_org_chart', 'report_xlsx'],
+    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'pr_hr_org_chart'],
     'data': [
-        'security/ir.model.access.csv',
         'views/leave_management_views.xml',
-        'report/leave_summary_reports.xml',
-        'report/leave_summary_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [

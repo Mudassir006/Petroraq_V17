@@ -36,14 +36,16 @@ patch(TimeOffDashboard.prototype,{
             await this.userService.hasGroup('hr_holidays.group_hr_holidays_manager').then(hasGroup => {
                 this.manager = hasGroup;
             })
+            const dashboardContext = {
+                employee_id: this.props.employeeId,
+                show_all_leave_dashboard: true,
+            };
             this.currentEmployee.data = await this.orm.call(
             'hr.leave',
             'get_current_employee',
             [],
             {
-                context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
         );
          this.currentAbsentees.data = await this.orm.call(
@@ -51,9 +53,7 @@ patch(TimeOffDashboard.prototype,{
             'get_absentees',
             [],
             {
-                 context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
 
         );
@@ -62,9 +62,7 @@ patch(TimeOffDashboard.prototype,{
             'get_current_shift',
             [],
             {
-                context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
         );
          this.upcoming_holidays.data = await this.orm.call(
@@ -72,9 +70,7 @@ patch(TimeOffDashboard.prototype,{
             'get_upcoming_holidays',
             [],
             {
-                context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
         );
          this.approval_status_count = await this.orm.call(
@@ -82,9 +78,7 @@ patch(TimeOffDashboard.prototype,{
             'get_approval_status_count',
             [this.currentEmployee.data.id],
             {
-                context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
         );
           this.all_validated_leaves = await this.orm.call(
@@ -92,9 +86,7 @@ patch(TimeOffDashboard.prototype,{
             'get_all_validated_leaves',
             [],
             {
-                context: {
-                    employee_id: this.props.employeeId
-                }
+                context: dashboardContext,
             }
         );
         if (this.props.employeeId == null) {

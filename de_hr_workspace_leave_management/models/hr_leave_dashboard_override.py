@@ -16,9 +16,13 @@ class HrLeaveDashboardOverride(models.Model):
 
     @api.model
     def get_current_employee(self):
-        current_employee = self.env.user.employee_ids
+        current_employee = self.env.user.employee_id
+        if not current_employee and self.env.context.get('employee_id'):
+            current_employee = self.env['hr.employee'].browse(self.env.context['employee_id'])
+        if not current_employee:
+            return {}
         if self.env.context.get('show_all_leave_dashboard'):
-            children = self.env['hr.employee'].sudo().search([('active', '=', True), ('id', '!=', current_employee.id)])
+            children = self.env['hr.employee'].sudo().search([('active', '=', True)])
         else:
             children = current_employee.child_ids
         return {
@@ -39,7 +43,7 @@ class HrLeaveDashboardOverride(models.Model):
             'child_all_count': len(children),
             'manager': self._prepare_employee_data(current_employee.parent_id) if current_employee.parent_id else {},
             'manager_all_count': len(current_employee.parent_id.ids),
-            'children': [self._prepare_employee_data(child) for child in children if child != current_employee],
+            'children': [self._prepare_employee_data(child) for child in children],
         }
 
     @api.model
@@ -47,14 +51,19 @@ class HrLeaveDashboardOverride(models.Model):
         now = fields.Datetime.now()
         domain = [('state', '=', 'validate'), ('date_from', '<=', now), ('date_to', '>=', now)]
         if not self.env.context.get('show_all_leave_dashboard'):
-            current_employee = self.env.user.employee_ids
-            domain.append(('employee_id', 'in', current_employee.child_ids.ids))
+            current_employee = self.env.user.employee_id
+            if current_employee:
+                domain.append(('employee_id', 'in', current_employee.child_ids.ids))
         leaves = self.env['hr.leave'].sudo().search(domain)
         return [{'employee_id': l.employee_id.id, 'name': l.employee_id.name, 'date_from': l.date_from, 'date_to': l.date_to} for l in leaves]
 
     @api.model
     def get_current_shift(self):
-        current_employee = self.env.user.employee_ids
+        current_employee = self.env.user.employee_id
+        if not current_employee and self.env.context.get('employee_id'):
+            current_employee = self.env['hr.employee'].browse(self.env.context['employee_id'])
+        if not current_employee:
+            return False
         employee_tz = current_employee.tz or self.env.context.get('tz')
         employee_pytz = pytz.timezone(employee_tz) if employee_tz else pytz.utc
         employee_datetime = fields.Datetime.now().astimezone(employee_pytz)
@@ -70,7 +79,7 @@ class HrLeaveDashboardOverride(models.Model):
 
     @api.model
     def get_upcoming_holidays(self):
-        employee_tz = self.env.user.employee_ids.tz or self.env.context.get('tz')
+        employee_tz = self.env.user.employee_id.tz or self.env.context.get('tz')
         employee_pytz = pytz.timezone(employee_tz) if employee_tz else pytz.utc
         employee_datetime = fields.Datetime.now().astimezone(employee_pytz)
         holidays = self.env['hr.public.holiday'].sudo().search([('state', '=', 'active')])
@@ -88,8 +97,9 @@ class HrLeaveDashboardOverride(models.Model):
     def get_all_validated_leaves(self):
         domain = [('state', '=', 'validate')]
         if not self.env.context.get('show_all_leave_dashboard'):
-            current_employee = self.env.user.employee_ids
-            domain.append(('employee_id', 'in', current_employee.child_ids.ids))
+            current_employee = self.env.user.employee_id
+            if current_employee:
+                domain.append(('employee_id', 'in', current_employee.child_ids.ids))
         leaves = self.env['hr.leave'].sudo().search(domain)
         return [{
             'id': leave.id,

@@ -33,8 +33,6 @@ export class ApprovalStatusCard extends Component {
          super.setup();
           this.userService = useService('user');
         this.props;
-        this.rpc = useService('rpc');
-        this.actionService = useService("action");
 
          onWillStart(async () => {
             await this.userService.hasGroup('hr_holidays.group_hr_holidays_manager').then(hasGroup => {
@@ -42,20 +40,7 @@ export class ApprovalStatusCard extends Component {
             })
     });
 }
-    async printPdfReport() {
-        const duration = $(this.__owl__.bdom.el.querySelectorAll("#duration")).val();
-        return this.actionService.doAction({
-            type: "ir.actions.report",
-            report_type: "qweb-pdf",
-            report_name: "de_hr_workspace_leave_management.hr_leave_report",
-            report_file: "de_hr_workspace_leave_management.hr_leave_report",
-            data: {
-                'duration': duration,
-                'all_validated_leaves': this.props.all_validated_leaves,
-                }
-        });
-    }
-    }
+}
 ApprovalStatusCard.template = 'de_hr_workspace_leave_management.ApprovalStatusCard';
 ApprovalStatusCard.props = ['id','name','approval_status_count','child_ids',
 'children', 'all_validated_leaves'];
