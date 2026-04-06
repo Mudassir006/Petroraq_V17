@@ -6,7 +6,7 @@
     'author': 'Aual Faisal',
     'website': 'https://petroraq.com',
     'category': 'Human Resources',
-    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'report_xlsx'],
+    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'report_xlsx', 'hr_leave_dashboard'],
     'data': [
         'security/ir.model.access.csv',
         'views/leave_management_views.xml',
