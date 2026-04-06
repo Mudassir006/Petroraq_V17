@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_leave_analytics_wizard_line_tree" model="ir.ui.view">
+        <field name="name">de.hr.leave.analytics.wizard.line.tree</field>
+        <field name="model">de.hr.leave.analytics.wizard.line</field>
+        <field name="arch" type="xml">
+            <tree create="false" delete="false" edit="false">
+                <field name="employee_code"/>
+                <field name="employee_name"/>
+                <field name="department_name"/>
+                <field name="manager_name"/>
+                <field name="annual_days"/>
+                <field name="sick_days"/>
+                <field name="other_days"/>
+                <field name="total_leave_days"/>
+                <field name="absence_days"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_leave_analytics_wizard_form" model="ir.ui.view">
+        <field name="name">de.hr.leave.analytics.wizard.form</field>
+        <field name="model">de.hr.leave.analytics.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Leave Analytics" create="false">
+                <header>
+                    <button name="action_generate" string="Apply" type="object" class="btn-primary"/>
+                    <button name="action_export_pdf" string="Export PDF" type="object"/>
+                    <button name="action_export_xlsx" string="Export Excel" type="object"/>
+                </header>
+                <sheet>
+                    <group col="4">
+                        <field name="duration"/>
+                        <field name="date_from" readonly="duration != 'custom'"/>
+                        <field name="date_to" readonly="duration != 'custom'"/>
+                    </group>
+                    <group>
+                        <field name="line_ids" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_leave_analytics_wizard" model="ir.actions.act_window">
+        <field name="name">Leave Analytics Report</field>
+        <field name="res_model">de.hr.leave.analytics.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'default_duration': 'month'}</field>
+    </record>
+
+    <record id="action_workspace_leave_dashboard" model="ir.actions.act_window">
+        <field name="name">Leave Dashboard</field>
+        <field name="res_model">hr.leave.report</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_group_by_employee_id': 1, 'pivot_measures': ['number_of_days']}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No leave reporting data found.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_workspace_leave_management_root"
+              name="Leave Management"
+              parent="de_hr_workspace.menu_my_employee_approvals"
+              sequence="25"
+              groups="hr.group_hr_manager,de_hr_workspace.group_hr_employee_approvals"/>
+
+    <menuitem id="menu_workspace_leave_dashboard"
+              name="Leave Dashboard"
+              parent="menu_workspace_leave_management_root"
+              action="action_workspace_leave_dashboard"
+              sequence="5"
+              groups="hr.group_hr_manager,de_hr_workspace.group_hr_employee_approvals"/>
+
+    <menuitem id="menu_workspace_leave_analytics_report"
+              name="Leave Reporting"
+              parent="menu_workspace_leave_management_root"
+              action="action_leave_analytics_wizard"
+              sequence="10"
+              groups="hr.group_hr_manager,de_hr_workspace.group_hr_employee_approvals"/>
+</odoo>
