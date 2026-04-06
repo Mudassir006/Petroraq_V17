@@ -137,7 +137,7 @@ class LeaveAnalyticsWizardLine(models.TransientModel):
 
 
 class LeaveAnalyticsPdfReport(models.AbstractModel):
-    _name = 'report.de_hr_workspace_leave_management.leave_analytics_pdf_template'
+    _name = 'report.de_hr_workspace_leave_management.leave_analytics_pdf'
     _description = 'Leave Analytics PDF Report'
 
     @api.model
