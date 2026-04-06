@@ -106,7 +106,7 @@ export class PeriodAbsenteesCard extends Component {
 PeriodAbsenteesCard.template = 'de_hr_workspace_leave_management.PeriodAbsenteesCard';
 PeriodAbsenteesCard.props = ['id'];
 
-export class PeriodLeavesCard extends Component {
+export class LeaveCategoryCard extends Component {
     setup() {
         super.setup();
         this.orm = useService('orm');
@@ -121,7 +121,7 @@ export class PeriodLeavesCard extends Component {
     }
 
     async loadRows() {
-        const rows = await this.orm.call('hr.leave', 'get_period_leaves', [this.state.duration], {
+        const rows = await this.orm.call('hr.leave', 'get_period_leaves', [this.state.duration, this.props.category], {
             context: { employee_id: this.props.id, show_all_leave_dashboard: true },
         });
         this.state.rows = rows.map((row, index) => ({ ...row, row_key: `${row.employee_id || 0}-${index}` }));
@@ -152,8 +152,8 @@ export class PeriodLeavesCard extends Component {
         });
     }
 }
-PeriodLeavesCard.template = 'de_hr_workspace_leave_management.PeriodLeavesCard';
-PeriodLeavesCard.props = ['id'];
+LeaveCategoryCard.template = 'de_hr_workspace_leave_management.LeaveCategoryCard';
+LeaveCategoryCard.props = ['id', 'category', 'title'];
 
 export class LeaveTypeMetricsCard extends Component {
     setup() {

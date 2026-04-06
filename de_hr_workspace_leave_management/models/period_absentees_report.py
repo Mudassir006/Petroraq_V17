@@ -15,7 +15,9 @@ class PeriodAbsenteesPdfReport(models.AbstractModel):
             'docs': self.env['hr.leave'],
             'duration': duration,
             'absentees': dashboard_data.get('absentees', []),
-            'leaves': dashboard_data.get('leaves', []),
+            'sick_leaves': dashboard_data.get('sick_leaves', []),
+            'annual_leaves': dashboard_data.get('annual_leaves', []),
+            'other_leaves': dashboard_data.get('other_leaves', []),
             'leave_type_metrics': dashboard_data.get('leave_type_metrics', []),
         }
 
@@ -30,7 +32,9 @@ class PeriodAbsenteesXlsxReport(models.AbstractModel):
         duration = data.get('duration', 'this_month')
         dashboard_data = self.env['hr.leave'].with_context(show_all_leave_dashboard=True).get_period_dashboard_data(duration)
         absentees = dashboard_data.get('absentees', [])
-        leaves = dashboard_data.get('leaves', [])
+        sick_leaves = dashboard_data.get('sick_leaves', [])
+        annual_leaves = dashboard_data.get('annual_leaves', [])
+        other_leaves = dashboard_data.get('other_leaves', [])
         leave_type_metrics = dashboard_data.get('leave_type_metrics', [])
 
         sheet = workbook.add_worksheet('Leave Metrics')
@@ -44,32 +48,31 @@ class PeriodAbsenteesXlsxReport(models.AbstractModel):
 
         sheet.write(row, 0, 'Absentees (Approved Leaves)', title)
         row += 1
-        columns = ['Employee', 'Leave Type', 'From', 'To', 'Days']
+        columns = ['Employee', 'Absent Date']
         for col, title in enumerate(columns):
             sheet.write(row, col, title, header)
         row += 1
-        for leave in absentees:
-            sheet.write(row, 0, leave.get('employee_name', ''), cell)
-            sheet.write(row, 1, leave.get('leave_type', ''), cell)
-            sheet.write(row, 2, str(leave.get('date_from', '')), cell)
-            sheet.write(row, 3, str(leave.get('date_to', '')), cell)
-            sheet.write(row, 4, leave.get('number_of_days', 0), cell)
+        for absent in absentees:
+            sheet.write(row, 0, absent.get('employee_name', ''), cell)
+            sheet.write(row, 1, str(absent.get('absence_date', '')), cell)
             row += 1
 
         row += 2
-        sheet.write(row, 0, 'All Leaves (Approved/Pending/Refused)', title)
-        row += 1
-        leave_columns = ['Employee', 'Leave Type', 'State', 'From', 'To', 'Days']
-        for col, col_name in enumerate(leave_columns):
-            sheet.write(row, col, col_name, header)
-        row += 1
-        for leave in leaves:
-            sheet.write(row, 0, leave.get('employee_name', ''), cell)
-            sheet.write(row, 1, leave.get('leave_type', ''), cell)
-            sheet.write(row, 2, leave.get('state', ''), cell)
-            sheet.write(row, 3, str(leave.get('date_from', '')), cell)
-            sheet.write(row, 4, str(leave.get('date_to', '')), cell)
-            sheet.write(row, 5, leave.get('number_of_days', 0), cell)
+        for section_title, leaves in [('Sick Leaves', sick_leaves), ('Annual Leaves', annual_leaves), ('Other Leaves', other_leaves)]:
+            sheet.write(row, 0, section_title, title)
+            row += 1
+            leave_columns = ['Employee', 'Leave Type', 'State', 'From', 'To', 'Days']
+            for col, col_name in enumerate(leave_columns):
+                sheet.write(row, col, col_name, header)
+            row += 1
+            for leave in leaves:
+                sheet.write(row, 0, leave.get('employee_name', ''), cell)
+                sheet.write(row, 1, leave.get('leave_type', ''), cell)
+                sheet.write(row, 2, leave.get('state', ''), cell)
+                sheet.write(row, 3, str(leave.get('date_from', '')), cell)
+                sheet.write(row, 4, str(leave.get('date_to', '')), cell)
+                sheet.write(row, 5, leave.get('number_of_days', 0), cell)
+                row += 1
             row += 1
 
         row += 2

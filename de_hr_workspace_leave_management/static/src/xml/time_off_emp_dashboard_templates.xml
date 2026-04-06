@@ -39,7 +39,15 @@
                                 all_validated_leaves="all_validated_leaves"
                                 approval_status_count="approval_status_count"/>
             <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
-            <PeriodLeavesCard id="currentEmployee.data.id"/>
+            <LeaveCategoryCard id="currentEmployee.data.id"
+                               category="'sick'"
+                               title="'Sick Leaves'"/>
+            <LeaveCategoryCard id="currentEmployee.data.id"
+                               category="'annual'"
+                               title="'Annual Leaves'"/>
+            <LeaveCategoryCard id="currentEmployee.data.id"
+                               category="'other'"
+                               title="'Other Leaves'"/>
             <PeriodAbsenteesCard id="currentEmployee.data.id"/>
         </xpath>
     </t>

@@ -12,24 +12,18 @@
                         <thead>
                             <tr>
                                 <th>Employee</th>
-                                <th>Leave Type</th>
-                                <th>From</th>
-                                <th>To</th>
-                                <th>Days</th>
+                                <th>Absent Date</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="absentees" t-as="leave" t-key="leave.get('employee_id')">
                                 <td><span t-esc="leave.get('employee_name')"/></td>
-                                <td><span t-esc="leave.get('leave_type')"/></td>
-                                <td><span t-esc="leave.get('date_from')"/></td>
-                                <td><span t-esc="leave.get('date_to')"/></td>
-                                <td><span t-esc="leave.get('number_of_days')"/></td>
+                                <td><span t-esc="leave.get('absence_date')"/></td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <h4>All Leaves (Approved/Pending/Refused)</h4>
+                    <h4>Sick Leaves</h4>
                     <table class="table table-sm table-bordered">
                         <thead>
                             <tr>
@@ -42,7 +36,53 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr t-foreach="leaves" t-as="leave" t-key="leave.get('employee_id')">
+                            <tr t-foreach="sick_leaves" t-as="leave" t-key="leave.get('employee_id')">
+                                <td><span t-esc="leave.get('employee_name')"/></td>
+                                <td><span t-esc="leave.get('leave_type')"/></td>
+                                <td><span t-esc="leave.get('state')"/></td>
+                                <td><span t-esc="leave.get('date_from')"/></td>
+                                <td><span t-esc="leave.get('date_to')"/></td>
+                                <td><span t-esc="leave.get('number_of_days')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h4>Annual Leaves</h4>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th>State</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="annual_leaves" t-as="leave" t-key="leave.get('employee_id')">
+                                <td><span t-esc="leave.get('employee_name')"/></td>
+                                <td><span t-esc="leave.get('leave_type')"/></td>
+                                <td><span t-esc="leave.get('state')"/></td>
+                                <td><span t-esc="leave.get('date_from')"/></td>
+                                <td><span t-esc="leave.get('date_to')"/></td>
+                                <td><span t-esc="leave.get('number_of_days')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h4>Other Leaves</h4>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th>State</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="other_leaves" t-as="leave" t-key="leave.get('employee_id')">
                                 <td><span t-esc="leave.get('employee_name')"/></td>
                                 <td><span t-esc="leave.get('leave_type')"/></td>
                                 <td><span t-esc="leave.get('state')"/></td>

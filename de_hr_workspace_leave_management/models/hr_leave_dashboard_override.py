@@ -136,35 +136,80 @@ class HrLeaveDashboardOverride(models.Model):
     @api.model
     def get_period_absentees(self, duration='this_month'):
         date_from, date_to = self._get_period_date_range(duration or 'this_month')
-        domain = [
+        employees = self.env['hr.employee'].sudo().search([('active', '=', True)])
+        holidays = self.env['hr.public.holiday'].sudo().search([
+            ('state', '=', 'active'),
+            ('date_from', '<=', date_to),
+            ('date_to', '>=', date_from),
+        ])
+
+        public_holiday_dates = set()
+        for holiday in holidays:
+            current = max(holiday.date_from, date_from)
+            end = min(holiday.date_to, date_to)
+            while current <= end:
+                public_holiday_dates.add(current)
+                current += timedelta(days=1)
+
+        leave_days_map = {employee.id: set() for employee in employees}
+        approved_leaves = self.env['hr.leave'].sudo().search([
             ('state', '=', 'validate'),
+            ('employee_id', 'in', employees.ids),
             ('request_date_from', '<=', date_to),
             ('request_date_to', '>=', date_from),
-        ]
-        if not self.env.context.get('show_all_leave_dashboard'):
-            current_employee = self.env.user.employee_id
-            if current_employee:
-                domain.append(('employee_id', 'in', current_employee.child_ids.ids))
-        leaves = self.env['hr.leave'].sudo().search(domain, order='request_date_from asc')
-        return [{
-            'employee_id': leave.employee_id.id,
-            'employee_name': leave.employee_id.name,
-            'leave_type': leave.holiday_status_id.name,
-            'date_from': leave.request_date_from,
-            'date_to': leave.request_date_to,
-            'number_of_days': leave.number_of_days,
-        } for leave in leaves]
+        ])
+        for leave in approved_leaves:
+            current = max(leave.request_date_from, date_from)
+            end = min(leave.request_date_to, date_to)
+            while current <= end:
+                leave_days_map.setdefault(leave.employee_id.id, set()).add(current)
+                current += timedelta(days=1)
+
+        attendance_days_map = {employee.id: set() for employee in employees}
+        date_from_dt = fields.Datetime.to_datetime(date_from)
+        date_to_dt = fields.Datetime.to_datetime(date_to) + timedelta(days=1)
+        attendances = self.env['hr.attendance'].sudo().search([
+            ('employee_id', 'in', employees.ids),
+            ('check_in', '>=', date_from_dt),
+            ('check_in', '<', date_to_dt),
+        ])
+        for attendance in attendances:
+            attendance_days_map.setdefault(attendance.employee_id.id, set()).add(attendance.check_in.date())
+
+        rows = []
+        for employee in employees:
+            calendar = employee.resource_calendar_id
+            if calendar and calendar.attendance_ids:
+                working_days = {int(a.dayofweek) for a in calendar.attendance_ids}
+            else:
+                working_days = {0, 1, 2, 3, 4}
+
+            current = date_from
+            while current <= date_to:
+                if (
+                    current.weekday() in working_days
+                    and current not in public_holiday_dates
+                    and current not in leave_days_map.get(employee.id, set())
+                    and current not in attendance_days_map.get(employee.id, set())
+                ):
+                    rows.append({
+                        'employee_id': employee.id,
+                        'employee_name': employee.name,
+                        'absence_date': current,
+                    })
+                current += timedelta(days=1)
+        return rows
 
     @api.model
-    def get_period_leaves(self, duration='this_month'):
+    def get_period_leaves(self, duration='this_month', category=None):
         date_from, date_to = self._get_period_date_range(duration or 'this_month')
         domain = [
-            ('state', 'in', ['confirm', 'validate', 'refuse']),
+            ('state', 'in', ['confirm', 'validate']),
             ('request_date_from', '<=', date_to),
             ('request_date_to', '>=', date_from),
         ]
         leaves = self.env['hr.leave'].sudo().search(domain, order='request_date_from asc')
-        return [{
+        rows = [{
             'employee_id': leave.employee_id.id,
             'employee_name': leave.employee_id.name,
             'leave_type': leave.holiday_status_id.name,
@@ -173,6 +218,18 @@ class HrLeaveDashboardOverride(models.Model):
             'date_to': leave.request_date_to,
             'number_of_days': leave.number_of_days,
         } for leave in leaves]
+        if not category:
+            return rows
+
+        def _category(value):
+            name = (value or '').lower()
+            if 'sick' in name:
+                return 'sick'
+            if 'annual' in name:
+                return 'annual'
+            return 'other'
+
+        return [row for row in rows if _category(row.get('leave_type')) == category]
 
     @api.model
     def get_period_leave_type_metrics(self, duration='this_month'):
@@ -201,6 +258,8 @@ class HrLeaveDashboardOverride(models.Model):
         return {
             'duration': duration,
             'absentees': self.get_period_absentees(duration),
-            'leaves': self.get_period_leaves(duration),
+            'sick_leaves': self.get_period_leaves(duration, 'sick'),
+            'annual_leaves': self.get_period_leaves(duration, 'annual'),
+            'other_leaves': self.get_period_leaves(duration, 'other'),
             'leave_type_metrics': self.get_period_leave_type_metrics(duration),
         }
