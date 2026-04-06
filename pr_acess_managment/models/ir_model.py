@@ -66,5 +66,10 @@ class ir_module_module(models.Model):
         res = super(ir_module_module, self)._button_immediate_function(function)
         if function.__name__ in ['button_install', 'button_upgrade']:
             for record in self.env['ir.model'].search([]):
-                record.abstract = self.env[record.model]._abstract
+                try:
+                    model_obj = self.env[record.model]
+                except KeyError:
+                    # Model may be stale in ir.model (module removed/renamed); skip safely.
+                    continue
+                record.abstract = model_obj._abstract
         return res
