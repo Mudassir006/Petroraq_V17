@@ -38,6 +38,7 @@
                                 children="currentEmployee.data.children"
                                 all_validated_leaves="all_validated_leaves"
                                 approval_status_count="approval_status_count"/>
+            <PeriodAbsenteesCard id="currentEmployee.data.id"/>
         </xpath>
     </t>
 </templates>

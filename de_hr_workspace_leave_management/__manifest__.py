@@ -1,14 +1,16 @@
 {
     'name': 'Workspace Leave Management Dashboard',
-    'version': '17.0.1.0.1',
+    'version': '17.0.1.0.2',
     'summary': 'Advanced leave dashboard for all active employees',
     'description': 'Adds a single advanced leave dashboard under Employee Workspace with all-active-employee visibility.',
     'author': 'Aual Faisal',
     'website': 'https://petroraq.com',
     'category': 'Human Resources',
-    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'pr_hr_org_chart'],
+    'depends': ['de_hr_workspace', 'pr_hr_holidays', 'gs_hr_attendance_sheet', 'pr_hr_org_chart', 'report_xlsx'],
     'data': [
         'views/leave_management_views.xml',
+        'report/period_absentees_reports.xml',
+        'report/period_absentees_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [
@@ -19,6 +21,7 @@
             'de_hr_workspace_leave_management/static/src/js/time_off_emp_card.js',
             'de_hr_workspace_leave_management/static/src/js/time_off_emp_dashboard.js',
             'de_hr_workspace_leave_management/static/src/xml/approval_status_card_templates.xml',
+            'de_hr_workspace_leave_management/static/src/xml/period_absentees_card_templates.xml',
             'de_hr_workspace_leave_management/static/src/xml/time_off_emp_dashboard_templates.xml',
             'de_hr_workspace_leave_management/static/src/xml/emp_org_chart_templates.xml',
             'de_hr_workspace_leave_management/static/src/xml/emp_department_card_templates.xml',

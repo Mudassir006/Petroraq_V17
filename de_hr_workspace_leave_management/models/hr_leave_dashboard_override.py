@@ -1,9 +1,30 @@
 import pytz
+from datetime import timedelta
 from odoo import api, fields, models
 
 
 class HrLeaveDashboardOverride(models.Model):
     _inherit = 'hr.leave'
+
+    @api.model
+    def _get_period_date_range(self, duration):
+        today = fields.Date.context_today(self)
+        if duration == 'today':
+            return today, today
+        if duration == 'this_week':
+            start = today - timedelta(days=today.weekday())
+            end = start + timedelta(days=6)
+            return start, end
+        if duration == 'this_year':
+            start = today.replace(month=1, day=1)
+            end = today.replace(month=12, day=31)
+            return start, end
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1, day=1) - timedelta(days=1)
+        return start, end
 
     def _prepare_employee_data(self, employee):
         return {
@@ -109,5 +130,27 @@ class HrLeaveDashboardOverride(models.Model):
             'request_date_to': leave.request_date_to,
             'leave_type_id': leave.holiday_status_id.id,
             'leave_type': leave.holiday_status_id.name,
+            'number_of_days': leave.number_of_days,
+        } for leave in leaves]
+
+    @api.model
+    def get_period_absentees(self, duration='this_month'):
+        date_from, date_to = self._get_period_date_range(duration or 'this_month')
+        domain = [
+            ('state', '=', 'validate'),
+            ('request_date_from', '<=', date_to),
+            ('request_date_to', '>=', date_from),
+        ]
+        if not self.env.context.get('show_all_leave_dashboard'):
+            current_employee = self.env.user.employee_id
+            if current_employee:
+                domain.append(('employee_id', 'in', current_employee.child_ids.ids))
+        leaves = self.env['hr.leave'].sudo().search(domain, order='request_date_from asc')
+        return [{
+            'employee_id': leave.employee_id.id,
+            'employee_name': leave.employee_id.name,
+            'leave_type': leave.holiday_status_id.name,
+            'date_from': leave.request_date_from,
+            'date_to': leave.request_date_to,
             'number_of_days': leave.number_of_days,
         } for leave in leaves]

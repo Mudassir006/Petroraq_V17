@@ -1,6 +1,6 @@
 /* @odoo-module */
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart } from "@odoo/owl";
+import { Component, onWillStart, useState } from "@odoo/owl";
 export class TimeOffEmpCard extends Component {}
 TimeOffEmpCard.template = 'de_hr_workspace_leave_management.TimeOffEmpCard';
 TimeOffEmpCard.props = ['name', 'id', 'department_id', 'job_position',
@@ -44,3 +44,64 @@ export class ApprovalStatusCard extends Component {
 ApprovalStatusCard.template = 'de_hr_workspace_leave_management.ApprovalStatusCard';
 ApprovalStatusCard.props = ['id','name','approval_status_count','child_ids',
 'children', 'all_validated_leaves'];
+
+export class PeriodAbsenteesCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.actionService = useService("action");
+        this.state = useState({
+            duration: 'this_month',
+            rows: [],
+        });
+        onWillStart(async () => {
+            await this.loadRows();
+        });
+    }
+
+    async loadRows() {
+        const rows = await this.orm.call(
+            'hr.leave',
+            'get_period_absentees',
+            [this.state.duration],
+            {
+                context: {
+                    employee_id: this.props.id,
+                    show_all_leave_dashboard: true,
+                },
+            }
+        );
+        this.state.rows = rows.map((row, index) => ({ ...row, row_key: `${row.employee_id || 0}-${index}` }));
+    }
+
+    async onChangeDuration(ev) {
+        this.state.duration = ev.target.value;
+        await this.loadRows();
+    }
+
+    exportPdf() {
+        return this.actionService.doAction({
+            type: "ir.actions.report",
+            report_type: "qweb-pdf",
+            report_name: "de_hr_workspace_leave_management.period_absentees_pdf",
+            report_file: "de_hr_workspace_leave_management.period_absentees_pdf",
+            data: {
+                duration: this.state.duration,
+            },
+        });
+    }
+
+    exportXlsx() {
+        return this.actionService.doAction({
+            type: "ir.actions.report",
+            report_type: "xlsx",
+            report_name: "de_hr_workspace_leave_management.period_absentees_xlsx",
+            report_file: "period_absentees",
+            data: {
+                duration: this.state.duration,
+            },
+        });
+    }
+}
+PeriodAbsenteesCard.template = 'de_hr_workspace_leave_management.PeriodAbsenteesCard';
+PeriodAbsenteesCard.props = ['id'];
