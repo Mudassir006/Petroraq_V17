@@ -268,4 +268,54 @@ class HrLeaveDashboardOverride(models.Model):
             'annual_leaves': self.get_period_leaves(duration, 'annual'),
             'other_leaves': self.get_period_leaves(duration, 'other'),
             'leave_type_metrics': self.get_period_leave_type_metrics(duration),
+            'leave_availability': self.get_leave_availability_summary(),
         }
+
+    @api.model
+    def get_leave_availability_summary(self):
+        employees = self.env['hr.employee'].sudo().search([('active', '=', True)])
+        leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)])
+        allocations = self.env['hr.leave.allocation'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', 'in', employees.ids),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+        leaves = self.env['hr.leave'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', 'in', employees.ids),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+
+        allocated = {}
+        consumed = {}
+        for allocation in allocations:
+            key = (allocation.employee_id.id, allocation.holiday_status_id.id)
+            allocated[key] = allocated.get(key, 0.0) + (allocation.number_of_days or 0.0)
+        for leave in leaves:
+            key = (leave.employee_id.id, leave.holiday_status_id.id)
+            consumed[key] = consumed.get(key, 0.0) + (leave.number_of_days or 0.0)
+
+        def _category(name):
+            lname = (name or '').lower()
+            if 'sick' in lname:
+                return 'sick'
+            if 'annual' in lname:
+                return 'annual'
+            return 'other'
+
+        rows = []
+        for employee in employees:
+            values = {'sick': 0.0, 'annual': 0.0, 'other': 0.0}
+            for leave_type in leave_types:
+                key = (employee.id, leave_type.id)
+                remaining = allocated.get(key, 0.0) - consumed.get(key, 0.0)
+                values[_category(leave_type.name)] += remaining
+            rows.append({
+                'employee_id': employee.id,
+                'employee_name': employee.name,
+                'annual_remaining': round(values['annual'], 2),
+                'sick_remaining': round(values['sick'], 2),
+                'other_remaining': round(values['other'], 2),
+                'total_remaining': round(values['annual'] + values['sick'] + values['other'], 2),
+            })
+        return rows

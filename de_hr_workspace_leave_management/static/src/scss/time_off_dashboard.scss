@@ -9,3 +9,16 @@
     background-color: $o-webclient-background-color;
 }
 
+.o_timeoff_dashboard .o_timeoff_card {
+    border: 1px solid #dfe3ea;
+    border-radius: 10px;
+    background: #fff;
+    min-width: 300px;
+    padding: 12px !important;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+}
+
+.o_timeoff_dashboard .table th {
+    font-weight: 600;
+    color: #334155;
+}

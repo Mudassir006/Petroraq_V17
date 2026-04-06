@@ -9,6 +9,7 @@ import { ApprovalStatusCard } from './time_off_emp_card';
 import { PeriodAbsenteesCard } from './time_off_emp_card';
 import { LeaveCategoryCard } from './time_off_emp_card';
 import { LeaveTypeMetricsCard } from './time_off_emp_card';
+import { LeaveAvailabilityCard } from './time_off_emp_card';
 import { Component, onWillStart, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
@@ -99,4 +100,4 @@ patch(TimeOffDashboard.prototype,{
         })
     },
 });
-TimeOffDashboard.components = { ...TimeOffDashboard.components, TimeOffCard, TimeOffEmpCard ,TimeOffEmpOrgChart, EmpDepartmentCard, ApprovalStatusCard, PeriodAbsenteesCard, LeaveCategoryCard, LeaveTypeMetricsCard};
+TimeOffDashboard.components = { ...TimeOffDashboard.components, TimeOffCard, TimeOffEmpCard ,TimeOffEmpOrgChart, EmpDepartmentCard, ApprovalStatusCard, PeriodAbsenteesCard, LeaveCategoryCard, LeaveTypeMetricsCard, LeaveAvailabilityCard};

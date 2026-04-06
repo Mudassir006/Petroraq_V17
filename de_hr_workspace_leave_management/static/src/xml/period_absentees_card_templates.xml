@@ -80,12 +80,15 @@
          class="o_timeoff_card py-3 text-odoo" style="flex:auto; max-height: 475px; overflow-y: auto;">
         <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
             <strong>Leave Type Metrics</strong>
-            <select class="duration" t-att-value="state.duration" t-on-change="onChangeDuration">
-                <option value="today">Today</option>
-                <option value="this_week">This week</option>
-                <option value="this_month">This month</option>
-                <option value="this_year">This year</option>
-            </select>
+            <div class="d-flex gap-2">
+                <select class="duration" t-att-value="state.duration" t-on-change="onChangeDuration">
+                    <option value="today">Today</option>
+                    <option value="this_week">This week</option>
+                    <option value="this_month">This month</option>
+                    <option value="this_year">This year</option>
+                </select>
+                <button type="button" class="btn btn-outline-primary btn-sm" t-on-click="openExportWizard">Custom Export</button>
+            </div>
         </div>
         <table class="table table-hover table-sm">
             <thead>
@@ -108,6 +111,38 @@
                         <td><t t-esc="row.approved_count"/></td>
                         <td><t t-esc="row.pending_count"/></td>
                         <td><t t-esc="row.refused_count"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+    </div>
+
+    <div t-name="de_hr_workspace_leave_management.LeaveAvailabilityCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo" style="flex:auto; max-height: 475px; overflow-y: auto;">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+            <strong>Leave Availability (Remaining)</strong>
+        </div>
+        <table class="table table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Annual</th>
+                    <th>Sick</th>
+                    <th>Other</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <t t-if="!state.rows.length">
+                    <tr><td colspan="5" class="text-muted">No leave allocation data found.</td></tr>
+                </t>
+                <t t-foreach="state.rows" t-as="row" t-key="row.employee_id">
+                    <tr>
+                        <td><t t-esc="row.employee_name"/></td>
+                        <td><t t-esc="row.annual_remaining"/></td>
+                        <td><t t-esc="row.sick_remaining"/></td>
+                        <td><t t-esc="row.other_remaining"/></td>
+                        <td><t t-esc="row.total_remaining"/></td>
                     </tr>
                 </t>
             </tbody>

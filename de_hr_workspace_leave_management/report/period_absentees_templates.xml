@@ -7,8 +7,8 @@
                     <h2>Employee Absentees</h2>
                     <p>Period: <span t-esc="duration"/></p>
 
-                    <h4>Absentees (Approved Leaves)</h4>
-                    <table class="table table-sm table-bordered">
+                    <h4 t-if="sections.get('include_absentees')">Absentees</h4>
+                    <table t-if="sections.get('include_absentees')" class="table table-sm table-bordered">
                         <thead>
                             <tr>
                                 <th>Employee</th>
@@ -23,8 +23,8 @@
                         </tbody>
                     </table>
 
-                    <h4>Sick Leaves</h4>
-                    <table class="table table-sm table-bordered">
+                    <h4 t-if="sections.get('include_sick_leaves')">Sick Leaves</h4>
+                    <table t-if="sections.get('include_sick_leaves')" class="table table-sm table-bordered">
                         <thead>
                             <tr>
                                 <th>Employee</th>
@@ -46,8 +46,8 @@
                             </tr>
                         </tbody>
                     </table>
-                    <h4>Annual Leaves</h4>
-                    <table class="table table-sm table-bordered">
+                    <h4 t-if="sections.get('include_annual_leaves')">Annual Leaves</h4>
+                    <table t-if="sections.get('include_annual_leaves')" class="table table-sm table-bordered">
                         <thead>
                             <tr>
                                 <th>Employee</th>
@@ -69,8 +69,8 @@
                             </tr>
                         </tbody>
                     </table>
-                    <h4>Other Leaves</h4>
-                    <table class="table table-sm table-bordered">
+                    <h4 t-if="sections.get('include_other_leaves')">Other Leaves</h4>
+                    <table t-if="sections.get('include_other_leaves')" class="table table-sm table-bordered">
                         <thead>
                             <tr>
                                 <th>Employee</th>
@@ -93,8 +93,8 @@
                         </tbody>
                     </table>
 
-                    <h4>Leave Type Metrics</h4>
-                    <table class="table table-sm table-bordered">
+                    <h4 t-if="sections.get('include_leave_type_metrics')">Leave Type Metrics</h4>
+                    <table t-if="sections.get('include_leave_type_metrics')" class="table table-sm table-bordered">
                         <thead>
                             <tr>
                                 <th>Leave Type</th>
@@ -111,6 +111,27 @@
                                 <td><span t-esc="metric.get('approved_count')"/></td>
                                 <td><span t-esc="metric.get('pending_count')"/></td>
                                 <td><span t-esc="metric.get('refused_count')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h4 t-if="sections.get('include_leave_availability')">Leave Availability</h4>
+                    <table t-if="sections.get('include_leave_availability')" class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Annual</th>
+                                <th>Sick</th>
+                                <th>Other</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="leave_availability" t-as="item" t-key="item.get('employee_id')">
+                                <td><span t-esc="item.get('employee_name')"/></td>
+                                <td><span t-esc="item.get('annual_remaining')"/></td>
+                                <td><span t-esc="item.get('sick_remaining')"/></td>
+                                <td><span t-esc="item.get('other_remaining')"/></td>
+                                <td><span t-esc="item.get('total_remaining')"/></td>
                             </tr>
                         </tbody>
                     </table>

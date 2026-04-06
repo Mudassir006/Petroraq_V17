@@ -159,6 +159,7 @@ export class LeaveTypeMetricsCard extends Component {
     setup() {
         super.setup();
         this.orm = useService('orm');
+        this.actionService = useService("action");
         this.state = useState({
             duration: 'this_month',
             rows: [],
@@ -178,6 +179,25 @@ export class LeaveTypeMetricsCard extends Component {
         this.state.duration = ev.target.value;
         await this.loadRows();
     }
+
+    openExportWizard() {
+        return this.actionService.doAction('de_hr_workspace_leave_management.action_dashboard_export_wizard');
+    }
 }
 LeaveTypeMetricsCard.template = 'de_hr_workspace_leave_management.LeaveTypeMetricsCard';
 LeaveTypeMetricsCard.props = ['id'];
+
+export class LeaveAvailabilityCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.state = useState({ rows: [] });
+        onWillStart(async () => {
+            this.state.rows = await this.orm.call('hr.leave', 'get_leave_availability_summary', [], {
+                context: { employee_id: this.props.id, show_all_leave_dashboard: true },
+            });
+        });
+    }
+}
+LeaveAvailabilityCard.template = 'de_hr_workspace_leave_management.LeaveAvailabilityCard';
+LeaveAvailabilityCard.props = ['id'];
