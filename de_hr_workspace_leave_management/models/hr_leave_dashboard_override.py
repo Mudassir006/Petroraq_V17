@@ -136,6 +136,10 @@ class HrLeaveDashboardOverride(models.Model):
     @api.model
     def get_period_absentees(self, duration='this_month'):
         date_from, date_to = self._get_period_date_range(duration or 'this_month')
+        today = fields.Date.context_today(self)
+        if date_from > today:
+            return []
+        date_to = min(date_to, today)
         employees = self.env['hr.employee'].sudo().search([('active', '=', True)])
         holidays = self.env['hr.public.holiday'].sudo().search([
             ('state', '=', 'active'),
@@ -184,6 +188,7 @@ class HrLeaveDashboardOverride(models.Model):
             else:
                 working_days = {0, 1, 2, 3, 4}
 
+            absent_count = 0
             current = date_from
             while current <= date_to:
                 if (
@@ -192,12 +197,13 @@ class HrLeaveDashboardOverride(models.Model):
                     and current not in leave_days_map.get(employee.id, set())
                     and current not in attendance_days_map.get(employee.id, set())
                 ):
-                    rows.append({
-                        'employee_id': employee.id,
-                        'employee_name': employee.name,
-                        'absence_date': current,
-                    })
+                    absent_count += 1
                 current += timedelta(days=1)
+            rows.append({
+                'employee_id': employee.id,
+                'employee_name': employee.name,
+                'absent_days': absent_count,
+            })
         return rows
 
     @api.model

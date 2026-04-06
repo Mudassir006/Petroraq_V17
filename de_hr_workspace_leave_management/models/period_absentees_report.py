@@ -48,13 +48,13 @@ class PeriodAbsenteesXlsxReport(models.AbstractModel):
 
         sheet.write(row, 0, 'Absentees (Approved Leaves)', title)
         row += 1
-        columns = ['Employee', 'Absent Date']
+        columns = ['Employee', 'Absent Days']
         for col, title in enumerate(columns):
             sheet.write(row, col, title, header)
         row += 1
         for absent in absentees:
             sheet.write(row, 0, absent.get('employee_name', ''), cell)
-            sheet.write(row, 1, str(absent.get('absence_date', '')), cell)
+            sheet.write(row, 1, absent.get('absent_days', 0), cell)
             row += 1
 
         row += 2

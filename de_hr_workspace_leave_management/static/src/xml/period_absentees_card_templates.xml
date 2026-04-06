@@ -19,7 +19,7 @@
             <thead>
                 <tr>
                     <th>Employee</th>
-                    <th>Absent Date</th>
+                    <th>Absent Days</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,7 +29,7 @@
                 <t t-foreach="state.rows" t-as="row" t-key="row.row_key">
                     <tr>
                         <td><t t-esc="row.employee_name"/></td>
-                        <td><t t-esc="row.absence_date"/></td>
+                        <td><t t-esc="row.absent_days"/></td>
                     </tr>
                 </t>
             </tbody>

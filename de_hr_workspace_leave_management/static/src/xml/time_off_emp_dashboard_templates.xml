@@ -8,47 +8,47 @@
          t-inherit="hr_holidays.TimeOffDashboard" t-inherit-mode="extension"
          owl="1" class="o_timeoff_dashboard">
         <xpath expr="//div[hasclass('o_timeoff_card')]" position="after">
-            <TimeOffEmpCard name="currentEmployee.data.name"
-                            id="currentEmployee.data.id"
-                            work_email="currentEmployee.data.work_email"
-                            work_phone="currentEmployee.data.work_phone"
-                            image_1920="currentEmployee.data.image_1920"
-                            department_id="currentEmployee.data.department_id"
-                            resource_calendar_id="currentEmployee.data.resource_calendar_id"
-                            company="currentEmployee.data.company"
-                            job_position="currentEmployee.data.job_position"
-                            children="currentEmployee.data.children"/>
-<!--            <TimeOffEmpOrgChart name="currentEmployee.data.name"-->
-<!--                                id="currentEmployee.data.id"-->
-<!--                                job_id="currentEmployee.data.job_id"-->
-<!--                                manager="currentEmployee.data.manager"-->
-<!--                                manager_all_count="currentEmployee.data.manager_all_count"-->
-<!--                                child_all_count="currentEmployee.data.child_all_count"/>-->
-           <EmpDepartmentCard name="currentEmployee.data.name"
-                               id="currentEmployee.data.id"
-                               child_all_count="currentEmployee.data.child_all_count"
-                               children="currentEmployee.data.children"
-                               department_id="currentEmployee.data.department_id"
-                               absentees="currentAbsentees.data"
-                               current_shift="currentShift.data"
-                               upcoming_holidays="upcoming_holidays.data"/>
-            <ApprovalStatusCard id="currentEmployee.data.id"
-                                name="currentEmployee.data.name"
-                                child_ids="currentEmployee.data.child_ids"
-                                children="currentEmployee.data.children"
-                                all_validated_leaves="all_validated_leaves"
-                                approval_status_count="approval_status_count"/>
-            <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
-            <LeaveCategoryCard id="currentEmployee.data.id"
-                               category="'sick'"
-                               title="'Sick Leaves'"/>
-            <LeaveCategoryCard id="currentEmployee.data.id"
-                               category="'annual'"
-                               title="'Annual Leaves'"/>
-            <LeaveCategoryCard id="currentEmployee.data.id"
-                               category="'other'"
-                               title="'Other Leaves'"/>
-            <PeriodAbsenteesCard id="currentEmployee.data.id"/>
+            <div class="w-100 d-flex flex-column gap-2">
+                <div class="w-100 d-flex flex-wrap gap-2">
+                    <TimeOffEmpCard name="currentEmployee.data.name"
+                                    id="currentEmployee.data.id"
+                                    work_email="currentEmployee.data.work_email"
+                                    work_phone="currentEmployee.data.work_phone"
+                                    image_1920="currentEmployee.data.image_1920"
+                                    department_id="currentEmployee.data.department_id"
+                                    resource_calendar_id="currentEmployee.data.resource_calendar_id"
+                                    company="currentEmployee.data.company"
+                                    job_position="currentEmployee.data.job_position"
+                                    children="currentEmployee.data.children"/>
+                   <EmpDepartmentCard name="currentEmployee.data.name"
+                                       id="currentEmployee.data.id"
+                                       child_all_count="currentEmployee.data.child_all_count"
+                                       children="currentEmployee.data.children"
+                                       department_id="currentEmployee.data.department_id"
+                                       absentees="currentAbsentees.data"
+                                       current_shift="currentShift.data"
+                                       upcoming_holidays="upcoming_holidays.data"/>
+                    <ApprovalStatusCard id="currentEmployee.data.id"
+                                        name="currentEmployee.data.name"
+                                        child_ids="currentEmployee.data.child_ids"
+                                        children="currentEmployee.data.children"
+                                        all_validated_leaves="all_validated_leaves"
+                                        approval_status_count="approval_status_count"/>
+                    <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
+                </div>
+                <div class="w-100 d-flex flex-wrap gap-2">
+                    <LeaveCategoryCard id="currentEmployee.data.id"
+                                       category="'sick'"
+                                       title="'Sick Leaves'"/>
+                    <LeaveCategoryCard id="currentEmployee.data.id"
+                                       category="'annual'"
+                                       title="'Annual Leaves'"/>
+                    <LeaveCategoryCard id="currentEmployee.data.id"
+                                       category="'other'"
+                                       title="'Other Leaves'"/>
+                    <PeriodAbsenteesCard id="currentEmployee.data.id"/>
+                </div>
+            </div>
         </xpath>
     </t>
 </templates>

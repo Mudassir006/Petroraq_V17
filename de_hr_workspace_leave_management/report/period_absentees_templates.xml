@@ -12,13 +12,13 @@
                         <thead>
                             <tr>
                                 <th>Employee</th>
-                                <th>Absent Date</th>
+                                <th>Absent Days</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="absentees" t-as="leave" t-key="leave.get('employee_id')">
                                 <td><span t-esc="leave.get('employee_name')"/></td>
-                                <td><span t-esc="leave.get('absence_date')"/></td>
+                                <td><span t-esc="leave.get('absent_days')"/></td>
                             </tr>
                         </tbody>
                     </table>
