@@ -26,6 +26,15 @@
                         </button>
                     </div>
                 </xpath>
+                <xpath expr="//field[@name='att_sheet_ids']/tree/field[@name='name']" position="attributes">
+                    <attribute name="string">Name</attribute>
+                </xpath>
+                <xpath expr="//field[@name='att_sheet_ids']/tree/field[@name='employee_id']" position="replace">
+                    <field name="employee_code" string="Employee ID"/>
+                </xpath>
+                <xpath expr="//field[@name='att_sheet_ids']/tree/field[@name='payslip_id']" position="attributes">
+                    <attribute name="string">Employee Payslip</attribute>
+                </xpath>
 
             </field>
         </record>
