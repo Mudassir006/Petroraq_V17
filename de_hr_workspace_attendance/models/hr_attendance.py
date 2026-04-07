@@ -61,6 +61,23 @@ class HrAttendance(models.Model):
             return fields.Datetime.to_datetime(normalized_local.astimezone(timezone.utc).replace(tzinfo=None))
         return False
 
+
+    def _sync_overtime_for_approval(self):
+        """Keep optional overtime field in sync for approval grids that show hr.attendance.overtime."""
+        overtime_field = self._fields.get('overtime')
+        if not overtime_field or overtime_field.compute:
+            return
+
+        for rec in self:
+            if not rec.check_in or not rec.check_out:
+                rec.with_context(skip_overtime_sync=True).write({'overtime': 0.0})
+                continue
+
+            hours_per_day = rec.employee_id.resource_calendar_id.hours_per_day or 8.0
+            overtime_threshold = 11.0 if (rec.employee_id.resource_calendar_id.id == 6 and hours_per_day >= 9.0) else hours_per_day
+            overtime_hours = max((rec.worked_hours or 0.0) - overtime_threshold, 0.0)
+            rec.with_context(skip_overtime_sync=True).write({'overtime': overtime_hours})
+
     @api.model_create_multi
     def create(self, vals_list):
         sync_from_device = self.env.context.get('sync_from_device', False)
@@ -75,7 +92,10 @@ class HrAttendance(models.Model):
                         'Cannot create attendance after %02d:%02d as per company policy. '
                         'This late attendance will be removed by cleanup policy.'
                     ) % (cutoff_hour, cutoff_minute))
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        if not self.env.context.get('skip_overtime_sync'):
+            records._sync_overtime_for_approval()
+        return records
 
     def write(self, vals):
         sync_from_device = self.env.context.get('sync_from_device', False)
@@ -88,7 +108,10 @@ class HrAttendance(models.Model):
                     raise ValidationError(_(
                         'Cannot set attendance check-in after %02d:%02d as per company policy.'
                     ) % (cutoff_hour, cutoff_minute))
-        return super().write(vals)
+        result = super().write(vals)
+        if not self.env.context.get('skip_overtime_sync'):
+            self._sync_overtime_for_approval()
+        return result
 
     @api.model
     def cron_cleanup_late_machine_attendance(self):
@@ -113,6 +136,8 @@ class HrAttendance(models.Model):
 
             if normalized_check_in != attendance.check_in:
                 attendance.write({'check_in': fields.Datetime.to_string(normalized_check_in)})
+
+            attendance._sync_overtime_for_approval()
 
     @api.depends("employee_id", 'check_in', 'check_out', "worked_hours", "employee_id.resource_calendar_id")
     def _compute_shortage_time_text(self):
