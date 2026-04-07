@@ -25,6 +25,7 @@ class HrAttendanceSheet(models.Model):
 
     att_notification_id = fields.Many2one(comodel_name='pr.hr.attendance.notification',
                                           string='Attendance Notification')
+    employee_code = fields.Char(related='employee_id.code', string='Employee ID', store=True, readonly=True)
     tot_late_in_minutes = fields.Float(compute="_compute_sheet_total",
                                        string="Total Late In Minutes",
                                        readonly=True, store=True)
@@ -78,7 +79,12 @@ class HrAttendanceSheet(models.Model):
         res = super().get_attendances()
         for att_sheet in self:
             for line in att_sheet.line_ids:
-                if line.ac_sign_in:
+                has_actual_attendance = (
+                    line.ac_sign_in is not False
+                    and line.ac_sign_out is not False
+                    and line.ac_sign_out > line.ac_sign_in
+                )
+                if has_actual_attendance:
                     if line.pl_sign_in != 0:
                         if line.pl_sign_in + 1 >= line.ac_sign_in >= line.pl_sign_in - 1:
                             line.late_in = 0
@@ -91,10 +97,8 @@ class HrAttendanceSheet(models.Model):
                                 line.early_check_out_minutes = early_check_out * 60
                             # Compute Overtime
                             elif line.ac_sign_out > pl_sign_out_custom and line.employee_id.add_overtime:
-                                line.act_overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                           line.ac_sign_out - pl_sign_out_custom) > 2 else 0
-                                line.overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                       line.ac_sign_out - pl_sign_out_custom) > 2 else 0
+                                line.act_overtime = line.ac_sign_out - pl_sign_out_custom
+                                line.overtime = line.ac_sign_out - pl_sign_out_custom
 
                         # # Ramadan
                         # if line.pl_sign_in >= line.ac_sign_in:
@@ -121,10 +125,8 @@ class HrAttendanceSheet(models.Model):
                                 line.early_check_out_minutes = early_check_out * 60
                             # Compute Overtime
                             elif line.ac_sign_out > pl_sign_out_custom and line.employee_id.add_overtime:
-                                line.act_overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                           line.ac_sign_out - pl_sign_out_custom) > 2 else 0
-                                line.overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                       line.ac_sign_out - pl_sign_out_custom) > 2 else 0
+                                line.act_overtime = line.ac_sign_out - pl_sign_out_custom
+                                line.overtime = line.ac_sign_out - pl_sign_out_custom
 
 
                         #############
@@ -139,13 +141,11 @@ class HrAttendanceSheet(models.Model):
                                 line.early_check_out_minutes = early_check_out * 60
                             # Compute Overtime
                             elif line.ac_sign_out > pl_sign_out_custom and line.employee_id.add_overtime:
-                                line.act_overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                           line.ac_sign_out - pl_sign_out_custom) > 2 else 0
-                                line.overtime = (line.ac_sign_out - pl_sign_out_custom - 2) if (
-                                                                                                       line.ac_sign_out - pl_sign_out_custom) > 2 else 0
+                                line.act_overtime = line.ac_sign_out - pl_sign_out_custom
+                                line.overtime = line.ac_sign_out - pl_sign_out_custom
 
                     # Compute Overtime If Employee Work In Weekend Or In Public Holiday
-                    if line.ac_sign_in and line.pl_sign_in == 0:
+                    if line.pl_sign_in == 0:
                         line.act_overtime = line.ac_sign_out - line.ac_sign_in if (
                                                                                           line.ac_sign_out - line.ac_sign_in) > 0 else 0
                         line.overtime = line.ac_sign_out - line.ac_sign_in if (
