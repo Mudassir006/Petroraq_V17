@@ -188,12 +188,12 @@ class HrPayslipRun(models.Model):
             if imbalance_amount > 0:
                 anb_account = self.env['account.account'].search([
                     ('code', '=', '1001.02.00.07'),
-                    ('company_ids', 'in', rec.company_id.id)
+                    ('company_id', '=', rec.company_id.id)
                 ], limit=1)
                 if not anb_account:
                     anb_account = self.env['account.account'].search([
                         ('name', 'ilike', 'ANB Bank-470015'),
-                        ('company_ids', 'in', rec.company_id.id)
+                        ('company_id', '=', rec.company_id.id)
                     ], limit=1)
                 if anb_account:
                     move_line_ids.append((0, 0, {
