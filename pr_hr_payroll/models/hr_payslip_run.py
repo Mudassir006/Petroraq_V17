@@ -59,6 +59,7 @@ class HrPayslipRun(models.Model):
 
             batch_employee_list = []
             salary_rule_total_dict = defaultdict(float)
+            hidden_summary_codes = {"GOSI_EMP", "GOSI_COMP_DED"}
 
             for payslip in batch.slip_ids:
                 employee = payslip.employee_id
@@ -95,8 +96,8 @@ class HrPayslipRun(models.Model):
                         net_amount = total
                         total_net_amount += total
 
-                    # Aggregated salary rule totals
-                    if total != 0:
+                    # Aggregated salary rule totals (hide GOSI deduction rules from batch summary visibility)
+                    if total != 0 and rule.code not in hidden_summary_codes:
                         salary_rule_total_dict[rule.id] += total
 
                 employee_data.update({
@@ -180,6 +181,31 @@ class HrPayslipRun(models.Model):
             move_line_ids = []
             for slip in pay_slips:
                 move_line_ids += slip.prepare_payslip_entry_vals_lines()
+
+            total_debit = sum(vals[2].get('debit', 0.0) for vals in move_line_ids if vals[0] == 0)
+            total_credit = sum(vals[2].get('credit', 0.0) for vals in move_line_ids if vals[0] == 0)
+            imbalance_amount = total_debit - total_credit
+            if imbalance_amount > 0:
+                anb_account = self.env['account.account'].search([
+                    ('code', '=', '1001.02.00.07'),
+                    ('company_ids', 'in', rec.company_id.id)
+                ], limit=1)
+                if not anb_account:
+                    anb_account = self.env['account.account'].search([
+                        ('name', 'ilike', 'ANB Bank-470015'),
+                        ('company_ids', 'in', rec.company_id.id)
+                    ], limit=1)
+                if anb_account:
+                    move_line_ids.append((0, 0, {
+                        'name': f"{rec.name} balancing credit line",
+                        'partner_id': False,
+                        'account_id': anb_account.id,
+                        'journal_id': journal.id,
+                        'date': fields.Date.today(),
+                        'debit': 0.0,
+                        'credit': imbalance_amount,
+                    }))
+
             salary_journal_entry_id = self.env['account.move'].sudo().with_context(check_move_validity=False,
                                                                                    skip_invoice_sync=True).create({
                 'ref': f"Payslip Batch of PETRORAQ Company for {rec.date_end.strftime('%B')} {rec.date_end.year}",

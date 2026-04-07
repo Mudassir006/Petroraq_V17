@@ -249,17 +249,11 @@ class PayrollReport(models.AbstractModel):
             # Hide GOSI columns (display only, totals unaffected)
             # ======================
             HIDE_CODES = {
-                # "GOSI_COMP_ADD", "GOSI_EMP", "GOSI_COMP_DED"
+                "GOSI_EMP", "GOSI_COMP_DED"
             }
             HIDE_TITLES = {
-                # "GOSI",
-                # "GOSI Company Contribution",
-                # "GOSI Employee Deduction",
-                # "GOSI Company Deduction",
-                # "Annual Time Off DED",
-                # "Sick Time Off DED",
-                # "Sick Time Off",
-                # "Annual Time Off",
+                "GOSI Employee Deduction",
+                "GOSI Company Deduction",
             }
 
             for r in rules:
