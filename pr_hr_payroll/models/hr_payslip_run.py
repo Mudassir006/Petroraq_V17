@@ -171,6 +171,29 @@ class HrPayslipRun(models.Model):
             rec.approval_state = 'submitted'
             rec.rejection_reason = False
 
+    def _get_anb_balancing_account(self, company):
+        account = self.env['account.account'].search([
+            ('code', '=', '1001.02.00.07'),
+            '|', ('company_id', '=', company.id), ('company_id', '=', False)
+        ], limit=1)
+        if not account:
+            account = self.env['account.account'].search([
+                ('name', 'ilike', 'ANB Bank-470015'),
+                '|', ('company_id', '=', company.id), ('company_id', '=', False)
+            ], limit=1)
+        return account
+
+    def _prepare_balancing_line_vals(self, batch, journal, account, imbalance_amount):
+        return {
+            'name': f"{batch.name} balancing line",
+            'partner_id': False,
+            'account_id': account.id,
+            'journal_id': journal.id,
+            'date': fields.Date.today(),
+            'debit': abs(imbalance_amount) if imbalance_amount < 0 else 0.0,
+            'credit': imbalance_amount if imbalance_amount > 0 else 0.0,
+        }
+
     def action_validate(self):
         res = super().action_validate()
         journal = self.env.ref('pr_account.journal_journal_voucher')
@@ -188,29 +211,18 @@ class HrPayslipRun(models.Model):
             imbalance_amount = currency.round(total_debit - total_credit)
 
             if not currency.is_zero(imbalance_amount):
-                anb_account = self.env['account.account'].search([
-                    ('code', '=', '1001.02.00.07'),
-                    '|', ('company_id', '=', rec.company_id.id), ('company_id', '=', False)
-                ], limit=1)
-                if not anb_account:
-                    anb_account = self.env['account.account'].search([
-                        ('name', 'ilike', 'ANB Bank-470015'),
-                        '|', ('company_id', '=', rec.company_id.id), ('company_id', '=', False)
-                    ], limit=1)
+                anb_account = rec._get_anb_balancing_account(rec.company_id)
                 if not anb_account:
                     raise ValidationError(_(
                         "Could not find ANB balancing account (code 1001.02.00.07) to balance payroll journal entry."
                     ))
 
-                move_line_ids.append((0, 0, {
-                    'name': f"{rec.name} balancing line",
-                    'partner_id': False,
-                    'account_id': anb_account.id,
-                    'journal_id': journal.id,
-                    'date': fields.Date.today(),
-                    'debit': abs(imbalance_amount) if imbalance_amount < 0 else 0.0,
-                    'credit': imbalance_amount if imbalance_amount > 0 else 0.0,
-                }))
+                move_line_ids.append((0, 0, rec._prepare_balancing_line_vals(
+                    batch=rec,
+                    journal=journal,
+                    account=anb_account,
+                    imbalance_amount=imbalance_amount,
+                )))
 
             salary_journal_entry_id = self.env['account.move'].sudo().with_context(check_move_validity=False,
                                                                                    skip_invoice_sync=True).create({
@@ -222,6 +234,24 @@ class HrPayslipRun(models.Model):
                 'line_ids': move_line_ids,
             })
             if salary_journal_entry_id:
+                final_debit = sum(salary_journal_entry_id.line_ids.mapped('debit'))
+                final_credit = sum(salary_journal_entry_id.line_ids.mapped('credit'))
+                final_imbalance = currency.round(final_debit - final_credit)
+                if not currency.is_zero(final_imbalance):
+                    anb_account = rec._get_anb_balancing_account(rec.company_id)
+                    if not anb_account:
+                        raise ValidationError(_(
+                            "Could not find ANB balancing account (code 1001.02.00.07) for final payroll move balancing."
+                        ))
+                    salary_journal_entry_id.with_context(check_move_validity=False, skip_invoice_sync=True).write({
+                        'line_ids': [(0, 0, rec._prepare_balancing_line_vals(
+                            batch=rec,
+                            journal=journal,
+                            account=anb_account,
+                            imbalance_amount=final_imbalance,
+                        ))],
+                    })
+
                 rec.salary_journal_entry_id = salary_journal_entry_id.id
                 for slip_sa in pay_slips:
                     slip_sa.sudo().write({'salary_journal_entry_id': salary_journal_entry_id.id})
