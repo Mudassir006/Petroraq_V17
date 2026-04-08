@@ -608,7 +608,7 @@ class AccountCashPaymentLine(models.Model):
     # @api.depends("account_id", "account_id.cash_equivalents_subcategory", "account_id.accounts_receivable_subcategory")
     # @api.onchange("account_id", "account_id.cash_equivalents_subcategory", "account_id.accounts_receivable_subcategory")
     @api.depends("account_id", "account_id.main_head")
-    @api.onchange("account_id")
+    @api.onchange("account_id", "account_id.main_head")
     def _compute_check_cost_centers_block(self):
         for line in self:
             if line.account_id and line.account_id.main_head in ["revenue", "expense"]:
