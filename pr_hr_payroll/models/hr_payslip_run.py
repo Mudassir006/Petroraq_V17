@@ -253,6 +253,9 @@ class HrPayslipRun(models.Model):
                         ))],
                     })
 
+                if salary_journal_entry_id.state != 'posted':
+                    salary_journal_entry_id.sudo().with_context(check_move_validity=False, skip_invoice_sync=True).action_post()
+
                 rec.salary_journal_entry_id = salary_journal_entry_id.id
                 for slip_sa in pay_slips:
                     slip_sa.sudo().write({'salary_journal_entry_id': salary_journal_entry_id.id})
