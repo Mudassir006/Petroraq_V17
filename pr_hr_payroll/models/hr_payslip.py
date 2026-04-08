@@ -454,12 +454,15 @@ class HrPayslip(models.Model):
             payslip_date_to = line.slip_id.date_to or self.date_to
             month_name = payslip_date_to.strftime('%B') if payslip_date_to else ""
             year_name = payslip_date_to.year if payslip_date_to else ""
-            analytic_distribution = {
-                str(self.employee_id.department_cost_center_id.id): 100,
-                str(self.employee_id.section_cost_center_id.id): 100,
-                str(self.employee_id.project_cost_center_id.id): 100,
-                str(self.employee_id.employee_cost_center_id.id): 100,
-            }
+            analytic_distribution = {}
+            if self.employee_id.department_cost_center_id:
+                analytic_distribution[str(self.employee_id.department_cost_center_id.id)] = 100
+            if self.employee_id.section_cost_center_id:
+                analytic_distribution[str(self.employee_id.section_cost_center_id.id)] = 100
+            if self.employee_id.project_cost_center_id:
+                analytic_distribution[str(self.employee_id.project_cost_center_id.id)] = 100
+            if self.employee_id.employee_cost_center_id:
+                analytic_distribution[str(self.employee_id.employee_cost_center_id.id)] = 100
             # if line.slip_id.employee_id.department_id and line.slip_id.employee_id.department_id.department_cost_center_id:
             #     analytic_distribution.update({str(line.slip_id.employee_id.department_id.department_cost_center_id.id): 100})
             line_vals = {
