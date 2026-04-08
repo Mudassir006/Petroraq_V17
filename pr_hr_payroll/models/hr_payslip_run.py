@@ -172,14 +172,15 @@ class HrPayslipRun(models.Model):
             rec.rejection_reason = False
 
     def _get_anb_balancing_account(self, company):
-        account = self.env['account.account'].search([
-            ('code', '=', '1001.02.00.07'),
-            '|', ('company_id', '=', company.id), ('company_id', '=', False)
+        # NOTE:
+        # In this database the ANB account can be configured in a parent/shared company,
+        # so avoid strict company filtering and prioritize exact code match.
+        account = self.env['account.account'].with_context(active_test=False).search([
+            ('code', '=', '1001.02.00.07')
         ], limit=1)
         if not account:
-            account = self.env['account.account'].search([
-                ('name', 'ilike', 'ANB Bank-470015'),
-                '|', ('company_id', '=', company.id), ('company_id', '=', False)
+            account = self.env['account.account'].with_context(active_test=False).search([
+                ('name', 'ilike', 'ANB Bank-470015')
             ], limit=1)
         return account
 
