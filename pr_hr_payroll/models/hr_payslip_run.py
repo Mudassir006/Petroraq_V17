@@ -279,7 +279,8 @@ class HrPayslipRun(models.Model):
             "res_id": self.salary_journal_entry_id.id,
             "views": [[self.env.ref('account.view_move_form').id, "form"]],
             "target": "current",
-            "name": self.name
+            "name": self.name,
+            "context": {"form_view_initial_mode": "readonly"}
         }
 
     def unlink(self):
