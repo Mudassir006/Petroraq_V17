@@ -184,27 +184,33 @@ class HrPayslipRun(models.Model):
 
             total_debit = sum(vals[2].get('debit', 0.0) for vals in move_line_ids if vals[0] == 0)
             total_credit = sum(vals[2].get('credit', 0.0) for vals in move_line_ids if vals[0] == 0)
-            imbalance_amount = total_debit - total_credit
-            if imbalance_amount > 0:
+            currency = rec.company_id.currency_id
+            imbalance_amount = currency.round(total_debit - total_credit)
+
+            if not currency.is_zero(imbalance_amount):
                 anb_account = self.env['account.account'].search([
                     ('code', '=', '1001.02.00.07'),
-                    ('company_id', '=', rec.company_id.id)
+                    '|', ('company_id', '=', rec.company_id.id), ('company_id', '=', False)
                 ], limit=1)
                 if not anb_account:
                     anb_account = self.env['account.account'].search([
                         ('name', 'ilike', 'ANB Bank-470015'),
-                        ('company_id', '=', rec.company_id.id)
+                        '|', ('company_id', '=', rec.company_id.id), ('company_id', '=', False)
                     ], limit=1)
-                if anb_account:
-                    move_line_ids.append((0, 0, {
-                        'name': f"{rec.name} balancing credit line",
-                        'partner_id': False,
-                        'account_id': anb_account.id,
-                        'journal_id': journal.id,
-                        'date': fields.Date.today(),
-                        'debit': 0.0,
-                        'credit': imbalance_amount,
-                    }))
+                if not anb_account:
+                    raise ValidationError(_(
+                        "Could not find ANB balancing account (code 1001.02.00.07) to balance payroll journal entry."
+                    ))
+
+                move_line_ids.append((0, 0, {
+                    'name': f"{rec.name} balancing line",
+                    'partner_id': False,
+                    'account_id': anb_account.id,
+                    'journal_id': journal.id,
+                    'date': fields.Date.today(),
+                    'debit': abs(imbalance_amount) if imbalance_amount < 0 else 0.0,
+                    'credit': imbalance_amount if imbalance_amount > 0 else 0.0,
+                }))
 
             salary_journal_entry_id = self.env['account.move'].sudo().with_context(check_move_validity=False,
                                                                                    skip_invoice_sync=True).create({
