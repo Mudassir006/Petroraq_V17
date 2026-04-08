@@ -72,14 +72,12 @@ class PayrollBatchXlsxReport extends Component {
 
     get EXTRA_COLS() {
         return [
-            { code: "GOSI_COMP_ADD", name: "GOSI Company Contribution" },
-            { code: "GOSI_EMP", name: "GOSI Employee Deduction" },
-            { code: "GOSI_COMP_DED", name: "GOSI Company Deduction" },
+            { code: "GOSI_COMP_ADD", name: "GOSI" },
         ];
     }
 
     get HIDE_CODES() {
-        return new Set(["GOSI", "GOSI_COMP_ADD", "GOSI_EMP", "GOSI_COMP_DED"]);
+        return new Set(["GOSI", "GOSI_EMP", "GOSI_COMP_DED"]);
     }
 
     // Header info from batch record
