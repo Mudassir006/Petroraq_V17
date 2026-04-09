@@ -260,6 +260,43 @@ class HrLeaveDashboardOverride(models.Model):
         return list(metrics.values())
 
     @api.model
+    def get_leave_request_filter_options(self):
+        employees = self.env['hr.employee'].sudo().search([('active', '=', True)], order='name asc')
+        leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)], order='name asc')
+        return {
+            'employees': [{'id': emp.id, 'name': emp.name} for emp in employees],
+            'leave_types': [{'id': leave_type.id, 'name': leave_type.name} for leave_type in leave_types],
+        }
+
+    @api.model
+    def get_leave_request_count_by_filters(self, duration='this_month', employee_id=False, leave_type_id=False, date_from=False, date_to=False):
+        if duration == 'custom' and date_from and date_to:
+            start = fields.Date.to_date(date_from)
+            end = fields.Date.to_date(date_to)
+        else:
+            start, end = self._get_period_date_range(duration or 'this_month')
+
+        domain = [
+            ('state', '=', 'validate'),
+            ('request_date_from', '<=', end),
+            ('request_date_to', '>=', start),
+        ]
+        if employee_id:
+            domain.append(('employee_id', '=', int(employee_id)))
+        if leave_type_id:
+            domain.append(('holiday_status_id', '=', int(leave_type_id)))
+
+        leaves = self.env['hr.leave'].sudo().search(domain)
+        total_days = sum(leaves.mapped('number_of_days'))
+        return {
+            'duration': duration,
+            'date_from': start,
+            'date_to': end,
+            'total_requests': len(leaves),
+            'total_days': round(total_days, 2),
+        }
+
+    @api.model
     def get_period_dashboard_data(self, duration='this_month'):
         return {
             'duration': duration,
@@ -377,6 +414,7 @@ class HrLeaveDashboardOverride(models.Model):
             used[key] = used.get(key, 0.0) + (leave.number_of_days or 0.0)
 
         lines = [{
+            'leave_type_id': leave_type.id,
             'leave_type': leave_type.name,
             'used_days': round(used.get(leave_type.id, 0.0), 2),
             'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),
