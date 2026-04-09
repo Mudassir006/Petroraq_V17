@@ -376,62 +376,11 @@ class HrLeaveDashboardOverride(models.Model):
             key = leave.holiday_status_id.id
             used[key] = used.get(key, 0.0) + (leave.number_of_days or 0.0)
 
-        absent_days = 0
-        join_date = employee.create_date.date()
-        current = join_date
-        today = fields.Date.context_today(self)
-        leave_days = set()
-        for leave in leaves:
-            day = max(leave.request_date_from, join_date)
-            end = min(leave.request_date_to, today)
-            while day <= end:
-                leave_days.add(day)
-                day += timedelta(days=1)
-
-        attendance_days = set()
-        attendances = self.env['hr.attendance'].sudo().search([
-            ('employee_id', '=', employee.id),
-            ('check_in', '>=', fields.Datetime.to_datetime(join_date)),
-            ('check_in', '<', fields.Datetime.to_datetime(today) + timedelta(days=1)),
-        ])
-        for attendance in attendances:
-            attendance_days.add(attendance.check_in.date())
-
-        holidays = self.env['hr.public.holiday'].sudo().search([
-            ('state', '=', 'active'),
-            ('date_from', '<=', today),
-            ('date_to', '>=', join_date),
-        ])
-        holiday_days = set()
-        for holiday in holidays:
-            day = max(holiday.date_from, join_date)
-            end = min(holiday.date_to, today)
-            while day <= end:
-                holiday_days.add(day)
-                day += timedelta(days=1)
-
-        calendar = employee.resource_calendar_id
-        working_days = {int(att.dayofweek) for att in calendar.attendance_ids} if (calendar and calendar.attendance_ids) else {0, 1, 2, 3, 4}
-        while current <= today:
-            if (
-                current.weekday() in working_days
-                and current not in holiday_days
-                and current not in leave_days
-                and current not in attendance_days
-            ):
-                absent_days += 1
-            current += timedelta(days=1)
-
         lines = [{
             'leave_type': leave_type.name,
             'used_days': round(used.get(leave_type.id, 0.0), 2),
             'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),
         } for leave_type in leave_types]
-        lines.append({
-            'leave_type': 'Absents',
-            'used_days': float(absent_days),
-            'allocated_days': 0.0,
-        })
 
         return {
             'employee_id': employee.id,
