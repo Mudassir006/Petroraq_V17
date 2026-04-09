@@ -12,6 +12,7 @@
               parent="menu_my_purchase_approvals"
               name="Budget Requests"
               action="pr_sale_budget_increase_request_action"
-              sequence="3"/>
+              sequence="3"
+              groups="pr_custom_purchase.managing_director"/>
 
 </odoo>

@@ -9,6 +9,7 @@
                 <xpath expr="//div[@id='o_work_employee_main']" position="inside">
                     <group name="employee_overtime" string="Overtime">
                         <field name="add_overtime" widget="boolean_toggle"/>
+                        <field name="attendance_email_enabled" widget="boolean_toggle"/>
                     </group>
                 </xpath>
 

@@ -93,6 +93,11 @@
         </style>
         <section class="get-in-touch">
             <h1 class="title">Leave Request</h1>
+            <t t-if="error_message">
+                <div class="alert alert-danger" role="alert" style="margin: 0 0 20px 0;">
+                    <t t-out="error_message"/>
+                </div>
+            </t>
             <form class="contact-form row" action="/leave_request/create" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                 <t t-set="holiday_status_ids" t-value="request.env['hr.leave.type'].search([])"/>
@@ -109,7 +114,8 @@
                 <div class="form-field col-lg-6">
                     <select id="leave_type_id" class="input-text js-input" name="leave_type_id" size="1" required="1">
                         <t t-foreach="holiday_status_ids" t-as="leave_type">
-                            <option t-att-value="leave_type.id">
+                            <option t-att-value="leave_type.id"
+                                    t-att-selected="str(leave_type.id) == str(form_values.get('leave_type_id', '')) and 'selected' or None">
                                 <t t-esc="leave_type.name"/>
                             </option>
                         </t>
@@ -118,11 +124,13 @@
                 </div>
 
                 <div class="form-field col-lg-6 ">
-                    <input id="date_from" class="input-text js-input" type="date" name="date_from" required="1"/>
+                    <input id="date_from" class="input-text js-input" type="date" name="date_from"
+                           t-att-value="form_values.get('date_from', '')" required="1"/>
                     <label class="label" for="date_from">Date From</label>
                 </div>
                 <div class="form-field col-lg-6 ">
-                    <input id="date_to" class="input-text js-input" type="date" name="date_to" required="1"/>
+                    <input id="date_to" class="input-text js-input" type="date" name="date_to"
+                           t-att-value="form_values.get('date_to', '')" required="1"/>
                     <label class="label" for="date_to">Date To</label>
                 </div>
                 <div class="form-field col-lg-6 ">
@@ -130,7 +138,8 @@
                    <label class="label" for="attachment_ids">Attachments</label>
                 </div>
                 <div class="form-field col-lg-12 full-width">
-                    <input id="message" class="input-text js-input" name="message" type="text"/>
+                    <input id="message" class="input-text js-input" name="message" type="text"
+                           t-att-value="form_values.get('message', '')"/>
                     <label class="label" for="message">Notes</label>
                 </div>
                 <div class="form-field col-lg-12">
