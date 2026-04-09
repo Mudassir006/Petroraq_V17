@@ -16,9 +16,6 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'de_hr_workspace_leave_management/static/src/js/calendar_model.js',
-            'de_hr_workspace_leave_management/static/src/js/calendar_year_renderer.js',
-            'de_hr_workspace_leave_management/static/src/js/hooks.js',
             'de_hr_workspace_leave_management/static/src/js/emp_org_chart.js',
             'de_hr_workspace_leave_management/static/src/js/time_off_emp_card.js',
             'de_hr_workspace_leave_management/static/src/js/leave_management_dashboard_action.js',
