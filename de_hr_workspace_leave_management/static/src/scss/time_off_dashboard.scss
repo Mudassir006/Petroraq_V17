@@ -84,20 +84,22 @@
 }
 
 .o_timeoff_dashboard .de-simple-summary-title {
-    font-size: 1rem;
+    font-size: 1.2rem;
     color: #0f172a;
 }
 
 .o_timeoff_dashboard .de-simple-summary-subtitle {
-    font-size: 0.88rem;
+    font-size: 1rem;
     color: #64748b !important;
 }
 
 .o_timeoff_dashboard .de-summary-select {
-    min-width: 240px;
+    min-width: 280px;
     background: #ffffff;
     border: 1px solid #cbd5e1;
     color: #0f172a;
+    min-height: 40px !important;
+    font-size: 0.98rem;
 }
 
 .o_timeoff_dashboard .de-leave-tiles-grid {
@@ -108,21 +110,22 @@
     border: 1px solid #dbe3ef;
     border-radius: 10px;
     background: #ffffff;
-    padding: 12px 14px;
+    padding: 16px 16px;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    min-height: 108px;
 }
 
 .o_timeoff_dashboard .de-leave-summary-tile .de-leave-type {
-    font-size: 0.82rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #334155;
 }
 
 .o_timeoff_dashboard .de-leave-summary-tile .de-leave-ratio {
-    font-size: 1rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: #0b5ed7;
 }
