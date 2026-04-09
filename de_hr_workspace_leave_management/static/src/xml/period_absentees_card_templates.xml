@@ -168,29 +168,29 @@
     </div>
 
     <div t-name="de_hr_workspace_leave_management.SimpleLeaveSummaryCard" owl="1"
-         class="o_timeoff_card py-3 text-odoo" style="flex:1 1 100%;">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <strong>Leave Summary</strong>
-            <div class="d-flex gap-2 flex-wrap">
-                <select class="duration" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
+         class="o_timeoff_card py-3 text-odoo de-simple-summary-card" style="flex:1 1 100%;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 de-simple-summary-header">
+            <strong class="de-simple-summary-title">Leave Summary</strong>
+            <div class="d-flex gap-2 flex-wrap de-simple-summary-controls">
+                <select class="duration de-summary-select" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
                     <t t-foreach="employeeOptions" t-as="employee" t-key="employee.id">
                         <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
                     </t>
                 </select>
             </div>
         </div>
-        <div class="text-muted mb-2">
+        <div class="text-muted mb-3 de-simple-summary-subtitle">
             Overall summary for <t t-esc="state.employee_name"/>
         </div>
-        <div class="row g-2">
+        <div class="row g-3 de-leave-tiles-grid">
             <t t-if="!state.lines.length">
                 <div class="col-12 text-muted">No data found.</div>
             </t>
             <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                    <div class="border rounded p-2 h-100 bg-light">
-                        <div class="fw-bold"><t t-esc="line.leave_type"/></div>
-                        <div><t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/></div>
+                    <div class="de-leave-summary-tile h-100">
+                        <div class="de-leave-type"><t t-esc="line.leave_type"/></div>
+                        <div class="de-leave-ratio"><t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/></div>
                     </div>
                 </div>
             </t>

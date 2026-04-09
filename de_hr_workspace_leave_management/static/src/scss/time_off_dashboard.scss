@@ -77,3 +77,57 @@
 .o_timeoff_dashboard .fw-bold {
     color: #0f172a;
 }
+
+.o_timeoff_dashboard .de-simple-summary-card {
+    border: 1px solid #d6deea;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+}
+
+.o_timeoff_dashboard .de-simple-summary-title {
+    font-size: 1rem;
+    color: #0f172a;
+}
+
+.o_timeoff_dashboard .de-simple-summary-subtitle {
+    font-size: 0.88rem;
+    color: #64748b !important;
+}
+
+.o_timeoff_dashboard .de-summary-select {
+    min-width: 240px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+
+.o_timeoff_dashboard .de-leave-tiles-grid {
+    margin-top: 2px;
+}
+
+.o_timeoff_dashboard .de-leave-summary-tile {
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 12px 14px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.o_timeoff_dashboard .de-leave-summary-tile .de-leave-type {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.o_timeoff_dashboard .de-leave-summary-tile .de-leave-ratio {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0b5ed7;
+}
+
+.o_timeoff_dashboard .de-leave-summary-tile:hover {
+    border-color: #b6c7e5;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
