@@ -182,6 +182,28 @@
         <div class="text-muted mb-3 de-simple-summary-subtitle">
             Overall summary for <t t-esc="state.employee_name"/>
         </div>
+        <div class="de-selected-employee-card mb-3">
+            <div class="de-selected-employee-header">
+                <div class="de-selected-employee-avatar">
+                    <t t-if="state.employee_profile.image_1920">
+                        <img t-attf-src="data:image/png;base64,{{state.employee_profile.image_1920}}"/>
+                    </t>
+                    <t t-else="">
+                        <i class="fa fa-user"/>
+                    </t>
+                </div>
+                <div>
+                    <div class="de-selected-employee-name"><t t-esc="state.employee_profile.name || state.employee_name"/></div>
+                    <div class="de-selected-employee-meta"><i class="fa fa-briefcase me-1"/> <t t-esc="state.employee_profile.job_position || '-'"/></div>
+                </div>
+            </div>
+            <div class="de-selected-employee-grid">
+                <div><i class="fa fa-sitemap me-1"/> <t t-esc="state.employee_profile.department || '-'"/></div>
+                <div><i class="fa fa-clock-o me-1"/> <t t-esc="state.employee_profile.resource_calendar || '-'"/></div>
+                <div><i class="fa fa-envelope-o me-1"/> <t t-esc="state.employee_profile.work_email || '-'"/></div>
+                <div><i class="fa fa-phone me-1"/> <t t-esc="state.employee_profile.work_phone || '-'"/></div>
+            </div>
+        </div>
         <div class="row g-0 de-leave-tiles-grid de-leave-summary-strip">
             <t t-if="!state.lines.length">
                 <div class="col-12 text-muted p-3">No data found.</div>

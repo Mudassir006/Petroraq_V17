@@ -155,9 +155,189 @@
     letter-spacing: 0.2px;
 }
 
+.de_leave_mgmt_dashboard .de-employee-profile-card {
+    border: 1px solid #d6deea;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+    min-width: 420px;
+}
+
+.de_leave_mgmt_dashboard .de-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.de_leave_mgmt_dashboard .de-avatar {
+    width: 64px;
+    height: 64px;
+    border: 2px solid #d6deea;
+    border-radius: 50%;
+    background: #eef4ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.de_leave_mgmt_dashboard .de-avatar i {
+    font-size: 1.5rem;
+    color: #5772a8;
+}
+
+.de_leave_mgmt_dashboard .de-employee-name {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+.de_leave_mgmt_dashboard .de-employee-subtitle {
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+.de_leave_mgmt_dashboard .de-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.de_leave_mgmt_dashboard .de-info-tile {
+    border: 1px solid #d9e3f4;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 10px 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.de_leave_mgmt_dashboard .de-info-tile i {
+    color: #5772a8;
+    margin-top: 2px;
+}
+
+.de_leave_mgmt_dashboard .de-info-tile span {
+    display: block;
+    font-size: 0.78rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.de_leave_mgmt_dashboard .de-info-tile strong {
+    display: block;
+    color: #1e293b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.de_leave_mgmt_dashboard .de-info-wide {
+    grid-column: span 2;
+}
+
+.de_leave_mgmt_dashboard .de-status-panel {
+    border: 1px solid #d6deea;
+    border-radius: 14px;
+    background: #ffffff;
+    min-width: 340px;
+}
+
+.de_leave_mgmt_dashboard .de-status-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.de_leave_mgmt_dashboard .de-status-tile {
+    border: 1px solid #d9e3f4;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fbfdff;
+}
+
+.de_leave_mgmt_dashboard .de-status-title {
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+
+.de_leave_mgmt_dashboard .de-status-line {
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.de_leave_mgmt_dashboard .de-status-date {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-card {
+    border: 1px solid #d6deea;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fbfdff;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #eef4ff;
+    border: 1px solid #d6deea;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-name {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-meta {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.de_leave_mgmt_dashboard .de-selected-employee-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
 @media (max-width: 1199px) {
     .de_leave_mgmt_dashboard .de-summary-strip-col:nth-child(2n) {
         border-right: 0;
+    }
+
+    .de_leave_mgmt_dashboard .de-profile-grid,
+    .de_leave_mgmt_dashboard .de-selected-employee-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .de_leave_mgmt_dashboard .de-info-wide {
+        grid-column: span 1;
     }
 }
 

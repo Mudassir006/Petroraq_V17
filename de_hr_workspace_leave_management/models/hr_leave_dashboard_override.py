@@ -385,5 +385,16 @@ class HrLeaveDashboardOverride(models.Model):
         return {
             'employee_id': employee.id,
             'employee_name': employee.name,
+            'employee_profile': {
+                'id': employee.id,
+                'name': employee.name,
+                'job_position': employee.job_title or '',
+                'work_email': employee.work_email or '',
+                'work_phone': employee.work_phone or '',
+                'department': employee.department_id.name or '',
+                'resource_calendar': employee.resource_calendar_id.name or '',
+                'company': employee.company_id.name or '',
+                'image_1920': employee.image_1920 or False,
+            },
             'lines': lines,
         }

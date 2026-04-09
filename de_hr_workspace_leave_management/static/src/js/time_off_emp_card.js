@@ -225,6 +225,7 @@ export class SimpleLeaveSummaryCard extends Component {
             employee_id: this.props.id,
             lines: [],
             employee_name: '',
+            employee_profile: {},
         });
         onWillStart(async () => {
             await this.loadSummary();
@@ -242,6 +243,7 @@ export class SimpleLeaveSummaryCard extends Component {
         if (!this.state.employee_id) {
             this.state.lines = [];
             this.state.employee_name = '';
+            this.state.employee_profile = {};
             return;
         }
         const result = await this.orm.call(
@@ -252,6 +254,7 @@ export class SimpleLeaveSummaryCard extends Component {
         );
         this.state.lines = result.lines || [];
         this.state.employee_name = result.employee_name || '';
+        this.state.employee_profile = result.employee_profile || {};
     }
 
     async onEmployeeChange(ev) {
