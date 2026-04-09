@@ -20,7 +20,7 @@
                                     company="currentEmployee.data.company"
                                     job_position="currentEmployee.data.job_position"
                                     children="currentEmployee.data.children"/>
-                   <EmpDepartmentCard name="currentEmployee.data.name"
+                    <EmpDepartmentCard name="currentEmployee.data.name"
                                        id="currentEmployee.data.id"
                                        child_all_count="currentEmployee.data.child_all_count"
                                        children="currentEmployee.data.children"
@@ -28,12 +28,6 @@
                                        absentees="currentAbsentees.data"
                                        current_shift="currentShift.data"
                                        upcoming_holidays="upcoming_holidays.data"/>
-                    <ApprovalStatusCard id="currentEmployee.data.id"
-                                        name="currentEmployee.data.name"
-                                        child_ids="currentEmployee.data.child_ids"
-                                        children="currentEmployee.data.children"
-                                        all_validated_leaves="all_validated_leaves"
-                                        approval_status_count="approval_status_count"/>
                     <LeaveTypeMetricsCard id="currentEmployee.data.id"/>
                     <CurrentLeaveBalanceCard id="currentEmployee.data.id"/>
                 </div>
