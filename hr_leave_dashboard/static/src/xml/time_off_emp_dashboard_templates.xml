@@ -32,12 +32,6 @@
                                absentees="currentAbsentees.data"
                                current_shift="currentShift.data"
                                upcoming_holidays="upcoming_holidays.data"/>
-            <ApprovalStatusCard id="currentEmployee.data.id"
-                                name="currentEmployee.data.name"
-                                child_ids="currentEmployee.data.child_ids"
-                                children="currentEmployee.data.children"
-                                all_validated_leaves="all_validated_leaves"
-                                approval_status_count="approval_status_count"/>
         </xpath>
     </t>
 </templates>

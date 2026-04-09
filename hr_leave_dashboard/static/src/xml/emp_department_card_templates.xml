@@ -13,9 +13,6 @@
         <t t-set="absentees" t-value="props.absentees"/>
         <t t-set="shift" t-value="props.current_shift"/>
         <t t-set="upcoming_holidays" t-value="props.upcoming_holidays"/>
-        <span class="o_timeoff_duration">
-            <t t-esc="department_id"/>
-        </span>
         <div t-if="shift">
         <div class="text-uppercase col-lg-12 divide-leave ">
             <t t-if="shift" name="duration_unit">Current Shift: <t

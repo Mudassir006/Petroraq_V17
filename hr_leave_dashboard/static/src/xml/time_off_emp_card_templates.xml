@@ -58,7 +58,7 @@
                             t-esc="work_phone"/></t>
                 </div>
             </div>
-            <div class="col-lg-6 divider-box"
+            <div class="col-lg-12 divider-box"
                  style="float:left; margin-bottom:12px;">
                 <div class="text-uppercase box-content">
                     <t t-if="department_id" name="duration_unit">Department: <t
