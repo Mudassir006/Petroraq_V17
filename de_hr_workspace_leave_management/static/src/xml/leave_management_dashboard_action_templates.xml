@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <templates xml:space="preserve">
     <t t-name="de_hr_workspace_leave_management.LeaveManagementDashboardAction" owl="1">
-        <div class="o_timeoff_dashboard p-2">
+        <div class="o_timeoff_dashboard de_leave_mgmt_dashboard p-2">
             <div class="w-100 d-flex flex-column gap-2">
                 <div class="w-100 d-flex flex-wrap gap-2">
                     <TimeOffEmpCard name="currentEmployee.data.name"
