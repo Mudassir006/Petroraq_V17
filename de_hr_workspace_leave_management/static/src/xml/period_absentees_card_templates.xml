@@ -182,15 +182,19 @@
         <div class="text-muted mb-3 de-simple-summary-subtitle">
             Overall summary for <t t-esc="state.employee_name"/>
         </div>
-        <div class="row g-3 de-leave-tiles-grid">
+        <div class="row g-0 de-leave-tiles-grid de-leave-summary-strip">
             <t t-if="!state.lines.length">
-                <div class="col-12 text-muted">No data found.</div>
+                <div class="col-12 text-muted p-3">No data found.</div>
             </t>
             <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
-                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                    <div class="de-leave-summary-tile h-100">
+                <t t-set="available_days" t-value="line.allocated_days > 0 ? (line.allocated_days - line.used_days) : line.used_days"/>
+                <div class="col-12 col-sm-6 col-lg-3 de-summary-strip-col">
+                    <div class="de-summary-strip-tile h-100 text-center py-3 px-2">
                         <div class="de-leave-type"><t t-esc="line.leave_type"/></div>
-                        <div class="de-leave-ratio"><t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/></div>
+                        <div class="de-leave-ratio">
+                            <i class="fa fa-umbrella me-1"/> <t t-esc="available_days"/>
+                        </div>
+                        <div class="de-leave-caption">DAYS AVAILABLE <i class="fa fa-question-circle-o"/></div>
                     </div>
                 </div>
             </t>
