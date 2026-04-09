@@ -216,3 +216,54 @@ export class CurrentLeaveBalanceCard extends Component {
 }
 CurrentLeaveBalanceCard.template = 'de_hr_workspace_leave_management.CurrentLeaveBalanceCard';
 CurrentLeaveBalanceCard.props = ['id'];
+
+export class SimpleLeaveSummaryCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.state = useState({
+            employee_id: this.props.id,
+            as_of_date: new Date().toISOString().slice(0, 10),
+            lines: [],
+            employee_name: '',
+        });
+        onWillStart(async () => {
+            await this.loadSummary();
+        });
+    }
+
+    get employeeOptions() {
+        return this.props.employees || [];
+    }
+
+    async loadSummary() {
+        if (!this.state.employee_id && this.employeeOptions.length) {
+            this.state.employee_id = this.employeeOptions[0].id;
+        }
+        if (!this.state.employee_id) {
+            this.state.lines = [];
+            this.state.employee_name = '';
+            return;
+        }
+        const result = await this.orm.call(
+            'hr.leave',
+            'get_employee_leave_simple_summary',
+            [this.state.employee_id, this.state.as_of_date],
+            { context: { show_all_leave_dashboard: true } }
+        );
+        this.state.lines = result.lines || [];
+        this.state.employee_name = result.employee_name || '';
+    }
+
+    async onEmployeeChange(ev) {
+        this.state.employee_id = parseInt(ev.target.value, 10);
+        await this.loadSummary();
+    }
+
+    async onDateChange(ev) {
+        this.state.as_of_date = ev.target.value;
+        await this.loadSummary();
+    }
+}
+SimpleLeaveSummaryCard.template = 'de_hr_workspace_leave_management.SimpleLeaveSummaryCard';
+SimpleLeaveSummaryCard.props = ['id', 'employees'];
