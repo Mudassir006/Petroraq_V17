@@ -177,30 +177,33 @@
                         <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
                     </t>
                 </select>
-                <input type="date" class="duration" t-att-value="state.as_of_date" t-on-change="onDateChange"/>
+                <select class="duration" t-att-value="state.duration" t-on-change="onDurationChange">
+                    <option value="this_week">This week</option>
+                    <option value="this_month">This month</option>
+                    <option value="this_year">This year</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <t t-if="state.duration === 'custom'">
+                    <input type="date" name="date_from" class="duration" t-att-value="state.date_from" t-on-change="onDateChange"/>
+                    <input type="date" name="date_to" class="duration" t-att-value="state.date_to" t-on-change="onDateChange"/>
+                </t>
             </div>
         </div>
         <div class="text-muted mb-2">
-            As of <t t-esc="state.as_of_date"/> for <t t-esc="state.employee_name"/>
+            <t t-esc="state.employee_name"/>: <t t-esc="state.range_start"/> to <t t-esc="state.range_end"/>
         </div>
-        <table class="table table-hover table-sm mb-0">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Used / Allocated</th>
-                </tr>
-            </thead>
-            <tbody>
-                <t t-if="!state.lines.length">
-                    <tr><td colspan="2" class="text-muted">No data found.</td></tr>
-                </t>
-                <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
-                    <tr>
-                        <td><t t-esc="line.leave_type"/></td>
-                        <td><t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/></td>
-                    </tr>
-                </t>
-            </tbody>
-        </table>
+        <div class="row g-2">
+            <t t-if="!state.lines.length">
+                <div class="col-12 text-muted">No data found.</div>
+            </t>
+            <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <div class="border rounded p-2 h-100 bg-light">
+                        <div class="fw-bold"><t t-esc="line.leave_type"/></div>
+                        <div><t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/></div>
+                    </div>
+                </div>
+            </t>
+        </div>
     </div>
 </templates>

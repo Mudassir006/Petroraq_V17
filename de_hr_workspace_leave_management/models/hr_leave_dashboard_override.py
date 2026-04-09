@@ -350,13 +350,34 @@ class HrLeaveDashboardOverride(models.Model):
         } for leave_type in leave_types]
 
     @api.model
-    def get_employee_leave_simple_summary(self, employee_id=None, as_of_date=None):
+    def _get_simple_summary_range(self, duration='this_month', date_from=None, date_to=None):
+        today = fields.Date.context_today(self)
+        if duration == 'custom':
+            custom_from = fields.Date.to_date(date_from) if date_from else today
+            custom_to = fields.Date.to_date(date_to) if date_to else custom_from
+            if custom_from > custom_to:
+                custom_from, custom_to = custom_to, custom_from
+            return custom_from, custom_to
+        if duration == 'this_week':
+            start = today - timedelta(days=today.weekday())
+            end = start + timedelta(days=6)
+            return start, end
+        if duration == 'this_year':
+            return today.replace(month=1, day=1), today.replace(month=12, day=31)
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1, day=1) - timedelta(days=1)
+        return start, end
+
+    @api.model
+    def get_employee_leave_simple_summary(self, employee_id=None, duration='this_month', date_from=None, date_to=None):
         employee = self.env['hr.employee'].browse(employee_id) if employee_id else self.env.user.employee_id
         if not employee:
-            return {'employee_id': False, 'employee_name': '', 'as_of_date': False, 'lines': []}
+            return {'employee_id': False, 'employee_name': '', 'range_start': False, 'range_end': False, 'lines': []}
 
-        as_of = fields.Date.to_date(as_of_date) if as_of_date else fields.Date.context_today(self)
-        year_start = as_of.replace(month=1, day=1)
+        range_start, range_end = self._get_simple_summary_range(duration, date_from, date_to)
         leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)])
 
         allocations = self.env['hr.leave.allocation'].sudo().search([
@@ -368,8 +389,8 @@ class HrLeaveDashboardOverride(models.Model):
             ('state', '=', 'validate'),
             ('employee_id', '=', employee.id),
             ('holiday_status_id', 'in', leave_types.ids),
-            ('request_date_from', '<=', as_of),
-            ('request_date_to', '>=', year_start),
+            ('request_date_from', '<=', range_end),
+            ('request_date_to', '>=', range_start),
         ])
 
         allocated = {}
@@ -382,11 +403,11 @@ class HrLeaveDashboardOverride(models.Model):
             used[key] = used.get(key, 0.0) + (leave.number_of_days or 0.0)
 
         absent_days = 0
-        current = year_start
+        current = range_start
         leave_days = set()
         for leave in leaves:
-            day = max(leave.request_date_from, year_start)
-            end = min(leave.request_date_to, as_of)
+            day = max(leave.request_date_from, range_start)
+            end = min(leave.request_date_to, range_end)
             while day <= end:
                 leave_days.add(day)
                 day += timedelta(days=1)
@@ -394,28 +415,28 @@ class HrLeaveDashboardOverride(models.Model):
         attendance_days = set()
         attendances = self.env['hr.attendance'].sudo().search([
             ('employee_id', '=', employee.id),
-            ('check_in', '>=', fields.Datetime.to_datetime(year_start)),
-            ('check_in', '<', fields.Datetime.to_datetime(as_of) + timedelta(days=1)),
+            ('check_in', '>=', fields.Datetime.to_datetime(range_start)),
+            ('check_in', '<', fields.Datetime.to_datetime(range_end) + timedelta(days=1)),
         ])
         for attendance in attendances:
             attendance_days.add(attendance.check_in.date())
 
         holidays = self.env['hr.public.holiday'].sudo().search([
             ('state', '=', 'active'),
-            ('date_from', '<=', as_of),
-            ('date_to', '>=', year_start),
+            ('date_from', '<=', range_end),
+            ('date_to', '>=', range_start),
         ])
         holiday_days = set()
         for holiday in holidays:
-            day = max(holiday.date_from, year_start)
-            end = min(holiday.date_to, as_of)
+            day = max(holiday.date_from, range_start)
+            end = min(holiday.date_to, range_end)
             while day <= end:
                 holiday_days.add(day)
                 day += timedelta(days=1)
 
         calendar = employee.resource_calendar_id
         working_days = {int(att.dayofweek) for att in calendar.attendance_ids} if (calendar and calendar.attendance_ids) else {0, 1, 2, 3, 4}
-        while current <= as_of:
+        while current <= range_end:
             if (
                 current.weekday() in working_days
                 and current not in holiday_days
@@ -439,6 +460,7 @@ class HrLeaveDashboardOverride(models.Model):
         return {
             'employee_id': employee.id,
             'employee_name': employee.name,
-            'as_of_date': as_of,
+            'range_start': range_start,
+            'range_end': range_end,
             'lines': lines,
         }
