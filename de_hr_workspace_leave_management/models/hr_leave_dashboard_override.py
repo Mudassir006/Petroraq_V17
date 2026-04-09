@@ -40,6 +40,8 @@ class HrLeaveDashboardOverride(models.Model):
         current_employee = self.env.user.employee_id
         if not current_employee and self.env.context.get('employee_id'):
             current_employee = self.env['hr.employee'].browse(self.env.context['employee_id'])
+        if not current_employee and self.env.context.get('show_all_leave_dashboard'):
+            current_employee = self.env['hr.employee'].sudo().search([('active', '=', True)], limit=1)
         if not current_employee:
             return {}
         if self.env.context.get('show_all_leave_dashboard'):
