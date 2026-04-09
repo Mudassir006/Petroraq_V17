@@ -377,6 +377,7 @@ class HrLeaveDashboardOverride(models.Model):
             used[key] = used.get(key, 0.0) + (leave.number_of_days or 0.0)
 
         lines = [{
+            'leave_type_id': leave_type.id,
             'leave_type': leave_type.name,
             'used_days': round(used.get(leave_type.id, 0.0), 2),
             'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),

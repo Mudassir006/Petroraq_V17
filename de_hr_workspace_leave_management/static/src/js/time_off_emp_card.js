@@ -221,6 +221,7 @@ export class SimpleLeaveSummaryCard extends Component {
     setup() {
         super.setup();
         this.orm = useService('orm');
+        this.actionService = useService("action");
         this.state = useState({
             employee_id: this.props.id,
             lines: [],
@@ -260,6 +261,29 @@ export class SimpleLeaveSummaryCard extends Component {
     async onEmployeeChange(ev) {
         this.state.employee_id = parseInt(ev.target.value, 10);
         await this.loadSummary();
+    }
+
+    openLeaveRequests(line) {
+        if (!this.state.employee_id || !line?.leave_type_id) {
+            return;
+        }
+        return this.actionService.doAction({
+            type: "ir.actions.act_window",
+            name: `${line.leave_type} Leave Requests`,
+            res_model: "hr.leave",
+            views: [[false, "list"], [false, "form"]],
+            view_mode: "list,form",
+            target: "current",
+            domain: [
+                ["employee_id", "=", this.state.employee_id],
+                ["holiday_status_id", "=", line.leave_type_id],
+            ],
+            context: {
+                search_default_employee_id: this.state.employee_id,
+                default_employee_id: this.state.employee_id,
+                default_holiday_status_id: line.leave_type_id,
+            },
+        });
     }
 
 }

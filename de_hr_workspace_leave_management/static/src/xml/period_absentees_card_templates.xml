@@ -210,10 +210,15 @@
             </t>
             <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
                 <div class="col-12 col-sm-6 col-lg-3 de-summary-strip-col">
-                    <div class="de-summary-strip-tile h-100 text-center py-3 px-2">
+                    <div class="de-summary-strip-tile h-100 text-center py-3 px-2 de-clickable-tile"
+                         t-on-click="() => this.openLeaveRequests(line)">
                         <div class="de-leave-type"><t t-esc="line.leave_type"/></div>
                         <div class="de-leave-ratio">
                             <i class="fa fa-umbrella me-1"/> <t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/>
+                        </div>
+                        <div class="de-tile-chart">
+                            <div class="de-tile-chart-fill"
+                                 t-att-style="'width:' + (line.allocated_days > 0 ? Math.min((line.used_days / line.allocated_days) * 100, 100) : 0) + '%'"/>
                         </div>
                         <div class="de-leave-caption">AVAILED <i class="fa fa-question-circle-o"/></div>
                     </div>
