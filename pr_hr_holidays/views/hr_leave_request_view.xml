@@ -103,6 +103,7 @@
                                 <field name="date_to" width="40%"
                                        class="oe_inline" readonly="state  != 'draft'"/>
                             </div>
+                            <field name="requested_days" readonly="1"/>
                         </group>
                         <group>
                             <field name="company_id" readonly="state  != 'draft'" string="Company"
