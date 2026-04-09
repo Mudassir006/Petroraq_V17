@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="action_workspace_advanced_leave_dashboard" model="ir.actions.act_window">
+    <record id="action_workspace_advanced_leave_dashboard" model="ir.actions.client">
         <field name="name">Leave Dashboard</field>
-        <field name="res_model">hr.leave</field>
-        <field name="view_mode">calendar,tree,form,activity</field>
-        <field name="view_id" ref="hr_holidays.hr_leave_view_dashboard"/>
-        <field name="search_view_id" ref="hr_holidays.hr_leave_view_search_manager"/>
-        <field name="domain">[]</field>
-        <field name="context">{'short_name': 1, 'search_default_active_time_off': 1, 'show_all_leave_dashboard': True}</field>
+        <field name="tag">de_hr_workspace_leave_management.leave_dashboard</field>
+        <field name="context">{'show_all_leave_dashboard': True}</field>
     </record>
 
     <menuitem id="menu_workspace_leave_management_root"
