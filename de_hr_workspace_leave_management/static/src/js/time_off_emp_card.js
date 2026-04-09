@@ -223,13 +223,8 @@ export class SimpleLeaveSummaryCard extends Component {
         this.orm = useService('orm');
         this.state = useState({
             employee_id: this.props.id,
-            duration: 'this_month',
-            date_from: new Date().toISOString().slice(0, 10),
-            date_to: new Date().toISOString().slice(0, 10),
             lines: [],
             employee_name: '',
-            range_start: '',
-            range_end: '',
         });
         onWillStart(async () => {
             await this.loadSummary();
@@ -252,13 +247,11 @@ export class SimpleLeaveSummaryCard extends Component {
         const result = await this.orm.call(
             'hr.leave',
             'get_employee_leave_simple_summary',
-            [this.state.employee_id, this.state.duration, this.state.date_from, this.state.date_to],
+            [this.state.employee_id],
             { context: { show_all_leave_dashboard: true } }
         );
         this.state.lines = result.lines || [];
         this.state.employee_name = result.employee_name || '';
-        this.state.range_start = result.range_start || '';
-        this.state.range_end = result.range_end || '';
     }
 
     async onEmployeeChange(ev) {
@@ -266,16 +259,6 @@ export class SimpleLeaveSummaryCard extends Component {
         await this.loadSummary();
     }
 
-    async onDateChange(ev) {
-        const field = ev.target.name;
-        this.state[field] = ev.target.value;
-        await this.loadSummary();
-    }
-
-    async onDurationChange(ev) {
-        this.state.duration = ev.target.value;
-        await this.loadSummary();
-    }
 }
 SimpleLeaveSummaryCard.template = 'de_hr_workspace_leave_management.SimpleLeaveSummaryCard';
 SimpleLeaveSummaryCard.props = ['id', 'employees'];

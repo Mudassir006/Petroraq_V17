@@ -177,20 +177,10 @@
                         <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
                     </t>
                 </select>
-                <select class="duration" t-att-value="state.duration" t-on-change="onDurationChange">
-                    <option value="this_week">This week</option>
-                    <option value="this_month">This month</option>
-                    <option value="this_year">This year</option>
-                    <option value="custom">Custom</option>
-                </select>
-                <t t-if="state.duration === 'custom'">
-                    <input type="date" name="date_from" class="duration" t-att-value="state.date_from" t-on-change="onDateChange"/>
-                    <input type="date" name="date_to" class="duration" t-att-value="state.date_to" t-on-change="onDateChange"/>
-                </t>
             </div>
         </div>
         <div class="text-muted mb-2">
-            <t t-esc="state.employee_name"/>: <t t-esc="state.range_start"/> to <t t-esc="state.range_end"/>
+            Overall summary for <t t-esc="state.employee_name"/>
         </div>
         <div class="row g-2">
             <t t-if="!state.lines.length">
