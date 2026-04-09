@@ -353,6 +353,40 @@
     font-size: 0.9rem;
 }
 
+.de_leave_mgmt_dashboard .de-requests-analytics-card {
+    border: 1px solid #d6deea;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.de_leave_mgmt_dashboard .de-analytics-select {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    min-height: 38px;
+}
+
+.de_leave_mgmt_dashboard .de-analytics-metric {
+    border: 1px solid #d8e2f1;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 14px 12px;
+    min-height: 90px;
+}
+
+.de_leave_mgmt_dashboard .de-analytics-metric-label {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.de_leave_mgmt_dashboard .de-analytics-metric-value {
+    color: #1f3f76;
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
 @media (max-width: 1199px) {
     .de_leave_mgmt_dashboard .de-summary-strip-col:nth-child(2n) {
         border-right: 0;

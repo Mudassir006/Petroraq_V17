@@ -217,6 +217,76 @@ export class CurrentLeaveBalanceCard extends Component {
 CurrentLeaveBalanceCard.template = 'de_hr_workspace_leave_management.CurrentLeaveBalanceCard';
 CurrentLeaveBalanceCard.props = ['id'];
 
+export class LeaveRequestCountCard extends Component {
+    setup() {
+        super.setup();
+        this.orm = useService('orm');
+        this.state = useState({
+            duration: 'this_month',
+            employee_id: '',
+            leave_type_id: '',
+            date_from: '',
+            date_to: '',
+            employees: [],
+            leave_types: [],
+            total_requests: 0,
+            total_days: 0,
+        });
+        onWillStart(async () => {
+            const options = await this.orm.call('hr.leave', 'get_leave_request_filter_options', [], {
+                context: { show_all_leave_dashboard: true },
+            });
+            this.state.employees = options.employees || [];
+            this.state.leave_types = options.leave_types || [];
+            await this.loadMetrics();
+        });
+    }
+
+    async loadMetrics() {
+        const result = await this.orm.call(
+            'hr.leave',
+            'get_leave_request_count_by_filters',
+            [
+                this.state.duration,
+                this.state.employee_id || false,
+                this.state.leave_type_id || false,
+                this.state.date_from || false,
+                this.state.date_to || false,
+            ],
+            { context: { show_all_leave_dashboard: true } }
+        );
+        this.state.total_requests = result.total_requests || 0;
+        this.state.total_days = result.total_days || 0;
+    }
+
+    async onDurationChange(ev) {
+        this.state.duration = ev.target.value;
+        await this.loadMetrics();
+    }
+
+    async onEmployeeChange(ev) {
+        this.state.employee_id = ev.target.value;
+        await this.loadMetrics();
+    }
+
+    async onLeaveTypeChange(ev) {
+        this.state.leave_type_id = ev.target.value;
+        await this.loadMetrics();
+    }
+
+    async onDateFromChange(ev) {
+        this.state.date_from = ev.target.value;
+        await this.loadMetrics();
+    }
+
+    async onDateToChange(ev) {
+        this.state.date_to = ev.target.value;
+        await this.loadMetrics();
+    }
+}
+LeaveRequestCountCard.template = 'de_hr_workspace_leave_management.LeaveRequestCountCard';
+LeaveRequestCountCard.props = ['id'];
+
 export class SimpleLeaveSummaryCard extends Component {
     setup() {
         super.setup();
