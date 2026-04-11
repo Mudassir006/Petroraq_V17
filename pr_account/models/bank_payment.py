@@ -332,37 +332,35 @@ class AccountBankPayment(models.Model):
 
         return records
 
+    def unlink(self):
+        if self.state != 'draft':
+            raise ValidationError("This Bank Payment Should Be Draft To Can Delete !!")
+        return super().unlink()
 
-def unlink(self):
-    if self.state != 'draft':
-        raise ValidationError("This Bank Payment Should Be Draft To Can Delete !!")
-    return super().unlink()
+    def copy(self, default=None):
+        default = dict(default or {})
 
+        # New sequence
+        default['name'] = self.env['ir.sequence'].next_by_code(
+            'pr.account.bank.payment.seq.code'
+        )
 
-def copy(self, default=None):
-    default = dict(default or {})
+        # Copy One2many lines using Odoo Command
+        default['bank_payment_line_ids'] = [
+            Command.create({
+                'account_id': line.account_id.id,
+                'cs_project_id': line.cs_project_id.id,
+                'partner_id': line.partner_id.id,
+                'description': line.description,
+                'reference_number': line.reference_number,
+                'amount': line.amount,
+                'tax_id': line.tax_id.id,
+                'analytic_distribution': line.analytic_distribution,
+            })
+            for line in self.bank_payment_line_ids
+        ]
 
-    # New sequence
-    default['name'] = self.env['ir.sequence'].next_by_code(
-        'pr.account.bank.payment.seq.code'
-    )
-
-    # Copy One2many lines using Odoo Command
-    default['bank_payment_line_ids'] = [
-        Command.create({
-            'account_id': line.account_id.id,
-            'cs_project_id': line.cs_project_id.id,
-            'partner_id': line.partner_id.id,
-            'description': line.description,
-            'reference_number': line.reference_number,
-            'amount': line.amount,
-            'tax_id': line.tax_id.id,
-            'analytic_distribution': line.analytic_distribution,
-        })
-        for line in self.bank_payment_line_ids
-    ]
-
-    return super(AccountBankPayment, self).copy(default)
+        return super(AccountBankPayment, self).copy(default)
 
 
 # endregion [Crud]

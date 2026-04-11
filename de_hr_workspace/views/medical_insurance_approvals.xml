@@ -18,6 +18,6 @@
               name="Employee Medical Insurance"
               action="de_hr_workspace_hr_employee_medical_insurance_approvals_view_action"
               sequence="2"
-              groups="de_hr_workspace.group_hr_employee_approvals,hr.group_hr_manager"
+              groups="hr.group_hr_manager"
         />
 </odoo>

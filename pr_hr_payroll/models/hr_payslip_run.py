@@ -59,6 +59,7 @@ class HrPayslipRun(models.Model):
 
             batch_employee_list = []
             salary_rule_total_dict = defaultdict(float)
+            hidden_summary_codes = {"GOSI_EMP", "GOSI_COMP_DED"}
 
             for payslip in batch.slip_ids:
                 employee = payslip.employee_id
@@ -95,8 +96,9 @@ class HrPayslipRun(models.Model):
                         net_amount = total
                         total_net_amount += total
 
-                    # Aggregated salary rule totals
-                    if total != 0:
+                    # Aggregated salary rule totals (hide GOSI deduction rules from batch summary visibility)
+                    line_code = line.code
+                    if total != 0 and line_code not in hidden_summary_codes:
                         salary_rule_total_dict[rule.id] += total
 
                 employee_data.update({
@@ -170,6 +172,30 @@ class HrPayslipRun(models.Model):
             rec.approval_state = 'submitted'
             rec.rejection_reason = False
 
+    def _get_anb_balancing_account(self, company):
+        # NOTE:
+        # In this database the ANB account can be configured in a parent/shared company,
+        # so avoid strict company filtering and prioritize exact code match.
+        account = self.env['account.account'].with_context(active_test=False).search([
+            ('code', '=', '1001.02.00.07')
+        ], limit=1)
+        if not account:
+            account = self.env['account.account'].with_context(active_test=False).search([
+                ('name', 'ilike', 'ANB Bank-470015')
+            ], limit=1)
+        return account
+
+    def _prepare_balancing_line_vals(self, batch, journal, account, imbalance_amount):
+        return {
+            'name': f"{batch.name} balancing line",
+            'partner_id': False,
+            'account_id': account.id,
+            'journal_id': journal.id,
+            'date': fields.Date.today(),
+            'debit': abs(imbalance_amount) if imbalance_amount < 0 else 0.0,
+            'credit': imbalance_amount if imbalance_amount > 0 else 0.0,
+        }
+
     def action_validate(self):
         res = super().action_validate()
         journal = self.env.ref('pr_account.journal_journal_voucher')
@@ -180,6 +206,26 @@ class HrPayslipRun(models.Model):
             move_line_ids = []
             for slip in pay_slips:
                 move_line_ids += slip.prepare_payslip_entry_vals_lines()
+
+            total_debit = sum(vals[2].get('debit', 0.0) for vals in move_line_ids if vals[0] == 0)
+            total_credit = sum(vals[2].get('credit', 0.0) for vals in move_line_ids if vals[0] == 0)
+            currency = rec.company_id.currency_id
+            imbalance_amount = currency.round(total_debit - total_credit)
+
+            if not currency.is_zero(imbalance_amount):
+                anb_account = rec._get_anb_balancing_account(rec.company_id)
+                if not anb_account:
+                    raise ValidationError(_(
+                        "Could not find ANB balancing account (code 1001.02.00.07) to balance payroll journal entry."
+                    ))
+
+                move_line_ids.append((0, 0, rec._prepare_balancing_line_vals(
+                    batch=rec,
+                    journal=journal,
+                    account=anb_account,
+                    imbalance_amount=imbalance_amount,
+                )))
+
             salary_journal_entry_id = self.env['account.move'].sudo().with_context(check_move_validity=False,
                                                                                    skip_invoice_sync=True).create({
                 'ref': f"Payslip Batch of PETRORAQ Company for {rec.date_end.strftime('%B')} {rec.date_end.year}",
@@ -190,6 +236,27 @@ class HrPayslipRun(models.Model):
                 'line_ids': move_line_ids,
             })
             if salary_journal_entry_id:
+                final_debit = sum(salary_journal_entry_id.line_ids.mapped('debit'))
+                final_credit = sum(salary_journal_entry_id.line_ids.mapped('credit'))
+                final_imbalance = currency.round(final_debit - final_credit)
+                if not currency.is_zero(final_imbalance):
+                    anb_account = rec._get_anb_balancing_account(rec.company_id)
+                    if not anb_account:
+                        raise ValidationError(_(
+                            "Could not find ANB balancing account (code 1001.02.00.07) for final payroll move balancing."
+                        ))
+                    salary_journal_entry_id.with_context(check_move_validity=False, skip_invoice_sync=True).write({
+                        'line_ids': [(0, 0, rec._prepare_balancing_line_vals(
+                            batch=rec,
+                            journal=journal,
+                            account=anb_account,
+                            imbalance_amount=final_imbalance,
+                        ))],
+                    })
+
+                if salary_journal_entry_id.state != 'posted':
+                    salary_journal_entry_id.sudo().with_context(check_move_validity=False, skip_invoice_sync=True).action_post()
+
                 rec.salary_journal_entry_id = salary_journal_entry_id.id
                 for slip_sa in pay_slips:
                     slip_sa.sudo().write({'salary_journal_entry_id': salary_journal_entry_id.id})
@@ -217,7 +284,8 @@ class HrPayslipRun(models.Model):
             "res_id": self.salary_journal_entry_id.id,
             "views": [[self.env.ref('account.view_move_form').id, "form"]],
             "target": "current",
-            "name": self.name
+            "name": self.name,
+            "context": {"form_view_initial_mode": "readonly"}
         }
 
     def unlink(self):

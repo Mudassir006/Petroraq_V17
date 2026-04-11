@@ -24,6 +24,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/hr_job.xml',
+        'views/website_hr_recruitment_detail.xml',
         'views/hr_job_approvals.xml',
         'views/hr_applicant_onboarding.xml',
         'views/hr_applicant.xml',

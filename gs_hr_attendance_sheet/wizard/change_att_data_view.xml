@@ -33,5 +33,24 @@
         <field name="target">new</field>
     </record>
 
+    <record id="attendance_overtime_reject_wizard_view_form" model="ir.ui.view">
+        <field name="name">attendance.overtime.reject.wizard.form</field>
+        <field name="model">attendance.overtime.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject Overtime">
+                <sheet>
+                    <group>
+                        <field name="attendance_id" readonly="1"/>
+                        <field name="rejection_reason" placeholder="Enter rejection reason"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_reject" string="Reject" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-default" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
 
 </odoo>

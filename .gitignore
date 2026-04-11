@@ -1,13 +1,76 @@
-# Ignore Python bytecode cache
+# =========================
+# Python
+# =========================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
+*.so
 
-# Ignore JetBrains IDE (PyCharm/IntelliJ) files
+# Virtual environments
+venv/
+.env/
+.envrc/
+
+# =========================
+# Editor / IDE
+# =========================
 .idea/
+.vscode/
 *.iml
-workspace.xml
-modules.xml
-misc.xml
-vcs.xml
+
+# Mac / Windows junk
+.DS_Store
+Thumbs.db
+
+# Backup files (IMPORTANT — your issue)
+*~
+*.bak
+*.swp
+*.swo
+
+# =========================
+# Odoo runtime files
+# =========================
+*.log
+*.pid
+
+# Odoo filestore (never commit this)
+filestore/
+data_dir/
+
+# Sessions
+sessions/
+
+# =========================
+# PostgreSQL dumps
+# =========================
+*.sql
+*.dump
+
+# =========================
+# Node / assets (if any OWL / frontend)
+# =========================
+node_modules/
+dist/
+build/
+
+# =========================
+# Coverage / testing
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Temporary files
+# =========================
+*.tmp
+*.temp
+
+# =========================
+# Custom (optional)
+# =========================
+# Odoo config if local-only
+odoo.conf
