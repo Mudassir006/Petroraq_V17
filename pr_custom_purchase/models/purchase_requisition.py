@@ -21,6 +21,19 @@ class PurchaseRequisition(models.Model):
     )
     requested_by = fields.Char(string="Requested By")
     requested_user_id = fields.Many2one("res.users", string="Requested User", readonly=True)
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        required=True,
+        default=lambda self: self.env.company,
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        related="company_id.currency_id",
+        store=True,
+        readonly=True,
+    )
     department = fields.Char(string="Department")
     supervisor = fields.Char(string="Supervisor")
     supervisor_partner_id = fields.Char(string="supervisor_partner_id")
@@ -50,19 +63,19 @@ class PurchaseRequisition(models.Model):
     )
     comments = fields.Text(string="Comments")
     vendor_id = fields.Many2one("res.partner", string="Preferred Vendor")
-    total_excl_vat = fields.Float(
+    total_excl_vat = fields.Monetary(
         string="Total Amount",
         compute="_compute_totals",
         store=True,
         currency_field="currency_id",
     )
-    vat_amount = fields.Float(
+    vat_amount = fields.Monetary(
         string="VAT (15%)",
         compute="_compute_totals",
         store=True,
         currency_field="currency_id",
     )
-    total_incl_vat = fields.Float(
+    total_incl_vat = fields.Monetary(
         string="Total Incl. VAT",
         compute="_compute_totals",
         store=True,

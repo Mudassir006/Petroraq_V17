@@ -9,10 +9,10 @@ class HrPayslip(models.Model):
     other_amount = fields.Float(string="Other Amount", default=0.0)
     salary_journal_entry_id = fields.Many2one("account.move", readonly=True)
 
-    hold_salary = fields.Boolean(string="Hold Salary", tracking=True, copy=False)
-    hold_reason = fields.Char(string="Hold Reason", tracking=True, copy=False)
-    hold_date = fields.Date(string="Hold Date", tracking=True, copy=False)
-    release_date = fields.Date(string="Release Date", tracking=True, copy=False)
+    hold_salary = fields.Boolean(string="Hold Salary", copy=False)
+    hold_reason = fields.Char(string="Hold Reason", copy=False)
+    hold_date = fields.Date(string="Hold Date", copy=False)
+    release_date = fields.Date(string="Release Date", copy=False)
 
     def action_hold_salary(self):
         for slip in self:

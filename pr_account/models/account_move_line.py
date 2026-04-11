@@ -6,8 +6,7 @@ class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
     # endregion [Initial]
 
-    account_name = fields.Char(string='Acc. Name', related="account_id.name", store=True,
-                               tracking=True)
+    account_name = fields.Char(string='Acc. Name', related="account_id.name")
     cs_project_id = fields.Many2one("account.analytic.account", string="Project",
                                     domain="[('analytic_plan_type', '=', 'project')]")
     check_cost_centers_block = fields.Boolean(compute="_compute_check_cost_centers_block")

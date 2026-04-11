@@ -11,7 +11,7 @@ class HrDepartment(models.Model):
 
     # region [Fields]
 
-    resource_calendar_id = fields.Many2one('resource.calendar', string="Working Schedule", check_company=True, tracking=True)
+    resource_calendar_id = fields.Many2one('resource.calendar', string="Working Schedule", check_company=True)
     has_subrules = fields.Boolean(string="Has Subrules ?")
     subrule_department_ids = fields.Many2many('hr.department.subrule', string='Subrules', check_company=True)
 

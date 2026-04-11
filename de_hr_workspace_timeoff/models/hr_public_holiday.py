@@ -14,10 +14,9 @@ class HrPublicHoliday(models.Model):
         ],
         string="Approval Status",
         default="draft",
-        tracking=True,
     )
-    approved_by_id = fields.Many2one("res.users", string="Approved By", readonly=True, tracking=True)
-    approved_on = fields.Datetime(string="Approved On", readonly=True, tracking=True)
+    approved_by_id = fields.Many2one("res.users", string="Approved By", readonly=True)
+    approved_on = fields.Datetime(string="Approved On", readonly=True)
 
     def write(self, vals):
         if "approval_state" in vals and not self.env.user.has_group("hr.group_hr_manager"):

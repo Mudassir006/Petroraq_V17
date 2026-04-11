@@ -10,14 +10,14 @@ class AccountAnalyticAccount(models.Model):
 
 
     project_code = fields.Char(string="Code")
-    project_partner_id = fields.Many2one("res.partner", string="Manager", tracking=True)
+    project_partner_id = fields.Many2one("res.partner", string="Manager")
     analytic_plan_type = fields.Selection([
         ("department", "Department"),
         ("section", "Section"),
         ("project", "Project"),
         ("employee", "Employee"),
         ("asset", "Asset"),
-    ], related="plan_id.analytic_plan_type", string="Plan Type", store=True, tracking=True)
+    ], related="plan_id.analytic_plan_type", string="Plan Type", store=True)
     department_id = fields.Many2one("account.analytic.account", string="Department", domain="[('analytic_plan_type', '=', 'department')]")
     section_id = fields.Many2one("account.analytic.account", string="Section", domain="[('analytic_plan_type', '=', 'section')]")
     section_id_domain = fields.Char(string='Section Domain', compute="_compute_section_id_domain")

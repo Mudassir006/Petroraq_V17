@@ -57,15 +57,15 @@ class AttendanceSheetBatch(models.Model):
         ('draft', 'Draft'),
         ('att_gen', 'Attendance Sheets Generated'),
         ('att_sub', 'Attendance Sheets Submitted'),
-        ('done', 'Close')], default='draft', track_visibility='onchange',
+        ('done', 'Close')], default='draft',
         string='Status', required=True, readonly=True, index=True, )
 
     type = fields.Selection([
         ('department', 'By Department'),
-        ('company', 'By Company')], default='department', track_visibility='onchange',
+        ('company', 'By Company')], default='department',
         string='BY', required=True)
 
-    company_id = fields.Many2one('res.company', string='Company', tracking=True, default=lambda self: self.env.company, required=True)
+    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company, required=True)
 
     @api.onchange('type', 'department_id','company_id', 'date_from', 'date_to')
     def onchange_employee(self):

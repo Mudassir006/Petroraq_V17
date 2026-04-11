@@ -16,6 +16,7 @@ class SaleOrder(models.Model):
         string="Retention Amount",
         currency_field="currency_id",
         compute="_compute_retention_totals",
+        compute_sudo=True,
         inverse="_inverse_retention_amount_total",
         store=True,
         copy=False,
@@ -26,6 +27,7 @@ class SaleOrder(models.Model):
         string="Retention Withheld",
         currency_field="currency_id",
         compute="_compute_retention_totals",
+        compute_sudo=True,
         store=False,
         copy=False,
     )
@@ -34,6 +36,7 @@ class SaleOrder(models.Model):
         string="Retention Remaining",
         currency_field="currency_id",
         compute="_compute_retention_totals",
+        compute_sudo=True,
         store=False,
         copy=False,
     )

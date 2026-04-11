@@ -57,7 +57,6 @@ class PurchaseOrder(models.Model):
             ("cancel", "Cancelled"),
         ],
         string="Status",
-        tracking=True,
     )
     project_id = fields.Many2one("project.project", string="Project")
     pe_approved = fields.Boolean(string="Approved", default=False)

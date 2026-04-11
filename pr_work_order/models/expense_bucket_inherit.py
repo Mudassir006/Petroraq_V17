@@ -5,7 +5,7 @@ from odoo.exceptions import ValidationError
 class ExpenseBucket(models.Model):
     _inherit = "pr.expense.bucket"
 
-    work_order_id = fields.Many2one("pr.work.order", string="Work Order", tracking=True)
+    work_order_id = fields.Many2one("pr.work.order", string="Work Order")
 
     @api.onchange("scope")
     def _onchange_scope_work_order(self):

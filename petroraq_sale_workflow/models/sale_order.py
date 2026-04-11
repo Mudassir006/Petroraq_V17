@@ -73,7 +73,7 @@ class SaleOrder(models.Model):
         ("to_md", "MD Approve"),
         ("approved", "Approved"),
         ("rejected", "Rejected"),
-    ], default="draft", tracking=True, copy=False)
+    ], default="draft", copy=False)
     estimation_id = fields.Many2one(
         "petroraq.estimation",
         string="Estimation",
@@ -239,7 +239,7 @@ class SaleOrder(models.Model):
             "target": "current",
         }
 
-    approval_comment = fields.Text("Approval Comment", tracking=True)
+    approval_comment = fields.Text("Approval Comment")
     show_reject_button = fields.Boolean(compute="_compute_show_reject_button")
     dp_percent = fields.Float(string="Down Payment %", copy=False)
     po_date = fields.Date(string="PO Date", copy=False)

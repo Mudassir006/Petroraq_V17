@@ -6,7 +6,7 @@ from odoo.exceptions import UserError, ValidationError
 class BankPayment(models.Model):
     _inherit = 'pr.account.bank.payment'
 
-    work_permit_id = fields.Many2one('hr.work.permit', readonle=True)
+    work_permit_id = fields.Many2one('hr.work.permit', readonly=True)
 
     def open_work_permit(self):
         self.ensure_one()

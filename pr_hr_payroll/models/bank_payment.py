@@ -6,7 +6,7 @@ from odoo.exceptions import UserError, ValidationError
 class BankPayment(models.Model):
     _inherit = 'pr.account.bank.payment'
 
-    salary_attachment_id = fields.Many2one('hr.salary.attachment', readonle=True)
+    salary_attachment_id = fields.Many2one('hr.salary.attachment', readonly=True)
 
     def open_salary_attachment(self):
         for rec in self:

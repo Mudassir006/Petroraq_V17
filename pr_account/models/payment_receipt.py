@@ -21,7 +21,7 @@ class PaymentReceipt(models.Model):
     currency_id = fields.Many2one('res.currency', string='Currency', related='company_id.currency_id', store=True, tracking=True)
     received_from_partner_id = fields.Many2one('res.partner', string='Received From', tracking=True)
     debit_account_id = fields.Many2one('account.account', string='Debit Acc', required=True, index=True, tracking=True)
-    debit_account_name = fields.Char(string='Debit Acc. Name', related="debit_account_id.name", store=True, tracking=True)
+    debit_account_name = fields.Char(string='Debit Acc. Name', related="debit_account_id.name", tracking=True)
     debit_cs_project_id = fields.Many2one("account.analytic.account", string="Debit Project",
                                     domain="[('analytic_plan_type', '=', 'project')]", tracking=True)
     check_debit_cost_centers_block = fields.Boolean(compute="_compute_check_debit_cost_centers_block")
@@ -34,7 +34,7 @@ class PaymentReceipt(models.Model):
         inverse="_inverse_debit_analytic_distribution",
     )
     credit_account_id = fields.Many2one('account.account', string='Credit Account', required=True, index=True, tracking=True)
-    credit_account_name = fields.Char(string='Credit Account Name', related="credit_account_id.name", store=True, tracking=True)
+    credit_account_name = fields.Char(string='Credit Account Name', related="credit_account_id.name", tracking=True)
     credit_cs_project_id = fields.Many2one("account.analytic.account", string="Credit Project",
                                           domain="[('analytic_plan_type', '=', 'project')]", tracking=True)
     check_credit_cost_centers_block = fields.Boolean(compute="_compute_check_credit_cost_centers_block")

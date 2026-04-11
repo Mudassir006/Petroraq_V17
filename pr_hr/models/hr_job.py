@@ -15,7 +15,7 @@ class HrJob(models.Model):
     nationality_ids = fields.Many2many('res.country', string='Nationalities',
                                        help='This Job accept only employee from specified nationalities, open if empty')
     employees_count = fields.Integer('Employees Count', compute="_compute_employees_count")
-    locked = fields.Boolean('Locked', default=False, tracking=True)
+    locked = fields.Boolean('Locked', default=False)
     subrule_department_id = fields.Many2one('hr.department.rule', string='Subrule', index=True, check_company=True)
 
     # endregion

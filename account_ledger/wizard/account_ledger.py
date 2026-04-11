@@ -67,16 +67,16 @@ class AccountLedger(models.TransientModel):
         ("equity", "Equity"),
         ("revenue", "Revenue"),
         ("expense", "Expense"),
-    ], string="Main Head", required=False, tracking=True)
+    ], string="Main Head", required=False)
     assets_main_head = fields.Selection([
         ("asset_current", "Current Assets"),
         ("asset_fixed", "Fixed Assets"),
         ("asset_non_current", "Other Assets"),
-    ], string="Assets Main Head", tracking=True)
+    ], string="Assets Main Head")
     liability_main_head = fields.Selection([
         ("liability_current", "Current Liabilities"),
         ("liability_non_current", "Long-Term Liabilities"),
-    ], string="Liabilities Main Head", tracking=True)
+    ], string="Liabilities Main Head")
     # -- Category -- #
     current_assets_category = fields.Selection([
         ("cash_equivalents", "Cash & Equivalents"),
@@ -84,126 +84,126 @@ class AccountLedger(models.TransientModel):
         ("account_receivable", "Account Receivable"),
         ("inventory", "Inventory"),
         ("prepaid_expenses", "Prepaid Expenses"),
-    ], string="Current Assets Category", tracking=True)
+    ], string="Current Assets Category")
     fixed_assets_category = fields.Selection([
         ("vehicles", "Vehicles"),
         ("furniture_fixture", "Furniture & Fixture"),
         ("computer_printers", "Computer & Printers"),
         ("machinery_equipment", "Machinery & Equipment"),
         ("land_buildings", "Land & Buildings"),
-    ], string="Fixed Assets Category", tracking=True)
+    ], string="Fixed Assets Category")
     other_assets_category = fields.Selection([
         ("investment", "Investment"),
         ("vat_receivable", "VAT Receivable"),
         ("suspense_account", "Suspense Account"),
-    ], string="Other Assets Category", tracking=True)
+    ], string="Other Assets Category")
     current_liability_category = fields.Selection([
         ("accounts_payable", "Accounts Payable"),
         ("short_term_loans", "Short-Term Loans"),
         ("other_liabilities", "Other Liabilities"),
-    ], string="Current Liabilities Category", tracking=True)
+    ], string="Current Liabilities Category")
     liability_non_current_category = fields.Selection([
         ("long_term_loans", "Long-Term Loans"),
         ("lease_obligations", "Lease Obligations"),
-    ], string="Non Current Liabilities Category", tracking=True)
+    ], string="Non Current Liabilities Category")
     equity_category = fields.Selection([
         ("capital", "Capital"),
-    ], string="Equity Category", tracking=True)
+    ], string="Equity Category")
     revenue_category = fields.Selection([
         ("operating_revenue", "Operating Revenue"),
-    ], string="Revenue Category", tracking=True)
+    ], string="Revenue Category")
     expense_category = fields.Selection([
         ("cogs", "Cost of Goods Sold - COGS"),
         ("operating_expenses", "Operating Expenses"),
         ("financial_expenses", "Financial Expenses"),
         ("other_expenses", "Other Expenses"),
-    ], string="Expense Category", tracking=True)
+    ], string="Expense Category")
     # -- Sub Category -- #
     cash_equivalents_subcategory = fields.Selection([
         ("petty_cash", "Petty Cash"),
-    ], string="Cash & Equivalents Sub-Category", tracking=True)
+    ], string="Cash & Equivalents Sub-Category")
     banks_subcategory = fields.Selection([
         ("banks", "Banks"),
-    ], string="Banks Sub-Category", tracking=True)
+    ], string="Banks Sub-Category")
     accounts_receivable_subcategory = fields.Selection([
         ("employee_advances", "Employee Advances"),
         ("customers", "Customers"),
         ("retention_receivable", "Retention-Receivable"),
-    ], string="Accounts Receivable Sub-Category", tracking=True)
+    ], string="Accounts Receivable Sub-Category")
     inventory_subcategory = fields.Selection([
         ("raw_materials", "Raw Materials"),
         ("work_in_progress_wip", "Work in Progress-WIP"),
         ("finished_goods", "Finished Goods"),
-    ], string="Inventory Sub-Category", tracking=True)
+    ], string="Inventory Sub-Category")
     prepaid_expenses_subcategory = fields.Selection([
         ("prepaid_rent", "Prepaid Rent"),
         ("insurance", "Insurance"),
         ("subscriptions", "Subscriptions"),
-    ], string="Prepaid Expenses Sub-Category", tracking=True)
+    ], string="Prepaid Expenses Sub-Category")
     vehicles_subcategory = fields.Selection([
         ("cars", "Cars"),
-    ], string="vehicles Sub-Category", tracking=True)
+    ], string="vehicles Sub-Category")
     furniture_fixture_subcategory = fields.Selection([
         ("furniture", "Furniture"),
-    ], string="Furniture & Fixture Sub-Category", tracking=True)
+    ], string="Furniture & Fixture Sub-Category")
     computer_printers_subcategory = fields.Selection([
         ("it_products", "IT Products"),
-    ], string="Computer & Printers Sub-Category", tracking=True)
+    ], string="Computer & Printers Sub-Category")
     machinery_equipment_subcategory = fields.Selection([
         ("machinery", "Machinery"),
-    ], string="Machinery & Equipment Sub-Category", tracking=True)
+    ], string="Machinery & Equipment Sub-Category")
     land_buildings_subcategory = fields.Selection([
         ("buildings", "Buildings"),
-    ], string="Land & Buildings Sub-Category", tracking=True)
+    ], string="Land & Buildings Sub-Category")
     investment_subcategory = fields.Selection([
         ("short_terms", "Short Terms"),
         ("long_terms", "Long Terms"),
-    ], string="Investment Sub-Category", tracking=True)
+    ], string="Investment Sub-Category")
     vat_receivable_subcategory = fields.Selection([
         ("vat_receivable", "VAT Receivable"),
-    ], string="VAT Receivable Sub-Category", tracking=True)
+    ], string="VAT Receivable Sub-Category")
     suspense_account_subcategory = fields.Selection([
         ("suspense_account", "Suspense Account"),
-    ], string="Suspense Account Sub-Category", tracking=True)
+    ], string="Suspense Account Sub-Category")
     accounts_payable_subcategory = fields.Selection([
         ("suppliers", "Suppliers"),
         ("accrued_expenses", "Accrued Expenses"),
-    ], string="Accounts Payable Sub-Category", tracking=True)
+    ], string="Accounts Payable Sub-Category")
     short_term_loans_subcategory = fields.Selection([
         ("bank_finance", "Bank Finance"),
-    ], string="Short Term Loans Sub-Category", tracking=True)
+    ], string="Short Term Loans Sub-Category")
     other_liabilities_subcategory = fields.Selection([
         ("vat_payable", "VAT Payable"),
-    ], string="Other Liabilities Sub-Category", tracking=True)
+    ], string="Other Liabilities Sub-Category")
     long_term_loans_subcategory = fields.Selection([
         ("loans", "Loans"),
-    ], string="Long Term Loans Sub-Category", tracking=True)
+    ], string="Long Term Loans Sub-Category")
     lease_obligations_subcategory = fields.Selection([
         ("lease", "Lease"),
-    ], string="Lease Obligations Sub-Category", tracking=True)
+    ], string="Lease Obligations Sub-Category")
     capital_subcategory = fields.Selection([
         ("petroraq", "Petroraq"),
-    ], string="Capital Sub-Category", tracking=True)
+    ], string="Capital Sub-Category")
     operating_revenue_subcategory = fields.Selection([
         ("product_sales", "Product Sales"),
         ("service_revenue", "Service Revenue"),
         ("other_revenue", "Other Revenue"),
-    ], string="Operating Revenue Sub-Category", tracking=True)
+    ], string="Operating Revenue Sub-Category")
     cogs_subcategory = fields.Selection([
         ("direct_raw_materials", "Direct Raw Materials"),
         ("direct_labor", "Direct Labor (Production Staff)"),
-    ], string="COGS Sub-Category", tracking=True)
+    ], string="COGS Sub-Category")
     operating_expenses_subcategory = fields.Selection([
         ("salaries_wages", "Salaries & Wages"),
         ("rent_utilities", "Rent & Utilities"),
         ("marketing", "Marketing"),
-    ], string="operating_expenses Sub-Category", tracking=True)
+    ], string="operating_expenses Sub-Category")
     financial_expenses_subcategory = fields.Selection([
         ("interest_expense", "Interest Expense"),
-    ], string="Financial Expenses Sub-Category", tracking=True)
+    ], string="Financial Expenses Sub-Category")
     other_expenses_subcategory = fields.Selection([
         ("general_administrative_expenses", "General Administrative Expenses"),
-    ], string="Other Expenses Sub-Category", tracking=True)
+    ], string="Other Expenses Sub-Category")
 
     # endregion [Account Filter Fields]
 

@@ -9,9 +9,9 @@ class PaymentReceipt(models.Model):
     # region [Fields]
 
     debit_cs_employee_id = fields.Many2one("account.analytic.account", string="Debit Employee",
-                                     domain="[('analytic_plan_type', '=', 'employee')]", tracking=True)
+                                     domain="[('analytic_plan_type', '=', 'employee')]")
     credit_cs_employee_id = fields.Many2one("account.analytic.account", string="Credit Employee",
-                                           domain="[('analytic_plan_type', '=', 'employee')]", tracking=True)
+                                           domain="[('analytic_plan_type', '=', 'employee')]")
 
     # endregion [Fields]
 

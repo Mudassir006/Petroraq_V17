@@ -16,6 +16,19 @@ class CustomPR(models.Model):
     )
     requested_by = fields.Char(string="Requested By")
     requested_user_id = fields.Many2one('res.users', string="Requested User", readonly=True)
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        required=True,
+        default=lambda self: self.env.company,
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        related="company_id.currency_id",
+        store=True,
+        readonly=True,
+    )
     date_request = fields.Datetime(string="Request Date", default=fields.Datetime.now, required=True, readonly=True)
     description = fields.Text(string="Description")
     department = fields.Char(string="Department")
@@ -42,19 +55,19 @@ class CustomPR(models.Model):
         help="Checked when requested quantity/unit cost exceeds WO product baselines but total amount remains within allowed WO amount.",
     )
 
-    total_excl_vat = fields.Float(
+    total_excl_vat = fields.Monetary(
         string="Total Amount",
         compute="_compute_totals",
         store=True,
         currency_field="currency_id",
     )
-    vat_amount = fields.Float(
+    vat_amount = fields.Monetary(
         string="VAT (15%)",
         compute="_compute_totals",
         store=True,
         currency_field="currency_id",
     )
-    total_incl_vat = fields.Float(
+    total_incl_vat = fields.Monetary(
         string="Total Incl. VAT",
         compute="_compute_totals",
         store=True,
@@ -83,7 +96,6 @@ class CustomPR(models.Model):
         ],
         string="Status",
         default='draft',
-        tracking=True,
     )
     budget_increase_request_count = fields.Integer(compute="_compute_budget_increase_request_count")
     show_request_budget_increase_button = fields.Boolean(

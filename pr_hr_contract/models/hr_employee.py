@@ -22,12 +22,10 @@ class HrEmployee(models.Model):
                                                 string='Contract Employment Type',
                                                 related='contract_id.contract_employment_type',
                                                 store=True,
-                                                tracking=True,
                                                 help='The Type Of Contract Employment\n')
     joining_date = fields.Date(string="Joining Date",
                                related="contract_id.joining_date",
-                               store=True,
-                               tracking=True)
+                               store=True)
 
     # endregion [Fields]
 

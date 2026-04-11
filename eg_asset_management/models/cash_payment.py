@@ -9,7 +9,7 @@ class AccountCashPayment(models.Model):
     # region [Fields]
 
     asset_id = fields.Many2one("account.analytic.account", string="Asset",
-                               domain="[('analytic_plan_type', '=', 'asset')]", tracking=True)
+                               domain="[('analytic_plan_type', '=', 'asset')]")
 
     # endregion [Fields]
 
@@ -28,7 +28,7 @@ class AccountCashPaymentLine(models.Model):
     # region [Fields]
 
     asset_id = fields.Many2one("account.analytic.account", string="Asset",
-                               domain="[('analytic_plan_type', '=', 'asset')]", tracking=True)
+                               domain="[('analytic_plan_type', '=', 'asset')]")
     # endregion [Fields]
 
     # region [Onchange Methods]

@@ -6,9 +6,8 @@ class HrSalaryRule(models.Model):
     _inherit = 'hr.salary.rule'
 
     account_id = fields.Many2one('account.account', string='Account Code', required=True,
-                                 ondelete='restrict', tracking=True, index=True)
-    account_name = fields.Char(string='Account Name', related="account_id.name", store=True,
-                               tracking=True)
+                                 ondelete='restrict', index=True)
+    account_name = fields.Char(string='Account Name', related="account_id.name")
 
     attendance_based_eligibility = fields.Boolean(
         string='Apply Attendance Eligibility',

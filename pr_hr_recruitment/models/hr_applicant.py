@@ -24,13 +24,12 @@ class HrApplicant(models.Model):
 
     applicant_onboarding_id = fields.Many2one("hr.applicant.onboarding", string="Application Onboarding")
     second_interviewer_ids = fields.Many2many('res.users', 'hr_applicant_res_users_2interviewers_rel',
-                                              string='Interviewers', index=True, tracking=True,
+                                              string='Interviewers', index=True,
                                               domain="[('share', '=', False), ('company_ids', 'in', company_id)]")
     second_priority = fields.Selection(AVAILABLE_PRIORITIES, "Evaluation", default='0')
     second_availability = fields.Date("Availability",
-                               help="The date at which the applicant will be available to start working", tracking=True)
-    second_salary_proposed = fields.Float("Proposed Salary", group_operator="avg", help="Salary Proposed by the Organisation",
-                                   tracking=True, groups="hr_recruitment.group_hr_recruitment_user")
+                               help="The date at which the applicant will be available to start working")
+    second_salary_proposed = fields.Float("Proposed Salary", group_operator="avg", help="Salary Proposed by the Organisation", groups="hr_recruitment.group_hr_recruitment_user")
     check_first_interview_stage_sequence = fields.Boolean(compute="_compute_check_first_interview_stage_sequence")
     check_second_interview_stage_sequence = fields.Boolean(compute="_compute_check_second_interview_stage_sequence")
 

@@ -9,7 +9,7 @@ class AccountCashPaymentLine(models.Model):
     # region [Fields]
 
     cs_employee_id = fields.Many2one("account.analytic.account", string="Employee",
-                                     domain="[('analytic_plan_type', '=', 'employee')]", tracking=True)
+                                     domain="[('analytic_plan_type', '=', 'employee')]")
 
     # endregion [Fields]
 

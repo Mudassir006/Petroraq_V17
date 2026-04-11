@@ -34,7 +34,7 @@ class HRWorkPermit(models.Model):
     payment_state = fields.Selection(
         [('draft', 'Draft'), ('pending', 'Pending'), ('paid', 'Paid')],
         string='Payment Status', default='draft', readonly=True)
-    bank_payment_id = fields.Many2one('pr.account.bank.payment', readonle=True)
+    bank_payment_id = fields.Many2one('pr.account.bank.payment', readonly=True)
     paid_move_id = fields.Many2one('account.move', related="bank_payment_id.journal_entry_id", store=True)
 
     # endregion [Fields]

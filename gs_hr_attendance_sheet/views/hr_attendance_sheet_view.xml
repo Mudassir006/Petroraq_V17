@@ -106,7 +106,7 @@
                     </div>
                     <group>
                         <field name="department_id"/>
-                        <field name="company_id"/>
+                        <field name="company_id" readonly="state  != 'draft'"/>
                         <label for="date_from" string="Period"/>
                         <div>
                             <field name="date_from" class="oe_inline"
@@ -138,7 +138,7 @@
                         <field name="opening_carry_diff_amount" readonly="state  != 'draft'"/>
                         <field name="opening_carry_early_checkout_amount" readonly="state  != 'draft'"/>
                         <field name="opening_carry_overtime_amount" readonly="state  != 'draft'"/>
-                        <field name="contract_id"/>
+                        <field name="contract_id" readonly="state  != 'draft'"/>
                         <field name="has_overtime" invisible="1"/>
                         <field name="predictive_mode"
                                readonly="state  != 'draft'"/>

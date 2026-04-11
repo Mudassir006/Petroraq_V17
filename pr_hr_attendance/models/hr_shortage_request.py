@@ -47,7 +47,7 @@ class HrShortageRequest(models.Model):
         ('hr_supervisor', 'HR Supervisor Approved'),
         ('hr_approve', 'HR Manager Approved'),
         ('reject', 'Rejected'),
-    ], default='draft', track_visibility='always',
+    ], default='draft', tracking=True,
         string='Status', required=True, index=True)
     approval_state = fields.Selection([
         ('draft', 'Pending Approval'),
@@ -55,7 +55,7 @@ class HrShortageRequest(models.Model):
         ('hr_supervisor', 'Pending Approval'),
         ('hr_approve', 'Approved'),
         ('reject', 'Rejected'),
-    ], default='draft', track_visibility='always',
+    ], default='draft', tracking=True,
         string='Approval Status')
     employee_manager_check = fields.Boolean(compute="_compute_employee_manager_check")
     hr_supervisor_check = fields.Boolean(compute="_compute_hr_supervisor_check")

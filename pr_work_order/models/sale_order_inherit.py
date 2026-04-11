@@ -15,7 +15,6 @@ class SaleOrder(models.Model):
     inquiry_type = fields.Selection(
         [('construction', 'Contracting'), ('trading', 'Trading')],
         string="Inquiry Type",
-        default="trading",
     )
 
     def action_create_work_order(self):

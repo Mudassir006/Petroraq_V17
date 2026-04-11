@@ -306,8 +306,7 @@ class AttendanceSheet(models.Model):
                                     string='Department', store=True)
     company_id = fields.Many2one('res.company', string='Company', readonly=True,
                                  copy=False, required=True,
-                                 default=lambda self: self.env.company,
-                                 states={'draft': [('readonly', False)]})
+                                 default=lambda self: self.env.company)
     date_from = fields.Date(string='Date From', readonly=True, required=True,
                             default=lambda self: fields.Date.to_string(
                                 date.today().replace(day=1)), )
@@ -321,7 +320,7 @@ class AttendanceSheet(models.Model):
     state = fields.Selection([
         ('draft', 'Draft'),
         ('confirm', 'Confirmed'),
-        ('done', 'Approved')], default='draft', track_visibility='onchange',
+        ('done', 'Approved')], default='draft', tracking=True,
         string='Status', required=True, readonly=True, index=True,
         help=' * The \'Draft\' status is used when a HR user is creating a new  attendance sheet. '
              '\n* The \'Confirmed\' status is used when  attendance sheet is confirmed by HR user.'
@@ -476,8 +475,7 @@ class AttendanceSheet(models.Model):
     )
 
     contract_id = fields.Many2one('hr.contract', string='Contract',
-                                  readonly=True,
-                                  states={'draft': [('readonly', False)]})
+                                  readonly=True)
     unpaid_leave = fields.Integer()
     paid_leave = fields.Integer()
     sick_leave = fields.Integer()

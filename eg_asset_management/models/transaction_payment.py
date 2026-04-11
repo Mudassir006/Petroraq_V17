@@ -8,8 +8,8 @@ class TransactionPayment(models.Model):
 
     # region [Fields]
 
-    debit_asset_id = fields.Many2one('asset.detail', string='Debit Asset', tracking=True)
-    credit_asset_id = fields.Many2one('asset.detail', string='Credit Asset', tracking=True)
+    debit_asset_id = fields.Many2one('asset.detail', string='Debit Asset')
+    credit_asset_id = fields.Many2one('asset.detail', string='Credit Asset')
 
     # endregion [Fields]
 

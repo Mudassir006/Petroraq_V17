@@ -47,7 +47,7 @@ class HrLeaveRequest(models.Model):
         ('reject', 'Rejected'),
         ('cancel_request', 'Cancellation Requested'),
         ('cancelled', 'Cancelled'),
-    ], default='draft', track_visibility='always',
+    ], default='draft', tracking=True,
         string='Status', required=True, index=True)
     approval_state = fields.Selection([
         ('draft', 'Pending Approval'),
@@ -57,7 +57,7 @@ class HrLeaveRequest(models.Model):
         ('reject', 'Rejected'),
         ('cancel_request', 'Pending Cancellation Approval'),
         ('cancelled', 'Cancelled'),
-    ], default='draft', track_visibility='always',
+    ], default='draft', tracking=True,
         string='Approval Status')
     employee_manager_check = fields.Boolean(compute="_compute_employee_manager_check")
     employee_user_check = fields.Boolean(compute="_compute_employee_user_check")

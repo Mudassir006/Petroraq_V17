@@ -42,7 +42,7 @@ class DynamicBalanceReport(models.Model):
        ("equity", "Equity"),
        ("revenue", "Revenue"),
        ("expense", "Expense"),
-   ], string="Report Type", required=True, tracking=True)
+   ], string="Report Type", required=True)
 
    # endregion [Account Filter Fields]
    account_id = fields.Many2one('account.account', required=False, string="Account",

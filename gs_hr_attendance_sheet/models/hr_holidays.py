@@ -47,7 +47,7 @@ class HrPublicHoliday(models.Model):
     state = fields.Selection([
         ('active', 'Active'),
         ('inactive', 'Not Active')], default='inactive',
-        track_visibility='onchange',
+        tracking=True,
         string='Status', required=True, index=True, )
     note = fields.Text("Notes")
 

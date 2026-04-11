@@ -31,29 +31,28 @@ class HrContract(models.Model):
         default=12.75
     )
 
-    joining_date = fields.Date(string="Joining Date", required=True,
-                               tracking=True)
+    joining_date = fields.Date(string="Joining Date", required=True)
 
     # region [Total Amounts]
-    gosi_amount = fields.Float('GOSI Amount', compute='_compute_amount', store=True, tracking=True,
+    gosi_amount = fields.Float('GOSI Amount', compute='_compute_amount', store=True,
                                help='Amount Deducted from Saudi Employees based on GOSI Configuration')
-    gross_amount = fields.Float('Gross Amount', compute='_compute_amount', store=True, tracking=True,
+    gross_amount = fields.Float('Gross Amount', compute='_compute_amount', store=True,
                                 help='Amount Deducted from Saudi Employees based on GOSI Configuration')
-    net_amount = fields.Float('Net Amount', compute='_compute_amount', store=True, tracking=True,
+    net_amount = fields.Float('Net Amount', compute='_compute_amount', store=True,
                               help="Sum of Wage + all amounts of salary rules - GOSI\n"
                                    "NET means total package of the employee, whatever it is paid or company paid")
     # endregion [Total Amounts]
 
     # region [GOSI Fields]
-    is_automatic_gosi = fields.Boolean(string='GOSI Automatic', default=True, tracking=True,
+    is_automatic_gosi = fields.Boolean(string='GOSI Automatic', default=True,
                                        help='If True: GOSI Salary Will be Calculated Automatic'
                                             'If False: GOSI Salary Will Be Manually Added')
-    gosi_salary = fields.Float('GOSI Salary', tracking=True,
+    gosi_salary = fields.Float('GOSI Salary',
                                help="Employee Salary as recorded in GOSI, it may different from actual salary, "
                                     "it may added manually")
-    company_portion = fields.Float('Company Portion', compute='_compute_amount', store=True, tracking=True,
+    company_portion = fields.Float('Company Portion', compute='_compute_amount', store=True,
                                    help='Amount paid to GOSI by company based on GOSI Configuration')
-    employee_portion = fields.Float('Employee Portion', compute='_compute_amount', store=True, tracking=True,
+    employee_portion = fields.Float('Employee Portion', compute='_compute_amount', store=True,
                                     help='Amount paid to GOSI by Saudi Employee based on GOSI Configuration')
     # endregion [GOSI Fields]
 
@@ -66,25 +65,24 @@ class HrContract(models.Model):
                                                      'Employment: Employee Join Company Directly\n'
                                                      'Recruitment: Employee Join Company through a recruitment process\n'
                                                      'Transfer: Employee Join Company by transferring his kafala')
-    contract_period = fields.Integer(string='Period', tracking=True, default=0.0,
+    contract_period = fields.Integer(string='Period', default=0.0,
                                      help='Contract Period For This Employee In Months')
 
     # Trial Period Dates
-    trial_period = fields.Integer(string='Trial Period', tracking=True, default=3,
+    trial_period = fields.Integer(string='Trial Period', default=3,
                                   help='Trial Period For This Employee Contract In Months')
-    trial_end_date = fields.Date(string='Trial End Date', compute="_compute_trial_end_date", store=True,
-                                 tracking=True, help='Trial End Date For This Employee Contract')
+    trial_end_date = fields.Date(string='Trial End Date', compute="_compute_trial_end_date", store=True, help='Trial End Date For This Employee Contract')
 
     # Notice Periods
-    notice_period = fields.Integer(string='Notice Period', tracking=True, default=2, required=True,
+    notice_period = fields.Integer(string='Notice Period', default=2, required=True,
                                    help='Notice Period For This Employee Contract In Months')
     notice_end_date = fields.Date(string='Notice Period End Date',
-                                  compute="_compute_notice_end_date", store=True, tracking=True,
+                                  compute="_compute_notice_end_date", store=True,
                                   help='Notice Period End Date For This Employee Contract')
 
     # Contract End Dates
     expected_end_date = fields.Date(string='Expected End Date',
-                                    compute="_compute_expected_end_date", tracking=True, store=True,
+                                    compute="_compute_expected_end_date", store=True,
                                     help='Expected End Date For This Employee Contract')
 
     # endregion [Contract Data]
@@ -93,7 +91,7 @@ class HrContract(models.Model):
     # endregion [Count Fields]
 
     # region [One 2 many Fields]
-    contract_salary_rule_ids = fields.One2many('hr.contract.salary.rule', 'contract_id', 'Salary Rule', tracking=True)
+    contract_salary_rule_ids = fields.One2many('hr.contract.salary.rule', 'contract_id', 'Salary Rule')
 
     # endregion [One2many Fields]
 

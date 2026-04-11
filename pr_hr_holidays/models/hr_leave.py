@@ -22,8 +22,7 @@ class HrHolidays(models.Model):
         domain="""[
                 ('company_id', 'in', [employee_company_id, False]),
                     ('has_valid_allocation', '=', True),
-            ]""",
-        tracking=True)
+            ]""")
     leave_amount = fields.Float(string="Amount", compute="compute_leave_amount", store=True)
     leave_request_id = fields.Many2one("pr.hr.leave.request", string="Leave Request", readonly=True)
     # leave_amount = fields.Float(string="Amount")

@@ -35,7 +35,7 @@ class SaleOrderLine(models.Model):
         readonly=True,
         digits="Product Price",
     )
-    net_unit_price = fields.Float(
+    net_unit_price = fields.Monetary(
         string="Net Unit Price",
         currency_field="currency_id",
         compute="_compute_net_unit_price",

@@ -22,9 +22,9 @@ class HrPayslipRun(models.Model):
         ('submitted', 'Submitted to HR'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
-    ], string='Approval Status', default='draft', copy=False, tracking=True)
+    ], string='Approval Status', default='draft', copy=False)
 
-    rejection_reason = fields.Text(string="Rejection Reason", readonly=True, tracking=True)
+    rejection_reason = fields.Text(string="Rejection Reason", readonly=True)
 
     @api.depends("state")
     def _compute_approval_state(self):

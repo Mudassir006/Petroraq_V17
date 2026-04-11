@@ -37,7 +37,7 @@ class HrAttendanceNotification(models.Model):
         ('draft', 'Draft'),
         ('gen', 'Notifications Generated'),
         ('sub', 'Notifications Submitted'),
-        ('done', 'Sent')], default='draft', track_visibility='onchange',
+        ('done', 'Sent')], default='draft', tracking=True,
         string='Status', required=True, readonly=True, index=True, )
     att_sheet_ids_count = fields.Integer(compute="_compute_att_sheet_ids_count")
     # endregion [Fields]
