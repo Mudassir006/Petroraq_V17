@@ -166,4 +166,124 @@
             </t>
         </div>
     </div>
+
+    <div t-name="de_hr_workspace_leave_management.LeaveRequestCountCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo de-requests-analytics-card" style="flex:1 1 100%;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <strong class="de-simple-summary-title">Leave Request Analytics</strong>
+            <span class="text-muted">Filter by period, employee and leave type</span>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-12 col-md-2">
+                <label class="form-label mb-1">Period</label>
+                <select class="form-select de-analytics-select" t-att-value="state.duration" t-on-change="onDurationChange">
+                    <option value="this_month">This Month</option>
+                    <option value="this_year">This Year</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Employee</label>
+                <select class="form-select de-analytics-select" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
+                    <option value="">All Employees</option>
+                    <t t-foreach="state.employees" t-as="employee" t-key="employee.id">
+                        <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
+                    </t>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Leave Type</label>
+                <select class="form-select de-analytics-select" t-att-value="state.leave_type_id" t-on-change="onLeaveTypeChange">
+                    <option value="">All Leave Types</option>
+                    <t t-foreach="state.leave_types" t-as="leave_type" t-key="leave_type.id">
+                        <option t-att-value="leave_type.id"><t t-esc="leave_type.name"/></option>
+                    </t>
+                </select>
+            </div>
+            <t t-if="state.duration === 'custom'">
+                <div class="col-12 col-md-2">
+                    <label class="form-label mb-1">From</label>
+                    <input type="date" class="form-control de-analytics-select" t-att-value="state.date_from" t-on-change="onDateFromChange"/>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label mb-1">To</label>
+                    <input type="date" class="form-control de-analytics-select" t-att-value="state.date_to" t-on-change="onDateToChange"/>
+                </div>
+            </t>
+        </div>
+        <div class="row g-2">
+            <div class="col-12 col-md-6">
+                <div class="de-analytics-metric">
+                    <div class="de-analytics-metric-label"><i class="fa fa-list-alt me-1"/> Leave Requests</div>
+                    <div class="de-analytics-metric-value"><t t-esc="state.total_requests"/></div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="de-analytics-metric">
+                    <div class="de-analytics-metric-label"><i class="fa fa-hourglass-half me-1"/> Total Days Availed</div>
+                    <div class="de-analytics-metric-value"><t t-esc="state.total_days"/></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div t-name="de_hr_workspace_leave_management.SimpleLeaveSummaryCard" owl="1"
+         class="o_timeoff_card py-3 text-odoo de-simple-summary-card" style="flex:1 1 100%;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 de-simple-summary-header">
+            <strong class="de-simple-summary-title">Leave Summary</strong>
+            <div class="d-flex gap-2 flex-wrap de-simple-summary-controls">
+                <select class="duration de-summary-select" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
+                    <t t-foreach="employeeOptions" t-as="employee" t-key="employee.id">
+                        <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
+                    </t>
+                </select>
+            </div>
+        </div>
+        <div class="text-muted mb-3 de-simple-summary-subtitle">
+            Overall summary for <t t-esc="state.employee_name"/>
+        </div>
+        <div class="de-selected-employee-card mb-3">
+            <div class="de-selected-employee-header">
+                <div class="de-selected-employee-avatar">
+                    <t t-if="state.employee_profile.image_1920">
+                        <img t-attf-src="data:image/png;base64,{{state.employee_profile.image_1920}}"/>
+                    </t>
+                    <t t-else="">
+                        <i class="fa fa-user"/>
+                    </t>
+                </div>
+                <div>
+                    <div class="de-selected-employee-name"><t t-esc="state.employee_profile.name || state.employee_name"/></div>
+                    <div class="de-selected-employee-meta"><i class="fa fa-briefcase me-1"/> <t t-esc="state.employee_profile.job_position || '-'"/></div>
+                </div>
+            </div>
+            <div class="de-selected-employee-grid">
+                <div><i class="fa fa-sitemap me-1"/> <t t-esc="state.employee_profile.department || '-'"/></div>
+                <div><i class="fa fa-clock-o me-1"/> <t t-esc="state.employee_profile.resource_calendar || '-'"/></div>
+                <div><i class="fa fa-envelope-o me-1"/> <t t-esc="state.employee_profile.work_email || '-'"/></div>
+                <div><i class="fa fa-phone me-1"/> <t t-esc="state.employee_profile.work_phone || '-'"/></div>
+            </div>
+        </div>
+        <div class="row g-0 de-leave-tiles-grid de-leave-summary-strip">
+            <t t-if="!state.lines.length">
+                <div class="col-12 text-muted p-3">No data found.</div>
+            </t>
+            <t t-foreach="state.lines" t-as="line" t-key="line.leave_type">
+                <div class="col-12 col-sm-6 col-lg-3 de-summary-strip-col">
+                    <div class="de-summary-strip-tile h-100 text-center py-3 px-2 de-clickable-tile"
+                         t-on-click="() => this.openLeaveRequests(line)">
+                        <div class="de-leave-type"><t t-esc="line.leave_type"/></div>
+                        <div class="de-leave-ratio">
+                            <i class="fa fa-umbrella me-1"/> <t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/>
+                        </div>
+                        <div class="de-tile-chart">
+                            <div class="de-tile-chart-fill"
+                                 t-att-style="'width:' + (line.allocated_days > 0 ? Math.min((line.used_days / line.allocated_days) * 100, 100) : 0) + '%'"/>
+                        </div>
+                        <div class="de-leave-caption">AVAILED <i class="fa fa-question-circle-o"/></div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </div>
 </templates>

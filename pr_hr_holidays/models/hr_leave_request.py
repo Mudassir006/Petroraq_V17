@@ -30,6 +30,12 @@ class HrLeaveRequest(models.Model):
     leave_type_id = fields.Many2one("hr.leave.type", string="Leave Type", required=True)
     date_from = fields.Date(string="Date From", required=True)
     date_to = fields.Date(string="Date To", required=True)
+    requested_days = fields.Float(
+        string="Requested Days",
+        compute="_compute_requested_days",
+        store=True,
+        readonly=True,
+    )
     company_id = fields.Many2one('res.company', string='Company', tracking=True, required=True)
     employee_id = fields.Many2one('hr.employee', string='Employee', tracking=True, required=True)
     employee_manager_id = fields.Many2one('hr.employee', string='Manager', tracking=True, readonly=True)
@@ -100,6 +106,17 @@ class HrLeaveRequest(models.Model):
                 rec.hr_manager_check = True
             else:
                 rec.hr_manager_check = False
+
+    @api.depends("date_from", "date_to")
+    def _compute_requested_days(self):
+        for rec in self:
+            if not rec.date_from or not rec.date_to:
+                rec.requested_days = 0.0
+                continue
+            if rec.date_to < rec.date_from:
+                rec.requested_days = 0.0
+                continue
+            rec.requested_days = float((rec.date_to - rec.date_from).days + 1)
 
     # endregion [Compute Methods]
 
@@ -253,11 +270,9 @@ class HrLeaveRequest(models.Model):
 
     def _get_requested_days_count(self):
         self.ensure_one()
-        if not self.date_from or not self.date_to:
-            return 0.0
-        if self.date_to < self.date_from:
+        if self.date_from and self.date_to and self.date_to < self.date_from:
             raise ValidationError(_("Date To must be greater than or equal to Date From."))
-        return float((self.date_to - self.date_from).days + 1)
+        return self.requested_days
 
     def _get_available_days_for_request(self):
         self.ensure_one()

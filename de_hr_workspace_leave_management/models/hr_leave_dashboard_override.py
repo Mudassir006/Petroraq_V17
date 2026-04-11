@@ -260,6 +260,43 @@ class HrLeaveDashboardOverride(models.Model):
         return list(metrics.values())
 
     @api.model
+    def get_leave_request_filter_options(self):
+        employees = self.env['hr.employee'].sudo().search([('active', '=', True)], order='name asc')
+        leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)], order='name asc')
+        return {
+            'employees': [{'id': emp.id, 'name': emp.name} for emp in employees],
+            'leave_types': [{'id': leave_type.id, 'name': leave_type.name} for leave_type in leave_types],
+        }
+
+    @api.model
+    def get_leave_request_count_by_filters(self, duration='this_month', employee_id=False, leave_type_id=False, date_from=False, date_to=False):
+        if duration == 'custom' and date_from and date_to:
+            start = fields.Date.to_date(date_from)
+            end = fields.Date.to_date(date_to)
+        else:
+            start, end = self._get_period_date_range(duration or 'this_month')
+
+        domain = [
+            ('state', '=', 'validate'),
+            ('request_date_from', '<=', end),
+            ('request_date_to', '>=', start),
+        ]
+        if employee_id:
+            domain.append(('employee_id', '=', int(employee_id)))
+        if leave_type_id:
+            domain.append(('holiday_status_id', '=', int(leave_type_id)))
+
+        leaves = self.env['hr.leave'].sudo().search(domain)
+        total_days = sum(leaves.mapped('number_of_days'))
+        return {
+            'duration': duration,
+            'date_from': start,
+            'date_to': end,
+            'total_requests': len(leaves),
+            'total_days': round(total_days, 2),
+        }
+
+    @api.model
     def get_period_dashboard_data(self, duration='this_month'):
         return {
             'duration': duration,
@@ -348,3 +385,54 @@ class HrLeaveDashboardOverride(models.Model):
             'leave_type': leave_type.name,
             'remaining_days': round(allocated.get(leave_type.id, 0.0) - consumed.get(leave_type.id, 0.0), 2),
         } for leave_type in leave_types]
+
+    @api.model
+    def get_employee_leave_simple_summary(self, employee_id=None):
+        employee = self.env['hr.employee'].browse(employee_id) if employee_id else self.env.user.employee_id
+        if not employee:
+            return {'employee_id': False, 'employee_name': '', 'lines': []}
+        leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)])
+
+        allocations = self.env['hr.leave.allocation'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+        leaves = self.env['hr.leave'].sudo().search([
+            ('state', '=', 'validate'),
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', 'in', leave_types.ids),
+        ])
+
+        allocated = {}
+        used = {}
+        for allocation in allocations:
+            key = allocation.holiday_status_id.id
+            allocated[key] = allocated.get(key, 0.0) + (allocation.number_of_days or 0.0)
+        for leave in leaves:
+            key = leave.holiday_status_id.id
+            used[key] = used.get(key, 0.0) + (leave.number_of_days or 0.0)
+
+        lines = [{
+            'leave_type_id': leave_type.id,
+            'leave_type': leave_type.name,
+            'used_days': round(used.get(leave_type.id, 0.0), 2),
+            'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),
+        } for leave_type in leave_types]
+
+        return {
+            'employee_id': employee.id,
+            'employee_name': employee.name,
+            'employee_profile': {
+                'id': employee.id,
+                'name': employee.name,
+                'job_position': employee.job_title or '',
+                'work_email': employee.work_email or '',
+                'work_phone': employee.work_phone or '',
+                'department': employee.department_id.name or '',
+                'resource_calendar': employee.resource_calendar_id.name or '',
+                'company': employee.company_id.name or '',
+                'image_1920': employee.image_1920 or False,
+            },
+            'lines': lines,
+        }
