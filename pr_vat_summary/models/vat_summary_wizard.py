@@ -376,6 +376,12 @@ class VatSummaryWizard(models.TransientModel):
         """
         return html
 
+    def _get_gov_vat_label(self, net_total):
+        self.ensure_one()
+        quarter = ((self.date_start.month - 1) // 3) + 1 if self.date_start else 1
+        action = "Deposit" if net_total >= 0 else "Recieve"
+        return f"Need to {action} GOV Q{quarter} VAT"
+
     # -------------------------------------------------------------------------
     # Actions
     # -------------------------------------------------------------------------
@@ -412,6 +418,8 @@ class VatSummaryWizard(models.TransientModel):
         # Keep computed fields aligned with final row
         self.total_amount = deposit_amount
         self.total_vat_payable = deposit_vat
+
+        gov_vat_label = self._get_gov_vat_label(deposit_total)
 
         # Build HTML table exactly like your Excel layout
         html = f"""
@@ -508,7 +516,7 @@ class VatSummaryWizard(models.TransientModel):
             <tr>
                 <td colspan="2"
                     style="border:2px solid #000;padding:10px;font-weight:bold;text-align:center;background:#f5f5f5;">
-                    Need to Deposit GOV VAT
+                    {gov_vat_label}
                 </td>
                 <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{deposit_amount:,.2f}</td>
                 <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{deposit_vat:,.2f}</td>
