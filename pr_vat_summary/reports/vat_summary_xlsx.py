@@ -82,6 +82,7 @@ class VatSummaryXlsx(models.AbstractModel):
         deposit_amount = wizard.sales_amount - wizard.vated_purchases_amount
         deposit_vat = sales_vat_abs - pur_vat_abs
         deposit_total = vated_sales_total - vated_pur_total
+        gov_vat_label = wizard._get_gov_vat_label(deposit_total)
 
         sheet = workbook.add_worksheet("VAT Summary")
 
@@ -250,7 +251,7 @@ class VatSummaryXlsx(models.AbstractModel):
         # NEED TO DEPOSIT ROW
         # ---------------------------------------------
         sheet.merge_range(row, 0, row, 3,
-                          "Need to Deposit GOV VAT",
+                          gov_vat_label,
                           section_fmt)
 
         sheet.write_number(row, 4, deposit_amount, total_fmt)

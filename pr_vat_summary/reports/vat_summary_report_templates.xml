@@ -46,6 +46,7 @@
                 <t t-set="deposit_amount" t-value="wizard.sales_amount - wizard.vated_purchases_amount"/>
                 <t t-set="deposit_vat" t-value="sales_vat_abs - pur_vat_abs"/>
                 <t t-set="deposit_total" t-value="vated_sales_total - vated_pur_total"/>
+                <t t-set="gov_vat_label" t-value="wizard._get_gov_vat_label(deposit_total)"/>
 
                 <div class="page">
                     <style>
@@ -277,7 +278,7 @@
 
                         <tr class="section-title">
                             <td colspan="2" class="desc" style="text-align:center;">
-                                <b>Need to Deposit GOV VAT</b>
+                                <b><t t-esc="gov_vat_label"/></b>
                             </td>
                             <td>
                                 <b>
