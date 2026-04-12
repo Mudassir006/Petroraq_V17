@@ -1,1 +1,1 @@
-from . import base_language_install
+# Intentionally left minimal; no wizard components are loaded.
