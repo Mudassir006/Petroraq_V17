@@ -331,6 +331,9 @@ class VatSummaryWizard(models.TransientModel):
                 <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
                 """
                 continue
+            section_amount_total = sum(line["amount"] for line in lines)
+            section_vat_total = sum(line["vat_amount"] for line in lines)
+            section_grand_total = sum(line["total_amount"] for line in lines)
             for line in lines:
                 html += f"""
                 <tr>
@@ -343,6 +346,16 @@ class VatSummaryWizard(models.TransientModel):
                     <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['total_amount']:,.2f}</td>
                 </tr>
                 """
+            html += f"""
+            <tr>
+                <td colspan='4' style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>
+                    Section Total
+                </td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_amount_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_vat_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_grand_total:,.2f}</td>
+            </tr>
+            """
         amount_total = sum(l["amount"] for l in all_lines)
         vat_total = sum(l["vat_amount"] for l in all_lines)
         grand_total = sum(l["total_amount"] for l in all_lines)

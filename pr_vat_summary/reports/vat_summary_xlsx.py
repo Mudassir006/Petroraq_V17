@@ -25,19 +25,28 @@ class VatSummaryXlsx(models.AbstractModel):
             all_lines.extend(lines)
             sheet.merge_range(row, 0, row, 6, section_title, section_fmt)
             row += 1
+            section_total = sum(line.get("amount", 0.0) for line in lines)
+            section_vat_total = sum(line.get("vat_amount", 0.0) for line in lines)
+            section_grand_total = sum(line.get("total_amount", 0.0) for line in lines)
             if not lines:
                 sheet.merge_range(row, 0, row, 6, "No lines", cell_left)
                 row += 1
-                continue
-            for line in lines:
-                sheet.write(row, 0, line.get("entry", ""), cell_left)
-                sheet.write(row, 1, line.get("reference", ""), cell_left)
-                sheet.write(row, 2, str(line.get("date", "")), cell_left)
-                sheet.write(row, 3, line.get("label", ""), cell_left)
-                sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
-                sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
-                sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
-                row += 1
+            else:
+                for line in lines:
+                    sheet.write(row, 0, line.get("entry", ""), cell_left)
+                    sheet.write(row, 1, line.get("reference", ""), cell_left)
+                    sheet.write(row, 2, str(line.get("date", "")), cell_left)
+                    sheet.write(row, 3, line.get("label", ""), cell_left)
+                    sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
+                    sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
+                    sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
+                    row += 1
+
+            sheet.merge_range(row, 0, row, 3, "Section Total", section_fmt)
+            sheet.write_number(row, 4, section_total, cell_right)
+            sheet.write_number(row, 5, section_vat_total, cell_right)
+            sheet.write_number(row, 6, section_grand_total, cell_right)
+            row += 1
 
         total = sum(line.get("amount", 0.0) for line in all_lines)
         vat_total = sum(line.get("vat_amount", 0.0) for line in all_lines)
