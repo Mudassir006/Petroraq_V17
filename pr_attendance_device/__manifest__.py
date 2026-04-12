@@ -2,7 +2,8 @@
     'name': "Biometric Attendance Machines Integration",
     'author': "Guess Who",
     'website': 'mudassir',
-    'version': '17.0.1.0.2',
+    'version': '1.1.7',
+    'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
     'depends': ['hr_attendance', 'or_base'],
