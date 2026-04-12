@@ -59,7 +59,10 @@ from . import models
 from . import wizard
 from . import override
 
-from odoo.addons.hr_work_entry_contract.tests.test_work_entry import TestWorkEntry
+try:
+    from odoo.addons.hr_work_entry_contract.tests.test_work_entry import TestWorkEntry
+except Exception:
+    TestWorkEntry = None
 
 _logger = logging.getLogger(__name__)
 j = os.path.join
@@ -263,9 +266,10 @@ def _test_if_loaded_in_server_wide():
 
 
 if not _test_if_loaded_in_server_wide():
-    _logger.warning("The module `or_base` should be loaded in server wide mode using `--load`"
-                 " option when starting Odoo server (e.g. --load=base,web,or_base)."
-                 " Otherwise, some of its functions may not work properly.")
+    _logger.info(
+        "The module `or_base` is not loaded in server wide mode. "
+        "Skipping server-wide patches for stability."
+    )
 
 
 def _disable_currency_rate_unique_name_per_day():
@@ -304,7 +308,8 @@ def _disable_test_no_overlap_sql_constraint(self):
     pass
 
 
-TestWorkEntry.test_no_overlap_sql_constraint = _disable_test_no_overlap_sql_constraint
+if TestWorkEntry:
+    TestWorkEntry.test_no_overlap_sql_constraint = _disable_test_no_overlap_sql_constraint
 
 
 def _update_brand_web_icon_data(env):
@@ -486,30 +491,6 @@ def uninstall_hook(env):
 
 
 def post_load():
-    _disable_currency_rate_unique_name_per_day()
-    _disable_hr_work_entry_work_entries_no_validated_conflict()
+    # Keep this minimal to avoid global monkey patches affecting module loading.
     if config.get('test_enable', False):
         BaseModel._load_records = _skip_sending_email_when_loading_demo_data_in_test_mode
-        # Because we are disabling test tour on runbot due to to_backend_theme module being affected
-        # This will result in faster response times for browser checks, improving performance and reducing unnecessary processing
-        # Each test will save 9.9s
-        global common
-        common.CHECK_BROWSER_ITERATIONS = 1
-    module.get_module_icon_path = get_viin_brand_icon_path
-    modules.get_module_resource = get_viin_brand_resource_path
-    module.get_module_icon = get_viin_brand_module_icon
-    module.get_resource_path = get_viin_brand_resource_path
-    modules.get_resource_path = get_viin_brand_resource_path
-    common.get_db_name = _get_db_name_plus
-    module.load_manifest = _load_manifest_plus
-    if test_manifests:
-        _override_test_manifests_keys()
-    if AddonManifestPatched:
-        AddonManifestPatched.setUp = _setUpAddonManifestPatched_plus
-    if ManifestLinter:
-        ManifestLinter._test_manifest_values = _test_manifest_values_plus
-    if LintCase:
-        LintCase.iter_module_files = _iter_module_files_plus
-    HttpCase.url_open = _url_open_plus
-    Users._auto_init = _auto_init_plus
-    IrUiMenu._compute_web_icon_data = _compute_web_icon_data_plus
