@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <odoo>
 
     <!-- PDF Report Action -->
@@ -37,7 +37,8 @@
                 <t t-set="sales_total" t-value="vated_sales_total + non_vated_sales_total"/>
                 <t t-set="vated_pur_total" t-value="wizard.vated_purchases_amount + pur_vat_abs"/>
                 <t t-set="non_vated_total" t-value="wizard.non_vated_purchases_amount"/>
-                <t t-set="purchase_total_amount" t-value="wizard.vated_purchases_amount + wizard.non_vated_purchases_amount"/>
+                <t t-set="purchase_total_amount"
+                   t-value="wizard.vated_purchases_amount + wizard.non_vated_purchases_amount"/>
                 <t t-set="purchase_total_vat" t-value="pur_vat_abs"/>
                 <t t-set="purchase_total" t-value="vated_pur_total + non_vated_total"/>
 
@@ -277,7 +278,9 @@
 
                         <tr class="section-title">
                             <td colspan="2" class="desc" style="text-align:center;">
-                                <b><t t-esc="gov_vat_label"/></b>
+                                <b>
+                                    <t t-esc="gov_vat_label"/>
+                                </b>
                             </td>
                             <td>
                                 <b>
@@ -316,9 +319,12 @@
                             <tr class="detail-section">
                                 <td colspan="7">Vated - Sales / Revenue</td>
                             </tr>
-                            <t t-set="vated_sales_amount_total" t-value="sum(l['amount'] for l in details['vated_sales'])"/>
-                            <t t-set="vated_sales_vat_total" t-value="sum(l['vat_amount'] for l in details['vated_sales'])"/>
-                            <t t-set="vated_sales_grand_total" t-value="sum(l['total_amount'] for l in details['vated_sales'])"/>
+                            <t t-set="vated_sales_amount_total"
+                               t-value="sum(l['amount'] for l in details['vated_sales'])"/>
+                            <t t-set="vated_sales_vat_total"
+                               t-value="sum(l['vat_amount'] for l in details['vated_sales'])"/>
+                            <t t-set="vated_sales_grand_total"
+                               t-value="sum(l['total_amount'] for l in details['vated_sales'])"/>
                             <t t-if="not details['vated_sales']">
                                 <tr>
                                     <td colspan="7">No lines</td>
@@ -326,28 +332,51 @@
                             </t>
                             <t t-foreach="details['vated_sales']" t-as="line">
                                 <tr>
-                                    <td><t t-esc="line['entry']"/></td>
-                                    <td><t t-esc="line['reference']"/></td>
-                                    <td><t t-esc="line['date']"/></td>
-                                    <td class="desc"><t t-esc="line['label']"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['vat_amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['total_amount'])"/></td>
+                                    <td>
+                                        <t t-esc="line['entry']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['reference']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['date']"/>
+                                    </td>
+                                    <td class="desc">
+                                        <t t-esc="line['label']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['vat_amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['total_amount'])"/>
+                                    </td>
                                 </tr>
                             </t>
                             <tr class="detail-section">
                                 <td colspan="4" style="text-align:right;">Section Total</td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_sales_amount_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_sales_vat_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_sales_grand_total)"/></td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_sales_amount_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_sales_vat_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_sales_grand_total)"/>
+                                </td>
                             </tr>
 
                             <tr class="detail-section">
                                 <td colspan="7">Non-Vated - Sales / Revenue</td>
                             </tr>
-                            <t t-set="non_vated_sales_amount_total" t-value="sum(l['amount'] for l in details['non_vated_sales'])"/>
-                            <t t-set="non_vated_sales_vat_total" t-value="sum(l['vat_amount'] for l in details['non_vated_sales'])"/>
-                            <t t-set="non_vated_sales_grand_total" t-value="sum(l['total_amount'] for l in details['non_vated_sales'])"/>
+                            <t t-set="non_vated_sales_amount_total"
+                               t-value="sum(l['amount'] for l in details['non_vated_sales'])"/>
+                            <t t-set="non_vated_sales_vat_total"
+                               t-value="sum(l['vat_amount'] for l in details['non_vated_sales'])"/>
+                            <t t-set="non_vated_sales_grand_total"
+                               t-value="sum(l['total_amount'] for l in details['non_vated_sales'])"/>
                             <t t-if="not details['non_vated_sales']">
                                 <tr>
                                     <td colspan="7">No lines</td>
@@ -355,28 +384,51 @@
                             </t>
                             <t t-foreach="details['non_vated_sales']" t-as="line">
                                 <tr>
-                                    <td><t t-esc="line['entry']"/></td>
-                                    <td><t t-esc="line['reference']"/></td>
-                                    <td><t t-esc="line['date']"/></td>
-                                    <td class="desc"><t t-esc="line['label']"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['vat_amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['total_amount'])"/></td>
+                                    <td>
+                                        <t t-esc="line['entry']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['reference']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['date']"/>
+                                    </td>
+                                    <td class="desc">
+                                        <t t-esc="line['label']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['vat_amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['total_amount'])"/>
+                                    </td>
                                 </tr>
                             </t>
                             <tr class="detail-section">
                                 <td colspan="4" style="text-align:right;">Section Total</td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_sales_amount_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_sales_vat_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_sales_grand_total)"/></td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_sales_amount_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_sales_vat_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_sales_grand_total)"/>
+                                </td>
                             </tr>
 
                             <tr class="detail-section">
                                 <td colspan="7">Vated - Purchases / Expenses</td>
                             </tr>
-                            <t t-set="vated_purchases_amount_total" t-value="sum(l['amount'] for l in details['vated_purchases'])"/>
-                            <t t-set="vated_purchases_vat_total" t-value="sum(l['vat_amount'] for l in details['vated_purchases'])"/>
-                            <t t-set="vated_purchases_grand_total" t-value="sum(l['total_amount'] for l in details['vated_purchases'])"/>
+                            <t t-set="vated_purchases_amount_total"
+                               t-value="sum(l['amount'] for l in details['vated_purchases'])"/>
+                            <t t-set="vated_purchases_vat_total"
+                               t-value="sum(l['vat_amount'] for l in details['vated_purchases'])"/>
+                            <t t-set="vated_purchases_grand_total"
+                               t-value="sum(l['total_amount'] for l in details['vated_purchases'])"/>
                             <t t-if="not details['vated_purchases']">
                                 <tr>
                                     <td colspan="7">No lines</td>
@@ -384,28 +436,51 @@
                             </t>
                             <t t-foreach="details['vated_purchases']" t-as="line">
                                 <tr>
-                                    <td><t t-esc="line['entry']"/></td>
-                                    <td><t t-esc="line['reference']"/></td>
-                                    <td><t t-esc="line['date']"/></td>
-                                    <td class="desc"><t t-esc="line['label']"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['vat_amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['total_amount'])"/></td>
+                                    <td>
+                                        <t t-esc="line['entry']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['reference']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['date']"/>
+                                    </td>
+                                    <td class="desc">
+                                        <t t-esc="line['label']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['vat_amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['total_amount'])"/>
+                                    </td>
                                 </tr>
                             </t>
                             <tr class="detail-section">
                                 <td colspan="4" style="text-align:right;">Section Total</td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_purchases_amount_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_purchases_vat_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(vated_purchases_grand_total)"/></td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_purchases_amount_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_purchases_vat_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(vated_purchases_grand_total)"/>
+                                </td>
                             </tr>
 
                             <tr class="detail-section">
                                 <td colspan="7">Non-Vated - Purchases / Expenses</td>
                             </tr>
-                            <t t-set="non_vated_purchases_amount_total" t-value="sum(l['amount'] for l in details['non_vated_purchases'])"/>
-                            <t t-set="non_vated_purchases_vat_total" t-value="sum(l['vat_amount'] for l in details['non_vated_purchases'])"/>
-                            <t t-set="non_vated_purchases_grand_total" t-value="sum(l['total_amount'] for l in details['non_vated_purchases'])"/>
+                            <t t-set="non_vated_purchases_amount_total"
+                               t-value="sum(l['amount'] for l in details['non_vated_purchases'])"/>
+                            <t t-set="non_vated_purchases_vat_total"
+                               t-value="sum(l['vat_amount'] for l in details['non_vated_purchases'])"/>
+                            <t t-set="non_vated_purchases_grand_total"
+                               t-value="sum(l['total_amount'] for l in details['non_vated_purchases'])"/>
                             <t t-if="not details['non_vated_purchases']">
                                 <tr>
                                     <td colspan="7">No lines</td>
@@ -413,23 +488,44 @@
                             </t>
                             <t t-foreach="details['non_vated_purchases']" t-as="line">
                                 <tr>
-                                    <td><t t-esc="line['entry']"/></td>
-                                    <td><t t-esc="line['reference']"/></td>
-                                    <td><t t-esc="line['date']"/></td>
-                                    <td class="desc"><t t-esc="line['label']"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['vat_amount'])"/></td>
-                                    <td><t t-esc="'{:,.2f}'.format(line['total_amount'])"/></td>
+                                    <td>
+                                        <t t-esc="line['entry']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['reference']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="line['date']"/>
+                                    </td>
+                                    <td class="desc">
+                                        <t t-esc="line['label']"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['vat_amount'])"/>
+                                    </td>
+                                    <td>
+                                        <t t-esc="'{:,.2f}'.format(line['total_amount'])"/>
+                                    </td>
                                 </tr>
                             </t>
                             <tr class="detail-section">
                                 <td colspan="4" style="text-align:right;">Section Total</td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_purchases_amount_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_purchases_vat_total)"/></td>
-                                <td><t t-esc="'{:,.2f}'.format(non_vated_purchases_grand_total)"/></td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_purchases_amount_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_purchases_vat_total)"/>
+                                </td>
+                                <td>
+                                    <t t-esc="'{:,.2f}'.format(non_vated_purchases_grand_total)"/>
+                                </td>
                             </tr>
 
-                            <t t-set="all_lines" t-value="details['vated_sales'] + details['non_vated_sales'] + details['vated_purchases'] + details['non_vated_purchases']"/>
+                            <t t-set="all_lines"
+                               t-value="details['vated_sales'] + details['non_vated_sales'] + details['vated_purchases'] + details['non_vated_purchases']"/>
                             <tr class="section-title">
                                 <td colspan="4" class="desc" style="text-align:center;">
                                     <b>Total</b>
