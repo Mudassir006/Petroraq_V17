@@ -9,7 +9,7 @@
         "security/ir.model.access.csv",
         "reports/vat_summary_xlsx.xml",
         "views/vat_summary_wizard.xml",
-        "reports/vat_summary_report_templates.xml",
+        # "reports/vat_summary_report_templates.xml",
     ],
     "installable": True,
     "application": False,
