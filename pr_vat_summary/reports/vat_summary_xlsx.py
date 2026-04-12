@@ -58,13 +58,21 @@ class VatSummaryXlsx(models.AbstractModel):
         sales_vat_abs = abs(wizard.sales_vat)
         pur_vat_abs = abs(wizard.vated_purchases_vat)
 
-        sales_total = wizard.sales_amount + sales_vat_abs
+        vated_sales_total = wizard.sales_amount + sales_vat_abs
+        non_vated_sales_total = wizard.non_vated_sales_amount
+        total_sales_amount = wizard.sales_amount + wizard.non_vated_sales_amount
+        total_sales_vat = sales_vat_abs
+        sales_total = vated_sales_total + non_vated_sales_total
         vated_pur_total = wizard.vated_purchases_amount + pur_vat_abs
         non_vated_total = wizard.non_vated_purchases_amount
 
-        amount_total = wizard.total_amount
-        vat_total = wizard.total_vat_payable
-        grand_total = sales_total - vated_pur_total
+        purchase_total_amount = wizard.vated_purchases_amount + wizard.non_vated_purchases_amount
+        purchase_total_vat = pur_vat_abs
+        purchase_total = vated_pur_total + non_vated_total
+
+        deposit_amount = wizard.sales_amount - wizard.vated_purchases_amount
+        deposit_vat = sales_vat_abs - pur_vat_abs
+        deposit_total = vated_sales_total - vated_pur_total
 
         sheet = workbook.add_worksheet("VAT Summary")
 
@@ -172,10 +180,25 @@ class VatSummaryXlsx(models.AbstractModel):
         row += 1
 
         sheet.write(row, 0, "i", cell_center)
-        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income", cell_left)
+        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income Vated", cell_left)
         sheet.write_number(row, 4, wizard.sales_amount, cell_right)
         sheet.write_number(row, 5, sales_vat_abs, cell_right)
-        sheet.write_number(row, 6, sales_total, cell_right)
+        sheet.write_number(row, 6, vated_sales_total, cell_right)
+        row += 1
+
+        sheet.write(row, 0, "ii", cell_center)
+        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income Non Vated", cell_left)
+        sheet.write_number(row, 4, wizard.non_vated_sales_amount, cell_right)
+        sheet.write(row, 5, "-", cell_center)
+        sheet.write_number(row, 6, non_vated_sales_total, cell_right)
+        row += 1
+
+        sheet.merge_range(row, 0, row, 3,
+                          "Total Sales Revenue / Income",
+                          section_fmt)
+        sheet.write_number(row, 4, total_sales_amount, total_fmt)
+        sheet.write_number(row, 5, total_sales_vat, total_fmt)
+        sheet.write_number(row, 6, sales_total, total_fmt)
         row += 1
 
         # ---------------------------------------------
@@ -203,15 +226,27 @@ class VatSummaryXlsx(models.AbstractModel):
         row += 1
 
         # ---------------------------------------------
-        # FINAL TOTAL ROW (exact same as PDF/HTML)
+        # PURCHASE TOTAL ROW
         # ---------------------------------------------
         sheet.merge_range(row, 0, row, 3,
-                          "Total VAT Payable / Receivable",
+                          "Total Purchases / Expenses",
                           section_fmt)
 
-        sheet.write_number(row, 4, amount_total, total_fmt)
-        sheet.write_number(row, 5, vat_total, total_fmt)
-        sheet.write_number(row, 6, grand_total, total_fmt)
+        sheet.write_number(row, 4, purchase_total_amount, total_fmt)
+        sheet.write_number(row, 5, purchase_total_vat, total_fmt)
+        sheet.write_number(row, 6, purchase_total, total_fmt)
+        row += 1
+
+        # ---------------------------------------------
+        # NEED TO DEPOSIT ROW
+        # ---------------------------------------------
+        sheet.merge_range(row, 0, row, 3,
+                          "Need to Deposit GOV VAT",
+                          section_fmt)
+
+        sheet.write_number(row, 4, deposit_amount, total_fmt)
+        sheet.write_number(row, 5, deposit_vat, total_fmt)
+        sheet.write_number(row, 6, deposit_total, total_fmt)
 
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()

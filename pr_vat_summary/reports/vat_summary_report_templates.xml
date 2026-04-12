@@ -30,15 +30,21 @@
                 <t t-set="pur_vat_abs"
                    t-value="wizard.vated_purchases_vat if wizard.vated_purchases_vat &gt;= 0.0 else -wizard.vated_purchases_vat"/>
 
-                <t t-set="sales_total" t-value="wizard.sales_amount + sales_vat_abs"/>
+                <t t-set="vated_sales_total" t-value="wizard.sales_amount + sales_vat_abs"/>
+                <t t-set="non_vated_sales_total" t-value="wizard.non_vated_sales_amount"/>
+                <t t-set="sales_total_amount" t-value="wizard.sales_amount + wizard.non_vated_sales_amount"/>
+                <t t-set="sales_total_vat" t-value="sales_vat_abs"/>
+                <t t-set="sales_total" t-value="vated_sales_total + non_vated_sales_total"/>
                 <t t-set="vated_pur_total" t-value="wizard.vated_purchases_amount + pur_vat_abs"/>
                 <t t-set="non_vated_total" t-value="wizard.non_vated_purchases_amount"/>
+                <t t-set="purchase_total_amount" t-value="wizard.vated_purchases_amount + wizard.non_vated_purchases_amount"/>
+                <t t-set="purchase_total_vat" t-value="pur_vat_abs"/>
+                <t t-set="purchase_total" t-value="vated_pur_total + non_vated_total"/>
 
-                <!-- Summary row values (already computed in Python) -->
-                <t t-set="amount_total" t-value="wizard.total_amount"/>
-                <t t-set="vat_total" t-value="wizard.total_vat_payable"/>
-                <!-- Grand total = Sales total - Vated purchase total (same as HTML) -->
-                <t t-set="grand_total" t-value="sales_total - vated_pur_total"/>
+                <!-- Need to deposit row (vated sales - vated purchases) -->
+                <t t-set="deposit_amount" t-value="wizard.sales_amount - wizard.vated_purchases_amount"/>
+                <t t-set="deposit_vat" t-value="sales_vat_abs - pur_vat_abs"/>
+                <t t-set="deposit_total" t-value="vated_sales_total - vated_pur_total"/>
 
                 <div class="page">
                     <style>
@@ -162,7 +168,7 @@
 
                         <tr>
                             <td>i</td>
-                            <td class="desc">Sales Revenue / Income</td>
+                            <td class="desc">Sales Revenue / Income Vated</td>
                             <td>
                                 <t t-esc="'{:,.2f}'.format(wizard.sales_amount or 0.0)"/>
                             </td>
@@ -171,7 +177,40 @@
                                 <t t-esc="'{:,.2f}'.format(sales_vat_abs or 0.0)"/>
                             </td>
                             <td>
-                                <t t-esc="'{:,.2f}'.format(sales_total or 0.0)"/>
+                                <t t-esc="'{:,.2f}'.format(vated_sales_total or 0.0)"/>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>ii</td>
+                            <td class="desc">Sales Revenue / Income Non Vated</td>
+                            <td>
+                                <t t-esc="'{:,.2f}'.format(wizard.non_vated_sales_amount or 0.0)"/>
+                            </td>
+                            <td>-</td>
+                            <td>
+                                <t t-esc="'{:,.2f}'.format(non_vated_sales_total or 0.0)"/>
+                            </td>
+                        </tr>
+
+                        <tr class="section-title">
+                            <td colspan="2" class="desc" style="text-align:right;">
+                                <b>Total Sales Revenue / Income</b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(sales_total_amount or 0.0)"/>
+                                </b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(sales_total_vat or 0.0)"/>
+                                </b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(sales_total or 0.0)"/>
+                                </b>
                             </td>
                         </tr>
 
@@ -213,24 +252,45 @@
                             </td>
                         </tr>
 
-                        <!-- FINAL TOTAL ROW: same as HTML summary row -->
+                        <!-- PURCHASE TOTAL ROW -->
+                        <tr class="section-title">
+                            <td colspan="2" class="desc" style="text-align:right;">
+                                <b>Total Purchases / Expenses</b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(purchase_total_amount or 0.0)"/>
+                                </b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(purchase_total_vat or 0.0)"/>
+                                </b>
+                            </td>
+                            <td>
+                                <b>
+                                    <t t-esc="'{:,.2f}'.format(purchase_total or 0.0)"/>
+                                </b>
+                            </td>
+                        </tr>
+
                         <tr class="section-title">
                             <td colspan="2" class="desc" style="text-align:center;">
-                                <b>Total VAT Payable / Receivable</b>
+                                <b>Need to Deposit GOV VAT</b>
                             </td>
                             <td>
                                 <b>
-                                    <t t-esc="'{:,.2f}'.format(amount_total or 0.0)"/>
+                                    <t t-esc="'{:,.2f}'.format(deposit_amount or 0.0)"/>
                                 </b>
                             </td>
                             <td>
                                 <b>
-                                    <t t-esc="'{:,.2f}'.format(vat_total or 0.0)"/>
+                                    <t t-esc="'{:,.2f}'.format(deposit_vat or 0.0)"/>
                                 </b>
                             </td>
                             <td>
                                 <b>
-                                    <t t-esc="'{:,.2f}'.format(grand_total or 0.0)"/>
+                                    <t t-esc="'{:,.2f}'.format(deposit_total or 0.0)"/>
                                 </b>
                             </td>
                         </tr>
