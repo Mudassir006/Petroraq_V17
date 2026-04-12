@@ -31,10 +31,10 @@
                     <footer>
                         <button name="action_compute_summary" type="object"
                                 string="Compute Summary" class="btn-primary"/>
-                        <button name="action_print_pdf" type="object"
-                                string="Print PDF"
-                                class="btn-secondary"
-                                invisible="summary_html == False"/>
+<!--                        <button name="action_print_pdf" type="object"-->
+<!--                                string="Print PDF"-->
+<!--                                class="btn-secondary"-->
+<!--                                invisible="summary_html == False"/>-->
                         <button name="action_export_xlsx" type="object"
                                 string="Export XLSX"
                                 class="btn-secondary"
