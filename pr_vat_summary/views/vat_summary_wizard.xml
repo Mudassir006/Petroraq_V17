@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <data>
 
     <!-- Wizard Form -->
     <record id="view_vat_summary_wizard" model="ir.ui.view">
@@ -73,4 +74,5 @@
               parent="pr_account.account_reports_main_menu"
               action="action_vat_summary_wizard"
               sequence="50"/>
+    </data>
 </odoo>

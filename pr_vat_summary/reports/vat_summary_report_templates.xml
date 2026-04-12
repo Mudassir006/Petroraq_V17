@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <data>
 
     <!-- PDF Report Action -->
     <record id="vat_summary_pdf_report" model="ir.actions.report">
@@ -467,4 +468,5 @@
             file="vat_summary_xlsx"
     />
 
+    </data>
 </odoo>
