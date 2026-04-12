@@ -25,19 +25,28 @@ class VatSummaryXlsx(models.AbstractModel):
             all_lines.extend(lines)
             sheet.merge_range(row, 0, row, 6, section_title, section_fmt)
             row += 1
+            section_total = sum(line.get("amount", 0.0) for line in lines)
+            section_vat_total = sum(line.get("vat_amount", 0.0) for line in lines)
+            section_grand_total = sum(line.get("total_amount", 0.0) for line in lines)
             if not lines:
                 sheet.merge_range(row, 0, row, 6, "No lines", cell_left)
                 row += 1
-                continue
-            for line in lines:
-                sheet.write(row, 0, line.get("entry", ""), cell_left)
-                sheet.write(row, 1, line.get("reference", ""), cell_left)
-                sheet.write(row, 2, str(line.get("date", "")), cell_left)
-                sheet.write(row, 3, line.get("label", ""), cell_left)
-                sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
-                sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
-                sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
-                row += 1
+            else:
+                for line in lines:
+                    sheet.write(row, 0, line.get("entry", ""), cell_left)
+                    sheet.write(row, 1, line.get("reference", ""), cell_left)
+                    sheet.write(row, 2, str(line.get("date", "")), cell_left)
+                    sheet.write(row, 3, line.get("label", ""), cell_left)
+                    sheet.write_number(row, 4, line.get("amount", 0.0), cell_right)
+                    sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
+                    sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
+                    row += 1
+
+            sheet.merge_range(row, 0, row, 3, "Section Total", section_fmt)
+            sheet.write_number(row, 4, section_total, cell_right)
+            sheet.write_number(row, 5, section_vat_total, cell_right)
+            sheet.write_number(row, 6, section_grand_total, cell_right)
+            row += 1
 
         total = sum(line.get("amount", 0.0) for line in all_lines)
         vat_total = sum(line.get("vat_amount", 0.0) for line in all_lines)
@@ -58,13 +67,22 @@ class VatSummaryXlsx(models.AbstractModel):
         sales_vat_abs = abs(wizard.sales_vat)
         pur_vat_abs = abs(wizard.vated_purchases_vat)
 
-        sales_total = wizard.sales_amount + sales_vat_abs
+        vated_sales_total = wizard.sales_amount + sales_vat_abs
+        non_vated_sales_total = wizard.non_vated_sales_amount
+        total_sales_amount = wizard.sales_amount + wizard.non_vated_sales_amount
+        total_sales_vat = sales_vat_abs
+        sales_total = vated_sales_total + non_vated_sales_total
         vated_pur_total = wizard.vated_purchases_amount + pur_vat_abs
         non_vated_total = wizard.non_vated_purchases_amount
 
-        amount_total = wizard.total_amount
-        vat_total = wizard.total_vat_payable
-        grand_total = sales_total - vated_pur_total
+        purchase_total_amount = wizard.vated_purchases_amount + wizard.non_vated_purchases_amount
+        purchase_total_vat = pur_vat_abs
+        purchase_total = vated_pur_total + non_vated_total
+
+        deposit_amount = wizard.sales_amount - wizard.vated_purchases_amount
+        deposit_vat = sales_vat_abs - pur_vat_abs
+        deposit_total = vated_sales_total - vated_pur_total
+        gov_vat_label = wizard._get_gov_vat_label(deposit_total)
 
         sheet = workbook.add_worksheet("VAT Summary")
 
@@ -172,10 +190,25 @@ class VatSummaryXlsx(models.AbstractModel):
         row += 1
 
         sheet.write(row, 0, "i", cell_center)
-        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income", cell_left)
+        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income Vated", cell_left)
         sheet.write_number(row, 4, wizard.sales_amount, cell_right)
         sheet.write_number(row, 5, sales_vat_abs, cell_right)
-        sheet.write_number(row, 6, sales_total, cell_right)
+        sheet.write_number(row, 6, vated_sales_total, cell_right)
+        row += 1
+
+        sheet.write(row, 0, "ii", cell_center)
+        sheet.merge_range(row, 1, row, 3, "Sales Revenue / Income Non Vated", cell_left)
+        sheet.write_number(row, 4, wizard.non_vated_sales_amount, cell_right)
+        sheet.write(row, 5, "-", cell_center)
+        sheet.write_number(row, 6, non_vated_sales_total, cell_right)
+        row += 1
+
+        sheet.merge_range(row, 0, row, 3,
+                          "Total Sales Revenue / Income",
+                          section_fmt)
+        sheet.write_number(row, 4, total_sales_amount, total_fmt)
+        sheet.write_number(row, 5, total_sales_vat, total_fmt)
+        sheet.write_number(row, 6, sales_total, total_fmt)
         row += 1
 
         # ---------------------------------------------
@@ -203,15 +236,27 @@ class VatSummaryXlsx(models.AbstractModel):
         row += 1
 
         # ---------------------------------------------
-        # FINAL TOTAL ROW (exact same as PDF/HTML)
+        # PURCHASE TOTAL ROW
         # ---------------------------------------------
         sheet.merge_range(row, 0, row, 3,
-                          "Total VAT Payable / Receivable",
+                          "Total Purchases / Expenses",
                           section_fmt)
 
-        sheet.write_number(row, 4, amount_total, total_fmt)
-        sheet.write_number(row, 5, vat_total, total_fmt)
-        sheet.write_number(row, 6, grand_total, total_fmt)
+        sheet.write_number(row, 4, purchase_total_amount, total_fmt)
+        sheet.write_number(row, 5, purchase_total_vat, total_fmt)
+        sheet.write_number(row, 6, purchase_total, total_fmt)
+        row += 1
+
+        # ---------------------------------------------
+        # NEED TO DEPOSIT ROW
+        # ---------------------------------------------
+        sheet.merge_range(row, 0, row, 3,
+                          gov_vat_label,
+                          section_fmt)
+
+        sheet.write_number(row, 4, deposit_amount, total_fmt)
+        sheet.write_number(row, 5, deposit_vat, total_fmt)
+        sheet.write_number(row, 6, deposit_total, total_fmt)
 
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()

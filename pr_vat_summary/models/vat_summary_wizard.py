@@ -41,6 +41,7 @@ class VatSummaryWizard(models.TransientModel):
     # Summaries (net/base & VAT only – totals are derived in HTML/XLSX)
     sales_amount = fields.Monetary(currency_field="currency_id", readonly=True)
     sales_vat = fields.Monetary(currency_field="currency_id", readonly=True)
+    non_vated_sales_amount = fields.Monetary(currency_field="currency_id", readonly=True)
 
     vated_purchases_amount = fields.Monetary(currency_field="currency_id", readonly=True)
     vated_purchases_vat = fields.Monetary(currency_field="currency_id", readonly=True)
@@ -194,7 +195,19 @@ class VatSummaryWizard(models.TransientModel):
                     vated_pur_amount += line.balance
 
         # ---------------------------------------------------------------
-        # 3) NON-VATED PURCHASES (still: any expense w/o tax)
+        # 3) NON-VATED SALES (income lines without taxes)
+        # ---------------------------------------------------------------
+        non_vated_sales_domain = base_domain + [
+            ("account_id.account_type", "in", ["income", "other_income"]),
+            ("tax_line_id", "=", False),
+            ("tax_tag_ids", "=", False),
+            ("tax_ids", "=", False),
+        ]
+        non_vated_sales_lines = aml.search(non_vated_sales_domain)
+        non_vated_sales_amount = sum(-line.balance for line in non_vated_sales_lines)
+
+        # ---------------------------------------------------------------
+        # 4) NON-VATED PURCHASES (still: any expense w/o tax)
         # ---------------------------------------------------------------
         non_vated_domain = base_domain + [
             ("account_id.account_type", "in", ["expense", "cost_of_revenue"]),
@@ -212,11 +225,12 @@ class VatSummaryWizard(models.TransientModel):
             non_vated_pur_amount += line.balance
 
         # ---------------------------------------------------------------
-        # 4) STORE FIELDS + TOTALS
+        # 5) STORE FIELDS + TOTALS
         # ---------------------------------------------------------------
         # Field values (used in HTML/XLSX)
         self.sales_amount = sales_amount
         self.sales_vat = sales_vat
+        self.non_vated_sales_amount = non_vated_sales_amount
 
         self.vated_purchases_amount = vated_pur_amount
         self.vated_purchases_vat = pur_vat
@@ -224,8 +238,10 @@ class VatSummaryWizard(models.TransientModel):
         self.non_vated_purchases_amount = non_vated_pur_amount
 
         # Summary row (your Excel-style logic)
-        # total_amount = Sales Amount - (Vated + Non-Vated)
-        self.total_amount = sales_amount - (vated_pur_amount + non_vated_pur_amount)
+        # total_amount = Total Sales Amount - Total Purchases Amount
+        self.total_amount = (sales_amount + non_vated_sales_amount) - (
+            vated_pur_amount + non_vated_pur_amount
+        )
         # total_vat_payable = Sales VAT - Purchase VAT (abs for display)
         self.total_vat_payable = abs(sales_vat) - abs(pur_vat)
 
@@ -260,18 +276,24 @@ class VatSummaryWizard(models.TransientModel):
             "non_vated_purchases": [],
         }
         for line in detail_lines:
-            amount = abs(line.balance)
-            vat_amount = 0.0
-            for tax in line.tax_ids:
-                if tax.amount_type in ("percent", "division"):
-                    vat_amount += abs(amount * tax.amount / 100.0)
-            line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
             if line.account_id.account_type in ["income", "other_income"]:
+                amount = -line.balance
+                vat_amount = 0.0
+                for tax in line.tax_ids:
+                    if tax.amount_type in ("percent", "division"):
+                        vat_amount += amount * tax.amount / 100.0
+                line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
                 if line.tax_ids:
                     details["vated_sales"].append(line_vals)
                 else:
                     details["non_vated_sales"].append(line_vals)
             else:
+                amount = line.balance
+                vat_amount = 0.0
+                for tax in line.tax_ids:
+                    if tax.amount_type in ("percent", "division"):
+                        vat_amount += amount * tax.amount / 100.0
+                line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
                 if line.tax_ids:
                     details["vated_purchases"].append(line_vals)
                 else:
@@ -315,6 +337,9 @@ class VatSummaryWizard(models.TransientModel):
                 <tr><td colspan='7' style='border:1px solid #000;padding:5px;text-align:center;'>No lines</td></tr>
                 """
                 continue
+            section_amount_total = sum(line["amount"] for line in lines)
+            section_vat_total = sum(line["vat_amount"] for line in lines)
+            section_grand_total = sum(line["total_amount"] for line in lines)
             for line in lines:
                 html += f"""
                 <tr>
@@ -327,6 +352,16 @@ class VatSummaryWizard(models.TransientModel):
                     <td style='border:1px solid #000;padding:5px;text-align:right;'>{line['total_amount']:,.2f}</td>
                 </tr>
                 """
+            html += f"""
+            <tr>
+                <td colspan='4' style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>
+                    Section Total
+                </td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_amount_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_vat_total:,.2f}</td>
+                <td style='border:1px solid #000;padding:5px;text-align:right;font-weight:bold;background:#fafafa;'>{section_grand_total:,.2f}</td>
+            </tr>
+            """
         amount_total = sum(l["amount"] for l in all_lines)
         vat_total = sum(l["vat_amount"] for l in all_lines)
         grand_total = sum(l["total_amount"] for l in all_lines)
@@ -341,6 +376,12 @@ class VatSummaryWizard(models.TransientModel):
         """
         return html
 
+    def _get_gov_vat_label(self, net_total):
+        self.ensure_one()
+        quarter = ((self.date_start.month - 1) // 3) + 1 if self.date_start else 1
+        action = "Deposit" if net_total >= 0 else "Recieve"
+        return f"Need to {action} GOV Q{quarter} VAT"
+
     # -------------------------------------------------------------------------
     # Actions
     # -------------------------------------------------------------------------
@@ -353,29 +394,32 @@ class VatSummaryWizard(models.TransientModel):
 
         self._compute_vat_summary()
 
-        # Pre-compute row totals (Amount + VAT)
-        # Excel-style totals: Total = Base + VAT, always positive VAT
-        sales_total = self.sales_amount + abs(self.sales_vat)
-        vated_pur_total = self.vated_purchases_amount + abs(self.vated_purchases_vat)
-        non_vated_total = self.non_vated_purchases_amount  # no VAT
+        sales_vat_abs = abs(self.sales_vat)
+        pur_vat_abs = abs(self.vated_purchases_vat)
 
-        # Net amount = Sales - (Purchases)
-        # --- Excel-style TOTALS (DO NOT include non-vated purchases) ---
+        # Section totals
+        vated_sales_total = self.sales_amount + sales_vat_abs
+        non_vated_sales_total = self.non_vated_sales_amount
+        total_sales_amount = self.sales_amount + self.non_vated_sales_amount
+        total_sales_vat = sales_vat_abs
+        total_sales_total = vated_sales_total + non_vated_sales_total
 
-        # 1. AMOUNT column
-        amount_total = self.sales_amount - self.vated_purchases_amount
+        vated_pur_total = self.vated_purchases_amount + pur_vat_abs
+        non_vated_total = self.non_vated_purchases_amount
+        total_pur_amount = self.vated_purchases_amount + self.non_vated_purchases_amount
+        total_pur_vat = pur_vat_abs
+        total_pur_total = vated_pur_total + non_vated_total
 
-        # 2. VAT 15% column
-        vat_total = abs(self.sales_vat) - abs(self.vated_purchases_vat)
+        # Net deposit row (vated sales - vated purchases only)
+        deposit_amount = self.sales_amount - self.vated_purchases_amount
+        deposit_vat = sales_vat_abs - pur_vat_abs
+        deposit_total = vated_sales_total - vated_pur_total
 
-        # 3. TOTAL column (base+VAT)
-        sales_total = self.sales_amount + abs(self.sales_vat)
-        vated_total = self.vated_purchases_amount + abs(self.vated_purchases_vat)
-        grand_total = sales_total - vated_total
+        # Keep computed fields aligned with final row
+        self.total_amount = deposit_amount
+        self.total_vat_payable = deposit_vat
 
-        # Save them into the fields
-        self.total_amount = amount_total
-        self.total_vat_payable = vat_total
+        gov_vat_label = self._get_gov_vat_label(deposit_total)
 
         # Build HTML table exactly like your Excel layout
         html = f"""
@@ -409,10 +453,28 @@ class VatSummaryWizard(models.TransientModel):
 
             <tr>
                 <td style="border:1.8px solid #000;padding:10px;">i</td>
-                <td style="border:1.8px solid #000;padding:10px;">Sales Revenue / Income</td>
+                <td style="border:1.8px solid #000;padding:10px;">Sales Revenue / Income Vated</td>
                 <td style="border:1.8px solid #000;padding:10px;text-align:right;">{self.sales_amount:,.2f}</td>
-                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{abs(self.sales_vat):,.2f}</td>
-                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{sales_total:,.2f}</td>
+                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{sales_vat_abs:,.2f}</td>
+                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{vated_sales_total:,.2f}</td>
+            </tr>
+
+            <tr>
+                <td style="border:1.8px solid #000;padding:10px;">ii</td>
+                <td style="border:1.8px solid #000;padding:10px;">Sales Revenue / Income Non Vated</td>
+                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{self.non_vated_sales_amount:,.2f}</td>
+                <td style="border:1.8px solid #000;padding:10px;text-align:center;">-</td>
+                <td style="border:1.8px solid #000;padding:10px;text-align:right;">{non_vated_sales_total:,.2f}</td>
+            </tr>
+
+            <tr>
+                <td colspan="2"
+                    style="border:2px solid #000;padding:10px;font-weight:bold;text-align:right;background:#f5f5f5;">
+                    Total Sales Revenue / Income
+                </td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_sales_amount:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_sales_vat:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_sales_total:,.2f}</td>
             </tr>
 
             <!-- PURCHASES -->
@@ -443,12 +505,22 @@ class VatSummaryWizard(models.TransientModel):
             <!-- TOTAL -->
             <tr>
                 <td colspan="2"
-                    style="border:2px solid #000;padding:10px;font-weight:bold;text-align:center;background:#f5f5f5;">
-                    Total VAT Payable / Receivable
+                    style="border:2px solid #000;padding:10px;font-weight:bold;text-align:right;background:#f5f5f5;">
+                    Total Purchases / Expenses
                 </td>
-                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{amount_total:,.2f}</td>
-                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{vat_total:,.2f}</td>
-                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{grand_total:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_pur_amount:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_pur_vat:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{total_pur_total:,.2f}</td>
+            </tr>
+
+            <tr>
+                <td colspan="2"
+                    style="border:2px solid #000;padding:10px;font-weight:bold;text-align:center;background:#f5f5f5;">
+                    {gov_vat_label}
+                </td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{deposit_amount:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{deposit_vat:,.2f}</td>
+                <td style="border:2px solid #000;padding:10px;text-align:right;font-weight:bold;">{deposit_total:,.2f}</td>
             </tr>
 
         </table>
