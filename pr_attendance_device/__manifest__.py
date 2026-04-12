@@ -2,7 +2,7 @@
     'name': "Biometric Attendance Machines Integration",
     'author': "Guess Who",
     'website': 'mudassir',
-    'version': '1.1.6',
+    'version': '17.0.1.0.2',
 
     # any module necessary for this one to work correctly
     'depends': ['hr_attendance', 'or_base'],
