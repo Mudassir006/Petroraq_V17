@@ -276,18 +276,24 @@ class VatSummaryWizard(models.TransientModel):
             "non_vated_purchases": [],
         }
         for line in detail_lines:
-            amount = abs(line.balance)
-            vat_amount = 0.0
-            for tax in line.tax_ids:
-                if tax.amount_type in ("percent", "division"):
-                    vat_amount += abs(amount * tax.amount / 100.0)
-            line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
             if line.account_id.account_type in ["income", "other_income"]:
+                amount = -line.balance
+                vat_amount = 0.0
+                for tax in line.tax_ids:
+                    if tax.amount_type in ("percent", "division"):
+                        vat_amount += amount * tax.amount / 100.0
+                line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
                 if line.tax_ids:
                     details["vated_sales"].append(line_vals)
                 else:
                     details["non_vated_sales"].append(line_vals)
             else:
+                amount = line.balance
+                vat_amount = 0.0
+                for tax in line.tax_ids:
+                    if tax.amount_type in ("percent", "division"):
+                        vat_amount += amount * tax.amount / 100.0
+                line_vals = self._prepare_detail_line_vals(line, amount, vat_amount)
                 if line.tax_ids:
                     details["vated_purchases"].append(line_vals)
                 else:
