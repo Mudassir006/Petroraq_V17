@@ -1,48 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
-    <record id="pr_sale_budget_increase_request_pm_action" model="ir.actions.act_window">
-        <field name="name">Budget Requests (PM)</field>
+    <record id="pr_sale_budget_increase_request_action" model="ir.actions.act_window">
+        <field name="name">Budget Requests</field>
         <field name="res_model">budget.increase.request</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('state', '=', 'pm_approval')]</field>
+        <field name="domain">[('state', 'in', ['pm_approval', 'accounts_approval', 'md_approval'])]</field>
         <field name="context">{'create': False, 'edit': False}</field>
     </record>
 
-    <record id="pr_sale_budget_increase_request_accounts_action" model="ir.actions.act_window">
-        <field name="name">Budget Requests (Accounts)</field>
-        <field name="res_model">budget.increase.request</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('state', '=', 'accounts_approval')]</field>
-        <field name="context">{'create': False, 'edit': False}</field>
-    </record>
-
-    <record id="pr_sale_budget_increase_request_md_action" model="ir.actions.act_window">
-        <field name="name">Budget Requests (MD)</field>
-        <field name="res_model">budget.increase.request</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('state', '=', 'md_approval')]</field>
-        <field name="context">{'create': False, 'edit': False}</field>
-    </record>
-
-    <menuitem id="budget_increase_request_pm_approvals_view_menu"
+    <menuitem id="budget_increase_request_approvals_view_menu"
               parent="menu_my_purchase_approvals"
               name="Budget Requests"
-              action="pr_sale_budget_increase_request_pm_action"
+              action="pr_sale_budget_increase_request_action"
               sequence="3"
-              groups="pr_custom_purchase.project_manager"/>
-
-    <menuitem id="budget_increase_request_accounts_approvals_view_menu"
-              parent="menu_my_purchase_approvals"
-              name="Budget Requests"
-              action="pr_sale_budget_increase_request_accounts_action"
-              sequence="4"
-              groups="account.group_account_manager,account.group_account_user"/>
-
-    <menuitem id="budget_increase_request_md_approvals_view_menu"
-              parent="menu_my_purchase_approvals"
-              name="Budget Requests"
-              action="pr_sale_budget_increase_request_md_action"
-              sequence="5"
-              groups="pr_custom_purchase.managing_director"/>
+              groups="pr_custom_purchase.project_manager,account.group_account_manager,account.group_account_user,pr_custom_purchase.managing_director"/>
 
 </odoo>
