@@ -243,6 +243,11 @@ export class LeaveRequestCountCard extends Component {
         });
     }
 
+    employeeLabel(employee) {
+        const code = employee?.code || employee?.employee_code || '';
+        return code ? `${employee.name} [${code}]` : (employee?.name || '');
+    }
+
     async loadMetrics() {
         const result = await this.orm.call(
             'hr.leave',
@@ -270,18 +275,23 @@ export class LeaveRequestCountCard extends Component {
         await this.loadMetrics();
     }
 
-    onEmployeeSearchInput(ev) {
-        this.state.employee_search = ev.target.value || '';
-    }
-
-    get filteredEmployees() {
-        const term = (this.state.employee_search || '').toLowerCase().trim();
-        if (!term) {
-            return this.state.employees;
+    async onEmployeeSearchInput(ev) {
+        const value = (ev.target.value || '').trim();
+        this.state.employee_search = value;
+        if (!value) {
+            this.state.employee_id = '';
+            await this.loadMetrics();
+            return;
         }
-        return this.state.employees.filter((employee) =>
-            (employee.name || '').toLowerCase().includes(term)
-        );
+        const normalized = value.toLowerCase();
+        const matchedEmployee = this.state.employees.find((employee) => {
+            const code = (employee.code || '').toLowerCase();
+            return this.employeeLabel(employee).toLowerCase() === normalized || code === normalized;
+        });
+        if (matchedEmployee) {
+            this.state.employee_id = matchedEmployee.id;
+            await this.loadMetrics();
+        }
     }
 
     async onLeaveTypeChange(ev) {
@@ -315,12 +325,21 @@ export class SimpleLeaveSummaryCard extends Component {
             employee_profile: {},
         });
         onWillStart(async () => {
+            const selected = this.employeeOptions.find((employee) => employee.id === this.state.employee_id);
+            if (selected) {
+                this.state.employee_search = this.employeeLabel(selected);
+            }
             await this.loadSummary();
         });
     }
 
     get employeeOptions() {
         return this.props.employees || [];
+    }
+
+    employeeLabel(employee) {
+        const code = employee?.code || employee?.employee_code || '';
+        return code ? `${employee.name} [${code}]` : (employee?.name || '');
     }
 
     async loadSummary() {
@@ -349,18 +368,25 @@ export class SimpleLeaveSummaryCard extends Component {
         await this.loadSummary();
     }
 
-    onEmployeeSearchInput(ev) {
-        this.state.employee_search = ev.target.value || '';
-    }
-
-    get filteredEmployeeOptions() {
-        const term = (this.state.employee_search || '').toLowerCase().trim();
-        if (!term) {
-            return this.employeeOptions;
+    async onEmployeeSearchInput(ev) {
+        const value = (ev.target.value || '').trim();
+        this.state.employee_search = value;
+        if (!value) {
+            this.state.employee_id = false;
+            this.state.lines = [];
+            this.state.employee_name = '';
+            this.state.employee_profile = {};
+            return;
         }
-        return this.employeeOptions.filter((employee) =>
-            (employee.name || '').toLowerCase().includes(term)
-        );
+        const normalized = value.toLowerCase();
+        const matchedEmployee = this.employeeOptions.find((employee) => {
+            const code = (employee.code || '').toLowerCase();
+            return this.employeeLabel(employee).toLowerCase() === normalized || code === normalized;
+        });
+        if (matchedEmployee && matchedEmployee.id !== this.state.employee_id) {
+            this.state.employee_id = matchedEmployee.id;
+            await this.loadSummary();
+        }
     }
 
     openLeaveRequests(line) {

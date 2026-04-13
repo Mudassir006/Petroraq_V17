@@ -185,16 +185,16 @@
             <div class="col-12 col-md-4">
                 <label class="form-label mb-1">Employee</label>
                 <input type="text"
-                       class="form-control de-analytics-select mb-1"
-                       placeholder="Search employee..."
+                       class="form-control de-analytics-select"
+                       placeholder="Search employee by name or ID..."
                        t-att-value="state.employee_search"
+                       list="de_leave_employee_filter_options"
                        t-on-input="onEmployeeSearchInput"/>
-                <select class="form-select de-analytics-select" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
-                    <option value="">All Employees</option>
-                    <t t-foreach="filteredEmployees" t-as="employee" t-key="employee.id">
-                        <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
+                <datalist id="de_leave_employee_filter_options">
+                    <t t-foreach="state.employees" t-as="employee" t-key="employee.id">
+                        <option t-att-value="this.employeeLabel(employee)"/>
                     </t>
-                </select>
+                </datalist>
             </div>
             <div class="col-12 col-md-4">
                 <label class="form-label mb-1">Leave Type</label>
@@ -239,14 +239,15 @@
             <div class="d-flex gap-2 flex-wrap de-simple-summary-controls">
                 <input type="text"
                        class="form-control de-summary-select"
-                       placeholder="Search employee..."
+                       placeholder="Search employee by name or ID..."
                        t-att-value="state.employee_search"
+                       list="de_summary_employee_filter_options"
                        t-on-input="onEmployeeSearchInput"/>
-                <select class="duration de-summary-select" t-att-value="state.employee_id" t-on-change="onEmployeeChange">
-                    <t t-foreach="filteredEmployeeOptions" t-as="employee" t-key="employee.id">
-                        <option t-att-value="employee.id"><t t-esc="employee.name"/></option>
+                <datalist id="de_summary_employee_filter_options">
+                    <t t-foreach="employeeOptions" t-as="employee" t-key="employee.id">
+                        <option t-att-value="this.employeeLabel(employee)"/>
                     </t>
-                </select>
+                </datalist>
             </div>
         </div>
         <div class="text-muted mb-3 de-simple-summary-subtitle">

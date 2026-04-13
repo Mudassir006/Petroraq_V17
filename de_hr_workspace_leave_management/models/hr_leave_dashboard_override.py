@@ -277,7 +277,11 @@ class HrLeaveDashboardOverride(models.Model):
         employees = self.env['hr.employee'].sudo().search([('active', '=', True)], order='name asc')
         leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)], order='name asc')
         return {
-            'employees': [{'id': emp.id, 'name': emp.name} for emp in employees],
+            'employees': [{
+                'id': emp.id,
+                'name': emp.name,
+                'code': emp.code or emp.barcode or '',
+            } for emp in employees],
             'leave_types': [{'id': leave_type.id, 'name': leave_type.name} for leave_type in leave_types],
         }
 
