@@ -2,7 +2,7 @@
     'name': "Biometric Attendance Machines Integration",
     'author': "Guess Who",
     'website': 'mudassir',
-    'version': '1.1.7',
+    'version': '1.1.8',
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
