@@ -28,6 +28,9 @@
                                 <button t-att-class="tileClass(tile)"
                                         t-att-data-action-id="tile.action_id"
                                         t-on-click="openTile">
+                                    <t t-if="tile.count &gt; 0">
+                                        <span class="de-dashboard-pending-dot" title="Pending approvals"/>
+                                    </t>
                                     <div class="de-dashboard-icon">
                                         <div t-att-class="iconBoxClass(tile)">
                                             <i t-att-class="`fa ${tile.icon || 'fa-cubes'}`"/>

@@ -59,7 +59,8 @@ class ApprovalDashboard extends Component {
 
 
     tileClass(tile) {
-        return `de-dashboard-tile de-dashboard-tile-${tile.tone || "primary"}`;
+        const hasPending = (tile.count || 0) > 0 ? "de-dashboard-tile-pending" : "";
+        return `de-dashboard-tile de-dashboard-tile-${tile.tone || "primary"} ${hasPending}`.trim();
     }
 
     iconBoxClass(tile) {
