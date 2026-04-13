@@ -287,11 +287,18 @@
                          t-on-click="() => this.openLeaveRequests(line)">
                         <div class="de-leave-type"><t t-esc="line.leave_type"/></div>
                         <div class="de-leave-ratio">
-                            <i class="fa fa-umbrella me-1"/> <t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/>
+                            <i class="fa fa-umbrella me-1"/>
+                            <t t-if="line.requires_allocation and line.allocated_days &gt; 0">
+                                <t t-esc="line.used_days"/>/<t t-esc="line.allocated_days"/>
+                            </t>
+                            <t t-else="">
+                                <t t-esc="line.used_days"/> days taken
+                            </t>
                         </div>
                         <div class="de-tile-chart">
-                            <div class="de-tile-chart-fill"
-                                 t-att-style="'width:' + (line.allocated_days > 0 ? Math.min((line.used_days / line.allocated_days) * 100, 100) : 0) + '%'"/>
+                            <div t-if="line.requires_allocation and line.allocated_days &gt; 0"
+                                 class="de-tile-chart-fill"
+                                 t-att-style="'width:' + Math.min((line.used_days / line.allocated_days) * 100, 100) + '%'"/>
                         </div>
                         <div class="de-leave-caption">AVAILED <i class="fa fa-question-circle-o"/></div>
                     </div>

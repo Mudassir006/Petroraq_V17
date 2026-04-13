@@ -435,6 +435,7 @@ class HrLeaveDashboardOverride(models.Model):
             'leave_type': leave_type.name,
             'used_days': round(used.get(leave_type.id, 0.0), 2),
             'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),
+            'requires_allocation': leave_type.requires_allocation == 'yes',
         } for leave_type in leave_types]
 
         return {
