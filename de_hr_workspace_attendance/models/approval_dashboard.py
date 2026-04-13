@@ -13,6 +13,10 @@ class HrApprovalDashboardService(models.AbstractModel):
             "de_hr_workspace.menu_my_employee_approvals",
             raise_if_not_found=False,
         )
+        dashboard_menu = self.env.ref(
+            "de_hr_workspace_attendance.menu_hr_approval_dashboard",
+            raise_if_not_found=False,
+        )
         if not parent:
             return self.env["ir.ui.menu"]
 
@@ -30,7 +34,15 @@ class HrApprovalDashboardService(models.AbstractModel):
                 lambda m: not m.groups_id or bool(m.groups_id & user_groups)
             )
 
-        return menus.filtered(lambda m: bool(m.action))
+        return menus.filtered(
+            lambda m: bool(m.action)
+            and (not dashboard_menu or m.id != dashboard_menu.id)
+            and not (
+                m.action
+                and getattr(m.action, "_name", "") == "ir.actions.client"
+                and getattr(m.action, "tag", "") == "de_hr_workspace_attendance.approval_dashboard"
+            )
+        )
 
     @api.model
     def _domain_from_action(self, action):
