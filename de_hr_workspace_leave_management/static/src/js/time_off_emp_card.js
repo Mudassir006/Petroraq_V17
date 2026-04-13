@@ -4,7 +4,7 @@ import { Component, onWillStart, useState } from "@odoo/owl";
 export class TimeOffEmpCard extends Component {}
 TimeOffEmpCard.template = 'de_hr_workspace_leave_management.TimeOffEmpCard';
 TimeOffEmpCard.props = ['name', 'id', 'department_id', 'job_position',
-'children', 'image_1920', 'work_email', 'work_phone', 'company', 'resource_calendar_id'];
+'children', 'image_1920', 'work_email', 'work_phone', 'company', 'resource_calendar_id', 'employee_code', 'joining_date'];
 //Exports a class TimeOffEmpOrgChart that extends the Component class.
 //It is a custom component used for managing an employee organization
 //chart in the context of time off and holidays.
@@ -224,6 +224,7 @@ export class LeaveRequestCountCard extends Component {
         this.state = useState({
             duration: 'this_month',
             employee_id: '',
+            employee_search: '',
             leave_type_id: '',
             date_from: '',
             date_to: '',
@@ -269,6 +270,20 @@ export class LeaveRequestCountCard extends Component {
         await this.loadMetrics();
     }
 
+    onEmployeeSearchInput(ev) {
+        this.state.employee_search = ev.target.value || '';
+    }
+
+    get filteredEmployees() {
+        const term = (this.state.employee_search || '').toLowerCase().trim();
+        if (!term) {
+            return this.state.employees;
+        }
+        return this.state.employees.filter((employee) =>
+            (employee.name || '').toLowerCase().includes(term)
+        );
+    }
+
     async onLeaveTypeChange(ev) {
         this.state.leave_type_id = ev.target.value;
         await this.loadMetrics();
@@ -294,6 +309,7 @@ export class SimpleLeaveSummaryCard extends Component {
         this.actionService = useService("action");
         this.state = useState({
             employee_id: this.props.id,
+            employee_search: '',
             lines: [],
             employee_name: '',
             employee_profile: {},
@@ -331,6 +347,20 @@ export class SimpleLeaveSummaryCard extends Component {
     async onEmployeeChange(ev) {
         this.state.employee_id = parseInt(ev.target.value, 10);
         await this.loadSummary();
+    }
+
+    onEmployeeSearchInput(ev) {
+        this.state.employee_search = ev.target.value || '';
+    }
+
+    get filteredEmployeeOptions() {
+        const term = (this.state.employee_search || '').toLowerCase().trim();
+        if (!term) {
+            return this.employeeOptions;
+        }
+        return this.employeeOptions.filter((employee) =>
+            (employee.name || '').toLowerCase().includes(term)
+        );
     }
 
     openLeaveRequests(line) {
