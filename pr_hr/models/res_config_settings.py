@@ -17,4 +17,9 @@ class ResConfigSettings(models.TransientModel):
                                           readonly=False,
                                           help='Saudi Employee LC Percentage')
 
+    # Compatibility field: some inherited settings views reference `favicon`.
+    # Keep it on res.config.settings to avoid view validation crashes when
+    # modules adding company-level favicon support are not loaded.
+    favicon = fields.Binary(string='Favicon')
+
     # endregion
