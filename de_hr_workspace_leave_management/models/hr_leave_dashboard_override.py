@@ -6,6 +6,17 @@ from odoo import api, fields, models
 class HrLeaveDashboardOverride(models.Model):
     _inherit = 'hr.leave'
 
+    def _get_employee_joining_date(self, employee):
+        joining_date = False
+        if 'hr.contract' in self.env:
+            contract = self.env['hr.contract'].sudo().search([
+                ('employee_id', '=', employee.id),
+                ('state', '!=', 'cancel'),
+                ('date_start', '!=', False),
+            ], order='date_start asc', limit=1)
+            joining_date = contract.date_start
+        return fields.Date.to_string(joining_date) if joining_date else False
+
     @api.model
     def _get_period_date_range(self, duration):
         today = fields.Date.context_today(self)
@@ -50,6 +61,8 @@ class HrLeaveDashboardOverride(models.Model):
             'id': current_employee.id,
             'code': current_employee.code,
             'name': current_employee.name,
+            'employee_code': current_employee.code or current_employee.barcode or '',
+            'joining_date': self._get_employee_joining_date(current_employee),
             'job_id': current_employee.job_id.id,
             'image_1920': current_employee.image_1920,
             'work_email': current_employee.work_email,
@@ -264,7 +277,11 @@ class HrLeaveDashboardOverride(models.Model):
         employees = self.env['hr.employee'].sudo().search([('active', '=', True)], order='name asc')
         leave_types = self.env['hr.leave.type'].sudo().search([('active', '=', True)], order='name asc')
         return {
-            'employees': [{'id': emp.id, 'name': emp.name} for emp in employees],
+            'employees': [{
+                'id': emp.id,
+                'name': emp.name,
+                'code': emp.code or emp.barcode or '',
+            } for emp in employees],
             'leave_types': [{'id': leave_type.id, 'name': leave_type.name} for leave_type in leave_types],
         }
 
@@ -418,6 +435,7 @@ class HrLeaveDashboardOverride(models.Model):
             'leave_type': leave_type.name,
             'used_days': round(used.get(leave_type.id, 0.0), 2),
             'allocated_days': round(allocated.get(leave_type.id, 0.0), 2),
+            'requires_allocation': leave_type.requires_allocation == 'yes',
         } for leave_type in leave_types]
 
         return {
@@ -426,6 +444,8 @@ class HrLeaveDashboardOverride(models.Model):
             'employee_profile': {
                 'id': employee.id,
                 'name': employee.name,
+                'employee_code': employee.code or employee.barcode or '',
+                'joining_date': self._get_employee_joining_date(employee),
                 'job_position': employee.job_title or '',
                 'work_email': employee.work_email or '',
                 'work_phone': employee.work_phone or '',
