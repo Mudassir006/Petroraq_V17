@@ -18,7 +18,7 @@ class HrEmployee(models.Model):
     # region [Fields]
     # New Fields
     complete_name = fields.Char(string='Complete Name', compute='_compute_complete_name')
-    code = fields.Char(string='Employee Code', size=4, required=True, help="Internal Employee Code")
+    code = fields.Char(string='Employee Code', size=4, help="Internal Employee Code")
     state = fields.Selection([('new', 'New'),
                               ('in_service', 'In-Service'),
                               ('in_leave', 'In-Leave'),
