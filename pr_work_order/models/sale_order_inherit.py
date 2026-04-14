@@ -47,6 +47,8 @@ class SaleOrder(models.Model):
 
     def _ensure_trading_expense_bucket(self):
         ExpenseBucket = self.env["pr.expense.bucket"].sudo()
+        ExpenseBucketLine = self.env["pr.expense.bucket.line"].sudo()
+        AnalyticAccount = self.env["account.analytic.account"].sudo()
         for order in self:
             if order.inquiry_type != "trading":
                 continue
@@ -74,6 +76,33 @@ class SaleOrder(models.Model):
                     write_vals["budget_amount"] = source_amount
                 if write_vals:
                     bucket.write(write_vals)
+
+            trading_cc = bucket.line_ids[:1].cost_center_id
+            if not trading_cc:
+                cc_vals = {
+                    "name": _("%s - Trading") % (order.name or _("Trading")),
+                    "company_id": order.company_id.id,
+                    "partner_id": order.partner_id.id,
+                    "budget_type": "capex",
+                    "budget_allowance": source_amount,
+                }
+                plan_ref = self.env.ref("pr_account.pr_account_analytic_plan_our_project", raise_if_not_found=False)
+                if plan_ref and "plan_id" in AnalyticAccount._fields:
+                    cc_vals["plan_id"] = plan_ref.id
+                trading_cc = AnalyticAccount.create(cc_vals)
+                ExpenseBucketLine.create({
+                    "bucket_id": bucket.id,
+                    "cost_center_id": trading_cc.id,
+                    "budget_type": "capex",
+                    "budget_allowance": source_amount,
+                })
+            else:
+                bucket_line = bucket.line_ids.filtered(lambda l: l.cost_center_id == trading_cc)[:1]
+                if bucket_line:
+                    bucket_line.write({
+                        "budget_type": "capex",
+                        "budget_allowance": source_amount,
+                    })
 
     def _remove_trading_expense_bucket(self):
         for order in self:
