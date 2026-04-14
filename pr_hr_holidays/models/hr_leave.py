@@ -44,6 +44,11 @@ class HrHolidays(models.Model):
             return super(HrHolidays, self.with_context(skip_allocation_check_for_hr_manager=True)).write(vals)
         return super().write(vals)
 
+    def _check_validity(self):
+        if self.env.context.get("skip_allocation_check_for_hr_manager") or self._can_bypass_allocation_limit():
+            return
+        return super()._check_validity()
+
     def _check_holidays(self):
         if self.env.context.get("skip_allocation_check_for_hr_manager") or self._can_bypass_allocation_limit():
             return

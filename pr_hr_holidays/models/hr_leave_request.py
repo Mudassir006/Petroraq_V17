@@ -425,7 +425,8 @@ class HrLeaveRequest(models.Model):
                 tracking_disable=True,
                 mail_activity_automation_skip=True,
                 leave_fast_create=True,
-                leave_skip_state_check=True
+                leave_skip_state_check=True,
+                skip_allocation_check_for_hr_manager=True
             ).sudo().create(leave_vals)
             if leave_id:
                 rec.leave_id = leave_id.id
