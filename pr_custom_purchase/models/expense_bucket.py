@@ -278,6 +278,8 @@ class ExpenseBucketLine(models.Model):
     @api.constrains("cost_center_id", "bucket_id")
     def _check_cost_center_bucket_limits(self):
         for rec in self:
+            if rec.bucket_id.scope == "trading":
+                continue
             if rec.cost_center_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.bucket_id:
                 raise ValidationError(_("This cost center already belongs to another expense bucket."))
 
@@ -289,7 +291,8 @@ class ExpenseBucketLine(models.Model):
                 raise UserError(_("Submitted expense bucket cannot be edited."))
         records = super().create(vals_list)
         for rec in records:
-            rec.cost_center_id.expense_bucket_id = rec.bucket_id.id
+            if rec.bucket_id.scope != "trading":
+                rec.cost_center_id.expense_bucket_id = rec.bucket_id.id
         return records
 
     def write(self, vals):
@@ -300,7 +303,7 @@ class ExpenseBucketLine(models.Model):
         previous = {rec.id: rec.cost_center_id.id for rec in self}
         res = super().write(vals)
         for rec in self:
-            if rec.cost_center_id:
+            if rec.cost_center_id and rec.bucket_id.scope != "trading":
                 rec.cost_center_id.expense_bucket_id = rec.bucket_id.id
             previous_id = previous.get(rec.id)
             if previous_id and previous_id != rec.cost_center_id.id:
@@ -313,7 +316,11 @@ class ExpenseBucketLine(models.Model):
         for rec in self:
             if rec.bucket_id.state != "draft":
                 raise UserError(_("Submitted expense bucket cannot be edited."))
-            if rec.cost_center_id and rec.cost_center_id.expense_bucket_id == rec.bucket_id:
+            if (
+                rec.bucket_id.scope != "trading"
+                and rec.cost_center_id
+                and rec.cost_center_id.expense_bucket_id == rec.bucket_id
+            ):
                 rec.cost_center_id.expense_bucket_id = False
         return super().unlink()
 

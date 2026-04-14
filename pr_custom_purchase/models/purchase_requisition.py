@@ -104,6 +104,12 @@ class PurchaseRequisition(models.Model):
     )
     project_id = fields.Many2one("project.project", string="Project")
     expense_bucket_id = fields.Many2one("pr.expense.bucket", string="Expense")
+    allowed_cost_center_ids = fields.Many2many(
+        "account.analytic.account",
+        compute="_compute_allowed_cost_center_ids",
+        string="Allowed Cost Centers",
+        store=False,
+    )
     expense_scope = fields.Selection(
         [("department", "Department"), ("project", "Project")],
         string="Expense Scope",
@@ -112,6 +118,11 @@ class PurchaseRequisition(models.Model):
         [("opex", "Opex"), ("capex", "Capex")],
         string="Expense Type",
     )
+
+    @api.depends("expense_bucket_id", "expense_bucket_id.line_ids", "expense_bucket_id.line_ids.cost_center_id")
+    def _compute_allowed_cost_center_ids(self):
+        for rec in self:
+            rec.allowed_cost_center_ids = rec.expense_bucket_id.line_ids.mapped("cost_center_id")
 
     def _required_date_from_priority(self, priority):
         today = fields.Date.context_today(self)
@@ -795,13 +806,14 @@ class PurchaseRequisitionLine(models.Model):
     unit_price = fields.Float(string="Unit Cost")
     cost_center_id = fields.Many2one(
         "account.analytic.account", string="Cost Center", required=True,
-        domain="[('expense_bucket_id', '=', requisition_id.expense_bucket_id)]",
+        domain="[('id', 'in', requisition_id.allowed_cost_center_ids)]",
     )
 
     @api.constrains("cost_center_id", "requisition_id")
     def _check_cost_center_matches_bucket(self):
         for rec in self:
-            if rec.cost_center_id and rec.requisition_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.requisition_id.expense_bucket_id:
+            bucket = rec.requisition_id.expense_bucket_id
+            if rec.cost_center_id and bucket and rec.cost_center_id not in bucket.line_ids.mapped("cost_center_id"):
                 raise ValidationError(_("Selected cost center must belong to the selected expense bucket."))
 
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)

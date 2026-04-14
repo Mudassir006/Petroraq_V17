@@ -1,4 +1,5 @@
 from odoo import api, fields, models, _
+from odoo.exceptions import UserError
 
 
 class SaleOrder(models.Model):
@@ -17,6 +18,119 @@ class SaleOrder(models.Model):
         string="Inquiry Type",
         default="trading",
     )
+    trading_expense_bucket_id = fields.Many2one(
+        "pr.expense.bucket",
+        string="Trading Expense Bucket",
+        copy=False,
+        readonly=True,
+    )
+    expense_bucket_id = fields.Many2one(
+        "pr.expense.bucket",
+        string="Expense Bucket",
+        compute="_compute_expense_bucket_id",
+    )
+    expense_bucket_count = fields.Integer(
+        string="Expense Bucket Count",
+        compute="_compute_expense_bucket_id",
+    )
+
+    @api.depends("trading_expense_bucket_id", "work_order_id", "work_order_id.expense_bucket_id")
+    def _compute_expense_bucket_id(self):
+        for order in self:
+            bucket = order.trading_expense_bucket_id or order.work_order_id.expense_bucket_id
+            order.expense_bucket_id = bucket
+            order.expense_bucket_count = 1 if bucket else 0
+
+    def _get_trading_bucket_source_amount(self):
+        self.ensure_one()
+        return self.amount_total or self.final_grand_total or 0.0
+
+    def _ensure_trading_expense_bucket(self):
+        ExpenseBucket = self.env["pr.expense.bucket"].sudo()
+        for order in self:
+            if order.inquiry_type != "trading":
+                continue
+            source_amount = order._get_trading_bucket_source_amount()
+            if source_amount <= 0.0:
+                continue
+
+            if not order.trading_expense_bucket_id:
+                bucket = ExpenseBucket.create({
+                    "name": _("%s - Trading Bucket") % (order.name or _("Quotation")),
+                    "scope": "trading",
+                    "expense_type": "capex",
+                    "sale_order_id": order.id,
+                    "budget_amount": source_amount,
+                    "source_budget_limit": source_amount,
+                })
+                order.sudo().write({"trading_expense_bucket_id": bucket.id})
+            else:
+                bucket = order.trading_expense_bucket_id.sudo()
+                write_vals = {}
+                if bucket.sale_order_id != order:
+                    write_vals["sale_order_id"] = order.id
+                if not bucket.source_budget_limit:
+                    write_vals["source_budget_limit"] = source_amount
+                    write_vals["budget_amount"] = source_amount
+                if write_vals:
+                    bucket.write(write_vals)
+
+    def _remove_trading_expense_bucket(self):
+        for order in self:
+            if not order.trading_expense_bucket_id:
+                continue
+            linked_pr_count = self.env["custom.pr"].sudo().search_count([
+                ("expense_bucket_id", "=", order.trading_expense_bucket_id.id)
+            ])
+            if linked_pr_count:
+                raise UserError(
+                    _(
+                        "Cannot delete trading expense bucket %s because it is already linked to Purchase Requisitions."
+                    ) % order.trading_expense_bucket_id.display_name
+                )
+            order.trading_expense_bucket_id.sudo().unlink()
+            order.trading_expense_bucket_id = False
+
+    def write(self, vals):
+        res = super().write(vals)
+        if "inquiry_type" in vals:
+            self.filtered(lambda o: o.inquiry_type != "trading")._remove_trading_expense_bucket()
+            self.filtered(lambda o: o.inquiry_type == "trading" and o.state in ("sale", "done"))._ensure_trading_expense_bucket()
+        return res
+
+    def _action_cancel(self):
+        self._remove_trading_expense_bucket()
+        return super()._action_cancel()
+
+    def action_draft(self):
+        self._remove_trading_expense_bucket()
+        return super().action_draft()
+
+    def action_reset_to_draft(self):
+        self._remove_trading_expense_bucket()
+        return super().action_reset_to_draft()
+
+    def create_revision(self):
+        self._remove_trading_expense_bucket()
+        return super().create_revision()
+
+    def action_confirm(self):
+        res = super().action_confirm()
+        self.filtered(lambda o: o.inquiry_type == "trading")._ensure_trading_expense_bucket()
+        return res
+
+    def action_view_expense_bucket(self):
+        self.ensure_one()
+        if not self.expense_bucket_id:
+            return False
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Expense Bucket"),
+            "res_model": "pr.expense.bucket",
+            "view_mode": "form",
+            "res_id": self.expense_bucket_id.id,
+            "target": "current",
+        }
 
     def action_create_work_order(self):
         """Create Work Order + Project and copy BOQ lines from SO"""
