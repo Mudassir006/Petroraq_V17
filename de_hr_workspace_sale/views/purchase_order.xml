@@ -46,5 +46,5 @@
               name="Purchase Requisitions"
               action="pr_sale_purchase_requisition_supervisor_approvals_action"
               sequence="2"
-              groups="pr_custom_purchase.project_manager,pr_custom_purchase.managing_director,account.group_account_manager,account.group_account_user"/>
+              groups="base.group_user"/>
 </odoo>

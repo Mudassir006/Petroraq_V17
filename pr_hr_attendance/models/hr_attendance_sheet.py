@@ -331,6 +331,85 @@ class AttendanceSheetLine(models.Model):
 
     # endregion [Fields]
 
+    def _get_transportation_allowance_amount(self, contract):
+        if not contract:
+            return 0.0
+        transport_rules = contract.contract_salary_rule_ids.filtered(
+            lambda r: r.pay_in_payslip and (r.salary_rule_id.code or "").upper() == "TRANSPORTATION"
+        )
+        return sum(transport_rules.mapped("amount")) if transport_rules else 0.0
+
+    def _get_deduction_salary_base(self, contract):
+        gross_amount = contract.gross_amount if contract else 0.0
+        transport_amount = self._get_transportation_allowance_amount(contract)
+        return max(gross_amount - transport_amount, 0.0)
+
+    @api.depends("employee_id",
+                 "date",
+                 "pl_sign_in",
+                 "pl_sign_out",
+                 "employee_id.contract_id",
+                 "employee_id.contract_id.gross_amount",
+                 "employee_id.contract_id.contract_salary_rule_ids",
+                 "employee_id.contract_id.contract_salary_rule_ids.amount",
+                 "employee_id.contract_id.contract_salary_rule_ids.pay_in_payslip",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.name",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.code")
+    def _compute_day_amount(self):
+        for line in self:
+            if line.employee_id and line.employee_id.contract_id and line.date:
+                month_days = line._get_month_days_divisor(line.date)
+                salary_base = line._get_deduction_salary_base(line.employee_id.contract_id)
+                line.day_amount = salary_base / month_days if month_days else 0.0
+            else:
+                line.day_amount = 0.0
+
+    @api.depends("employee_id",
+                 "late_in",
+                 "date",
+                 "pl_sign_in",
+                 "pl_sign_out",
+                 "employee_id.contract_id",
+                 "employee_id.contract_id.gross_amount",
+                 "employee_id.contract_id.contract_salary_rule_ids",
+                 "employee_id.contract_id.contract_salary_rule_ids.amount",
+                 "employee_id.contract_id.contract_salary_rule_ids.pay_in_payslip",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.name",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.code")
+    def _compute_late_in_amount(self):
+        for line in self:
+            if line.employee_id and line.date and line.late_in > 0:
+                month_days = line._get_month_days_divisor(line.date)
+                salary_base = line._get_deduction_salary_base(line.employee_id.contract_id)
+                day_amount = salary_base / month_days if month_days else 0.0
+                hours_per_day = line.employee_id.contract_id.resource_calendar_id.hours_per_day
+                line.late_in_amount = (line.late_in * day_amount) / hours_per_day if hours_per_day > 0 else 0.0
+            else:
+                line.late_in_amount = 0.0
+
+    @api.depends("employee_id",
+                 "status",
+                 "date",
+                 "employee_id.contract_id",
+                 "employee_id.contract_id.gross_amount",
+                 "employee_id.contract_id.contract_salary_rule_ids",
+                 "employee_id.contract_id.contract_salary_rule_ids.amount",
+                 "employee_id.contract_id.contract_salary_rule_ids.pay_in_payslip",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.name",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.code")
+    def _compute_absence_amount(self):
+        for line in self:
+            if not line.employee_id or not line.employee_id.contract_id or not line.date:
+                line.absence_amount = 0.0
+                continue
+            month_days = line._get_month_days_divisor(line.date)
+            salary_base = line._get_deduction_salary_base(line.employee_id.contract_id)
+            day_amount = salary_base / month_days if month_days else 0.0
+            line.absence_amount = day_amount if line.status == "ab" else 0.0
+
     @api.depends("employee_id",
                  "early_check_out",
                  "date",
@@ -338,6 +417,12 @@ class AttendanceSheetLine(models.Model):
                  "pl_sign_out",
                  "employee_id.contract_id",
                  "employee_id.contract_id.gross_amount",
+                 "employee_id.contract_id.contract_salary_rule_ids",
+                 "employee_id.contract_id.contract_salary_rule_ids.amount",
+                 "employee_id.contract_id.contract_salary_rule_ids.pay_in_payslip",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.name",
+                 "employee_id.contract_id.contract_salary_rule_ids.salary_rule_id.code",
                  "att_sheet_id",
                  "att_sheet_id.att_policy_id",
                  "att_sheet_id.att_policy_id.early_rule_id",
@@ -345,11 +430,9 @@ class AttendanceSheetLine(models.Model):
     def _compute_early_check_out_amount(self):
         for line in self:
             if line.employee_id and line.date and line.early_check_out > 0:
-                start_of_month = date_utils.start_of(line.date, 'month')
-                end_of_month = date_utils.end_of(line.date, 'month')
-                month_days = (end_of_month - start_of_month).days + 1
-                net_salary_amount = line.employee_id.contract_id.gross_amount
-                day_amount = net_salary_amount / month_days
+                month_days = line._get_month_days_divisor(line.date)
+                salary_base = line._get_deduction_salary_base(line.employee_id.contract_id)
+                day_amount = salary_base / month_days if month_days else 0.0
                 # hours_per_day = line.pl_sign_out - line.pl_sign_in
                 hours_per_day = line.employee_id.contract_id.resource_calendar_id.hours_per_day
                 line.early_check_out_amount = (line.early_check_out * day_amount) / hours_per_day
