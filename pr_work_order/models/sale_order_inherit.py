@@ -58,7 +58,7 @@ class SaleOrder(models.Model):
                 bucket = ExpenseBucket.create({
                     "name": _("%s - Trading Bucket") % (order.name or _("Quotation")),
                     "scope": "trading",
-                    "expense_type": "opex",
+                    "expense_type": "capex",
                     "sale_order_id": order.id,
                     "budget_amount": source_amount,
                     "source_budget_limit": source_amount,
@@ -91,17 +91,11 @@ class SaleOrder(models.Model):
             order.trading_expense_bucket_id.sudo().unlink()
             order.trading_expense_bucket_id = False
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        orders = super().create(vals_list)
-        orders._ensure_trading_expense_bucket()
-        return orders
-
     def write(self, vals):
         res = super().write(vals)
-        if any(k in vals for k in ("inquiry_type", "amount_total", "final_grand_total", "order_line")):
-            self.filtered(lambda o: o.inquiry_type == "trading")._ensure_trading_expense_bucket()
+        if "inquiry_type" in vals:
             self.filtered(lambda o: o.inquiry_type != "trading")._remove_trading_expense_bucket()
+            self.filtered(lambda o: o.inquiry_type == "trading" and o.state in ("sale", "done"))._ensure_trading_expense_bucket()
         return res
 
     def _action_cancel(self):
@@ -119,6 +113,11 @@ class SaleOrder(models.Model):
     def create_revision(self):
         self._remove_trading_expense_bucket()
         return super().create_revision()
+
+    def action_confirm(self):
+        res = super().action_confirm()
+        self.filtered(lambda o: o.inquiry_type == "trading")._ensure_trading_expense_bucket()
+        return res
 
     def action_view_expense_bucket(self):
         self.ensure_one()
