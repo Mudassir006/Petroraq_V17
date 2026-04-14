@@ -466,20 +466,21 @@ class CustomPRLine(models.Model):
         'account.analytic.account',
         string='Cost Center',
         required=True,
-        domain="[('expense_bucket_id', '=', pr_id.expense_bucket_id)]",
+        domain="[('id', 'in', pr_id.expense_bucket_id.line_ids.cost_center_id)]",
     )
 
     @api.onchange('pr_id.expense_bucket_id')
     def _onchange_expense_bucket(self):
         for rec in self:
             bucket = rec.pr_id.expense_bucket_id
-            if rec.cost_center_id and bucket and rec.cost_center_id.expense_bucket_id != bucket:
+            if rec.cost_center_id and bucket and rec.cost_center_id not in bucket.line_ids.mapped("cost_center_id"):
                 rec.cost_center_id = False
 
     @api.constrains('cost_center_id', 'pr_id')
     def _check_cost_center_matches_bucket(self):
         for rec in self:
-            if rec.cost_center_id and rec.pr_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.pr_id.expense_bucket_id:
+            bucket = rec.pr_id.expense_bucket_id
+            if rec.cost_center_id and bucket and rec.cost_center_id not in bucket.line_ids.mapped("cost_center_id"):
                 raise ValidationError(_('Selected cost center must belong to the selected expense bucket.'))
 
     type = fields.Selection(

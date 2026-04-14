@@ -795,13 +795,14 @@ class PurchaseRequisitionLine(models.Model):
     unit_price = fields.Float(string="Unit Cost")
     cost_center_id = fields.Many2one(
         "account.analytic.account", string="Cost Center", required=True,
-        domain="[('expense_bucket_id', '=', requisition_id.expense_bucket_id)]",
+        domain="[('id', 'in', requisition_id.expense_bucket_id.line_ids.cost_center_id)]",
     )
 
     @api.constrains("cost_center_id", "requisition_id")
     def _check_cost_center_matches_bucket(self):
         for rec in self:
-            if rec.cost_center_id and rec.requisition_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.requisition_id.expense_bucket_id:
+            bucket = rec.requisition_id.expense_bucket_id
+            if rec.cost_center_id and bucket and rec.cost_center_id not in bucket.line_ids.mapped("cost_center_id"):
                 raise ValidationError(_("Selected cost center must belong to the selected expense bucket."))
 
     total_price = fields.Float(string="Total", compute="_compute_total", store=True)
