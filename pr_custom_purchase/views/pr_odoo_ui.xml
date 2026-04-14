@@ -109,7 +109,7 @@
                             <field name="line_ids" readonly="1">
                                 <tree editable="bottom">
                                     <field name="description"/>
-                                    <field name="cost_center_id" domain="[('id', 'in', parent.expense_bucket_id.line_ids.cost_center_id)]"/>
+                                    <field name="cost_center_id" domain="[('id', 'in', parent.allowed_cost_center_ids)]"/>
                                     <field name="type"/>
                                     <field name="unit"/>
                                     <field name="quantity"/>

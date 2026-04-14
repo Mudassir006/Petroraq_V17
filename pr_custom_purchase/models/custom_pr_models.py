@@ -73,6 +73,12 @@ class CustomPR(models.Model):
         required=True,
         domain="[('expense_type', '=', expense_type)]",
     )
+    allowed_cost_center_ids = fields.Many2many(
+        "account.analytic.account",
+        compute="_compute_allowed_cost_center_ids",
+        string="Allowed Cost Centers",
+        store=False,
+    )
     state = fields.Selection(
         [
             ('draft', 'Draft'),
@@ -134,6 +140,11 @@ class CustomPR(models.Model):
         string="Purchase Order Status",
         compute="_compute_linked_document_statuses",
     )
+
+    @api.depends("expense_bucket_id", "expense_bucket_id.line_ids", "expense_bucket_id.line_ids.cost_center_id")
+    def _compute_allowed_cost_center_ids(self):
+        for rec in self:
+            rec.allowed_cost_center_ids = rec.expense_bucket_id.line_ids.mapped("cost_center_id")
 
     def _compute_linked_document_statuses(self):
         rfq_priority = {'draft': 1, 'sent': 2, 'done': 3, 'cancel': 4}
@@ -466,7 +477,7 @@ class CustomPRLine(models.Model):
         'account.analytic.account',
         string='Cost Center',
         required=True,
-        domain="[('id', 'in', pr_id.expense_bucket_id.line_ids.cost_center_id)]",
+        domain="[('id', 'in', pr_id.allowed_cost_center_ids)]",
     )
 
     @api.onchange('pr_id.expense_bucket_id')
