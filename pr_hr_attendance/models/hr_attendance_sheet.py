@@ -335,10 +335,7 @@ class AttendanceSheetLine(models.Model):
         if not contract:
             return 0.0
         transport_rules = contract.contract_salary_rule_ids.filtered(
-            lambda r: r.pay_in_payslip and (
-                "transport" in (r.salary_rule_id.name or "").lower()
-                or "transport" in (r.salary_rule_id.code or "").lower()
-            )
+            lambda r: r.pay_in_payslip and (r.salary_rule_id.code or "").upper() == "TRANSPORTATION"
         )
         return sum(transport_rules.mapped("amount")) if transport_rules else 0.0
 
