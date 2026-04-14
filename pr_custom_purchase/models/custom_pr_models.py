@@ -68,10 +68,15 @@ class CustomPR(models.Model):
         required=True,
     )
     expense_bucket_id = fields.Many2one(
-        'pr.expense.bucket',
+        'crossovered.budget',
         string='Expense',
         required=True,
         domain="[('expense_type', '=', expense_type)]",
+    )
+    allowed_cost_center_ids = fields.Many2many(
+        "account.analytic.account",
+        compute="_compute_allowed_cost_center_ids",
+        store=False,
     )
     state = fields.Selection(
         [
@@ -134,6 +139,12 @@ class CustomPR(models.Model):
         string="Purchase Order Status",
         compute="_compute_linked_document_statuses",
     )
+
+    @api.depends("expense_bucket_id", "expense_bucket_id.crossovered_budget_line",
+                 "expense_bucket_id.crossovered_budget_line.analytic_account_id")
+    def _compute_allowed_cost_center_ids(self):
+        for rec in self:
+            rec.allowed_cost_center_ids = rec.expense_bucket_id.crossovered_budget_line.mapped("analytic_account_id")
 
     def _compute_linked_document_statuses(self):
         rfq_priority = {'draft': 1, 'sent': 2, 'done': 3, 'cancel': 4}
@@ -466,20 +477,23 @@ class CustomPRLine(models.Model):
         'account.analytic.account',
         string='Cost Center',
         required=True,
-        domain="[('expense_bucket_id', '=', pr_id.expense_bucket_id)]",
+        domain="[('id', 'in', pr_id.allowed_cost_center_ids)]",
     )
 
     @api.onchange('pr_id.expense_bucket_id')
     def _onchange_expense_bucket(self):
         for rec in self:
             bucket = rec.pr_id.expense_bucket_id
-            if rec.cost_center_id and bucket and rec.cost_center_id.expense_bucket_id != bucket:
+            allowed = bucket.crossovered_budget_line.mapped("analytic_account_id")
+            if rec.cost_center_id and bucket and rec.cost_center_id not in allowed:
                 rec.cost_center_id = False
 
     @api.constrains('cost_center_id', 'pr_id')
     def _check_cost_center_matches_bucket(self):
         for rec in self:
-            if rec.cost_center_id and rec.pr_id.expense_bucket_id and rec.cost_center_id.expense_bucket_id != rec.pr_id.expense_bucket_id:
+            bucket = rec.pr_id.expense_bucket_id
+            allowed = bucket.crossovered_budget_line.mapped("analytic_account_id")
+            if rec.cost_center_id and bucket and rec.cost_center_id not in allowed:
                 raise ValidationError(_('Selected cost center must belong to the selected expense bucket.'))
 
     type = fields.Selection(

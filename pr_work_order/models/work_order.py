@@ -99,7 +99,7 @@ class PRWorkOrder(models.Model):
     project_id = fields.Many2one("project.project", string="Construction Project", ondelete="restrict")
     analytic_account_id = fields.Many2one("account.analytic.account", string="Cost Center", ondelete="restrict")
     expense_bucket_id = fields.Many2one(
-        "pr.expense.bucket",
+        "crossovered.budget",
         string="Expense Bucket",
         copy=False,
         readonly=True,
@@ -304,8 +304,8 @@ class PRWorkOrder(models.Model):
             return False
         return {
             "type": "ir.actions.act_window",
-            "name": _("Expense Bucket"),
-            "res_model": "pr.expense.bucket",
+            "name": _("Budget"),
+            "res_model": "crossovered.budget",
             "view_mode": "form",
             "res_id": self.expense_bucket_id.id,
             "target": "current",
@@ -450,8 +450,9 @@ class PRWorkOrder(models.Model):
             rec._ensure_project_expense_bucket(sync_budget=True)
 
     def _ensure_project_expense_bucket(self, sync_budget=False):
-        ExpenseBucket = self.env["pr.expense.bucket"].sudo()
-        ExpenseBucketLine = self.env["pr.expense.bucket.line"].sudo()
+        Budget = self.env["crossovered.budget"].sudo()
+        BudgetLine = self.env["crossovered.budget.lines"].sudo()
+        today = fields.Date.context_today(self)
 
         for rec in self:
             cost_centers = rec.cost_center_ids.mapped("analytic_account_id").filtered(lambda a: a)
@@ -461,13 +462,16 @@ class PRWorkOrder(models.Model):
             total_budget = sum(cost_centers.mapped("budget_allowance"))
 
             if not rec.expense_bucket_id:
-                bucket = ExpenseBucket.create({
-                    "name": _("%s - CAPEX Bucket") % rec.name,
+                bucket = Budget.create({
+                    "name": _("%s - CAPEX Budget") % rec.name,
                     "scope": "project",
                     "expense_type": "capex",
                     "work_order_id": rec.id,
-                    "budget_amount": total_budget,
                     "source_budget_limit": total_budget,
+                    "date_from": rec.date_start or today,
+                    "date_to": rec.date_end or today,
+                    "company_id": rec.company_id.id,
+                    "user_id": self.env.user.id,
                 })
                 rec.sudo().write({"expense_bucket_id": bucket.id})
             else:
@@ -475,18 +479,20 @@ class PRWorkOrder(models.Model):
                 if bucket.work_order_id != rec:
                     bucket.write({"work_order_id": rec.id})
 
-            existing_cc_ids = set(bucket.line_ids.mapped("cost_center_id").ids)
+            existing_cc_ids = set(bucket.crossovered_budget_line.mapped("analytic_account_id").ids)
             for analytic in cost_centers:
                 if analytic.id in existing_cc_ids:
                     continue
-                ExpenseBucketLine.create({
-                    "bucket_id": bucket.id,
-                    "cost_center_id": analytic.id,
+                BudgetLine.create({
+                    "crossovered_budget_id": bucket.id,
+                    "analytic_account_id": analytic.id,
+                    "date_from": bucket.date_from or today,
+                    "date_to": bucket.date_to or today,
+                    "planned_amount": analytic.budget_allowance or 0.0,
                 })
 
             if sync_budget and not bucket.source_budget_limit:
                 bucket.write({
-                    "budget_amount": rec.budgeted_cost or total_budget,
                     "source_budget_limit": rec.budgeted_cost or total_budget,
                 })
 

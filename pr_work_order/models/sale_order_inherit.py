@@ -19,14 +19,14 @@ class SaleOrder(models.Model):
         default="trading",
     )
     trading_expense_bucket_id = fields.Many2one(
-        "pr.expense.bucket",
-        string="Trading Expense Bucket",
+        "crossovered.budget",
+        string="Trading Budget",
         copy=False,
         readonly=True,
     )
     expense_bucket_id = fields.Many2one(
-        "pr.expense.bucket",
-        string="Expense Bucket",
+        "crossovered.budget",
+        string="Budget",
         compute="_compute_expense_bucket_id",
     )
     expense_bucket_count = fields.Integer(
@@ -46,9 +46,10 @@ class SaleOrder(models.Model):
         return self.amount_total or self.final_grand_total or 0.0
 
     def _ensure_trading_expense_bucket(self):
-        ExpenseBucket = self.env["pr.expense.bucket"].sudo()
-        ExpenseBucketLine = self.env["pr.expense.bucket.line"].sudo()
+        Budget = self.env["crossovered.budget"].sudo()
+        BudgetLine = self.env["crossovered.budget.lines"].sudo()
         AnalyticAccount = self.env["account.analytic.account"].sudo()
+        today = fields.Date.context_today(self)
         for order in self:
             if order.inquiry_type != "trading":
                 continue
@@ -57,13 +58,16 @@ class SaleOrder(models.Model):
                 continue
 
             if not order.trading_expense_bucket_id:
-                bucket = ExpenseBucket.create({
-                    "name": _("%s - Trading Bucket") % (order.name or _("Quotation")),
+                bucket = Budget.create({
+                    "name": _("%s - Trading Budget") % (order.name or _("Quotation")),
                     "scope": "trading",
                     "expense_type": "capex",
                     "sale_order_id": order.id,
-                    "budget_amount": source_amount,
                     "source_budget_limit": source_amount,
+                    "date_from": today,
+                    "date_to": today,
+                    "company_id": order.company_id.id,
+                    "user_id": self.env.user.id,
                 })
                 order.sudo().write({"trading_expense_bucket_id": bucket.id})
             else:
@@ -73,11 +77,10 @@ class SaleOrder(models.Model):
                     write_vals["sale_order_id"] = order.id
                 if not bucket.source_budget_limit:
                     write_vals["source_budget_limit"] = source_amount
-                    write_vals["budget_amount"] = source_amount
                 if write_vals:
                     bucket.write(write_vals)
 
-            trading_cc = bucket.line_ids[:1].cost_center_id
+            trading_cc = bucket.crossovered_budget_line[:1].analytic_account_id
             if not trading_cc:
                 cc_vals = {
                     "name": _("%s - Trading") % (order.name or _("Trading")),
@@ -90,18 +93,20 @@ class SaleOrder(models.Model):
                 if plan_ref and "plan_id" in AnalyticAccount._fields:
                     cc_vals["plan_id"] = plan_ref.id
                 trading_cc = AnalyticAccount.create(cc_vals)
-                ExpenseBucketLine.create({
-                    "bucket_id": bucket.id,
-                    "cost_center_id": trading_cc.id,
-                    "budget_type": "capex",
-                    "budget_allowance": source_amount,
+                BudgetLine.create({
+                    "crossovered_budget_id": bucket.id,
+                    "analytic_account_id": trading_cc.id,
+                    "date_from": bucket.date_from or today,
+                    "date_to": bucket.date_to or today,
+                    "planned_amount": source_amount,
                 })
             else:
-                bucket_line = bucket.line_ids.filtered(lambda l: l.cost_center_id == trading_cc)[:1]
+                bucket_line = bucket.crossovered_budget_line.filtered(
+                    lambda l: l.analytic_account_id == trading_cc
+                )[:1]
                 if bucket_line:
                     bucket_line.write({
-                        "budget_type": "capex",
-                        "budget_allowance": source_amount,
+                        "planned_amount": source_amount,
                     })
 
     def _remove_trading_expense_bucket(self):
@@ -154,8 +159,8 @@ class SaleOrder(models.Model):
             return False
         return {
             "type": "ir.actions.act_window",
-            "name": _("Expense Bucket"),
-            "res_model": "pr.expense.bucket",
+            "name": _("Budget"),
+            "res_model": "crossovered.budget",
             "view_mode": "form",
             "res_id": self.expense_bucket_id.id,
             "target": "current",
