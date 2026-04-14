@@ -166,6 +166,7 @@
                         </group>
                         <notebook>
                             <page string="Products">
+                                <field name="allowed_cost_center_ids" invisible="1"/>
                                 <field name="line_ids"
                                        readonly="state == 'purchase' or state == 'cancel' or approval == 'approved'">
                                     <tree editable="bottom">

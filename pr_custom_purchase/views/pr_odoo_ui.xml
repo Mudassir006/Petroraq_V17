@@ -106,6 +106,7 @@
                     </group>
                     <notebook>
                         <page string="Products">
+                            <field name="allowed_cost_center_ids" invisible="1"/>
                             <field name="line_ids" readonly="1">
                                 <tree editable="bottom">
                                     <field name="description"/>
