@@ -430,8 +430,11 @@ class HrLeaveRequest(models.Model):
             ).sudo().create(leave_vals)
             if leave_id:
                 rec.leave_id = leave_id.id
-                # leave_id.sudo().action_approve()
-                leave_id.sudo().state = "validate"
+                leave_to_validate = leave_id.with_context(skip_allocation_check_for_hr_manager=True).sudo()
+                if hasattr(leave_to_validate, "action_approve"):
+                    leave_to_validate.action_approve()
+                if leave_to_validate.state != "validate" and hasattr(leave_to_validate, "action_validate"):
+                    leave_to_validate.action_validate()
                 return leave_id
             else:
                 return False
