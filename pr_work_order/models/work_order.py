@@ -48,17 +48,27 @@ class PRWorkOrder(models.Model):
             if rec.state == "draft":
                 continue
 
-            if rec.expense_bucket_id and rec.expense_bucket_id.state != "approved":
-                linked_pr_count = self.env["custom.pr"].sudo().search_count([
-                    ("expense_bucket_id", "=", rec.expense_bucket_id.id)
-                ])
-                if not linked_pr_count:
-                    rec.expense_bucket_id.sudo().unlink()
-                    rec.expense_bucket_id = False
+            rec._remove_linked_expense_bucket()
 
             rec.write({"state": "draft"})
             rec._reset_approval_metadata()
             rec.message_post(body=_("Work Order has been reset to draft."))
+
+    def _remove_linked_expense_bucket(self):
+        for rec in self:
+            if not rec.expense_bucket_id:
+                continue
+            linked_pr_count = self.env["custom.pr"].sudo().search_count([
+                ("expense_bucket_id", "=", rec.expense_bucket_id.id)
+            ])
+            if linked_pr_count:
+                raise UserError(
+                    _(
+                        "Cannot delete expense bucket %s because it is already linked to Purchase Requisitions."
+                    ) % rec.expense_bucket_id.display_name
+                )
+            rec.expense_bucket_id.sudo().unlink()
+            rec.expense_bucket_id = False
 
     name = fields.Char(
         string="Work Order",
@@ -93,6 +103,10 @@ class PRWorkOrder(models.Model):
         string="Expense Bucket",
         copy=False,
         readonly=True,
+    )
+    expense_bucket_count = fields.Integer(
+        string="Expense Bucket Count",
+        compute="_compute_expense_bucket_count",
     )
     cost_center_ids = fields.One2many(
         "pr.work.order.cost.center",
@@ -279,6 +293,24 @@ class PRWorkOrder(models.Model):
             if not rec.boq_attachment_ids:
                 raise ValidationError(_("Please upload at least one BOQ attachment."))
 
+    @api.depends("expense_bucket_id")
+    def _compute_expense_bucket_count(self):
+        for rec in self:
+            rec.expense_bucket_count = 1 if rec.expense_bucket_id else 0
+
+    def action_view_expense_bucket(self):
+        self.ensure_one()
+        if not self.expense_bucket_id:
+            return False
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Expense Bucket"),
+            "res_model": "pr.expense.bucket",
+            "view_mode": "form",
+            "res_id": self.expense_bucket_id.id,
+            "target": "current",
+        }
+
     @api.depends("contract_amount", "budgeted_cost")
     def _compute_budgeted_margin(self):
         for rec in self:
@@ -435,6 +467,7 @@ class PRWorkOrder(models.Model):
                     "expense_type": "capex",
                     "work_order_id": rec.id,
                     "budget_amount": total_budget,
+                    "source_budget_limit": total_budget,
                 })
                 rec.sudo().write({"expense_bucket_id": bucket.id})
             else:
@@ -451,8 +484,11 @@ class PRWorkOrder(models.Model):
                     "cost_center_id": analytic.id,
                 })
 
-            if sync_budget:
-                bucket.write({"budget_amount": rec.budgeted_cost or total_budget})
+            if sync_budget and not bucket.source_budget_limit:
+                bucket.write({
+                    "budget_amount": rec.budgeted_cost or total_budget,
+                    "source_budget_limit": rec.budgeted_cost or total_budget,
+                })
 
     def action_acc_approve(self):
         for rec in self:
@@ -507,6 +543,7 @@ class PRWorkOrder(models.Model):
 
     def action_cancel(self):
         for rec in self:
+            rec._remove_linked_expense_bucket()
             rec.state = "cancel"
 
 
