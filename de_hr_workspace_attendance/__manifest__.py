@@ -9,7 +9,7 @@
     """,
     'author': 'Dynexcel',
     'website': 'https://www.dynexcel.com',
-    'version': '0.1',
+    'version': '0.2',
     'category': 'Human Resources',
 
     'depends': ['de_hr_workspace','pr_hr_attendance'],
