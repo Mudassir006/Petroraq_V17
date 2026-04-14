@@ -309,6 +309,8 @@ class HrLeaveRequest(models.Model):
         return virtual_remaining - pending_days
 
     def _check_requested_days_with_allocation(self):
+        if self.env.user.has_group("hr_holidays.group_hr_holidays_manager"):
+            return
         for rec in self:
             requested_days = rec._get_requested_days_count()
             if requested_days <= 0:
