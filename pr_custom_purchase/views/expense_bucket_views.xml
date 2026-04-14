@@ -99,13 +99,14 @@
     </record>
 
     <record id="action_pr_expense_bucket" model="ir.actions.act_window">
-        <field name="name">Expense Buckets</field>
-        <field name="res_model">pr.expense.bucket</field>
+        <field name="name">Budgets</field>
+        <field name="res_model">crossovered.budget</field>
         <field name="view_mode">tree,form</field>
+        <field name="context">{'create': False}</field>
     </record>
 
     <menuitem id="menu_pr_expense_bucket"
-              name="Expenses"
+              name="Budgets"
               parent="pr_custom_purchase.menu_purchase_requisition"
               action="action_pr_expense_bucket"
               sequence="30"/>
