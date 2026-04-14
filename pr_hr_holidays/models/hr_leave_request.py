@@ -309,6 +309,8 @@ class HrLeaveRequest(models.Model):
         return virtual_remaining - pending_days
 
     def _check_requested_days_with_allocation(self):
+        if self.env.user.has_group("hr_holidays.group_hr_holidays_manager"):
+            return
         for rec in self:
             requested_days = rec._get_requested_days_count()
             if requested_days <= 0:
@@ -423,12 +425,16 @@ class HrLeaveRequest(models.Model):
                 tracking_disable=True,
                 mail_activity_automation_skip=True,
                 leave_fast_create=True,
-                leave_skip_state_check=True
+                leave_skip_state_check=True,
+                skip_allocation_check_for_hr_manager=True
             ).sudo().create(leave_vals)
             if leave_id:
                 rec.leave_id = leave_id.id
-                # leave_id.sudo().action_approve()
-                leave_id.sudo().state = "validate"
+                leave_to_validate = leave_id.with_context(skip_allocation_check_for_hr_manager=True).sudo()
+                if hasattr(leave_to_validate, "action_approve"):
+                    leave_to_validate.action_approve()
+                if leave_to_validate.state != "validate" and hasattr(leave_to_validate, "action_validate"):
+                    leave_to_validate.action_validate()
                 return leave_id
             else:
                 return False

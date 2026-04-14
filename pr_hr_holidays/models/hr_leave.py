@@ -30,6 +30,30 @@ class HrHolidays(models.Model):
 
     # endregion [Fields]
 
+    def _can_bypass_allocation_limit(self):
+        return self.env.user.has_group("hr_holidays.group_hr_holidays_manager")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self._can_bypass_allocation_limit() and not self.env.context.get("skip_allocation_check_for_hr_manager"):
+            return super(HrHolidays, self.with_context(skip_allocation_check_for_hr_manager=True)).create(vals_list)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if self._can_bypass_allocation_limit() and not self.env.context.get("skip_allocation_check_for_hr_manager"):
+            return super(HrHolidays, self.with_context(skip_allocation_check_for_hr_manager=True)).write(vals)
+        return super().write(vals)
+
+    def _check_validity(self):
+        if self.env.context.get("skip_allocation_check_for_hr_manager") or self._can_bypass_allocation_limit():
+            return
+        return super()._check_validity()
+
+    def _check_holidays(self):
+        if self.env.context.get("skip_allocation_check_for_hr_manager") or self._can_bypass_allocation_limit():
+            return
+        return super()._check_holidays()
+
     # region [Compute Methods]
 
     # @api.depends('date_from', 'date_to', 'resource_calendar_id', 'holiday_status_id.request_unit', 'request_date_from', 'request_date_to')
