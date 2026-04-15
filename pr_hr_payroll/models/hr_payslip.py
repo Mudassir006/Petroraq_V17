@@ -49,6 +49,22 @@ class HrPayslip(models.Model):
     )
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
+    no_early_checkout = fields.Integer(
+        string="No of Early Check Out",
+        compute="_compute_attendance_summary_fields",
+    )
+    tot_early_checkout = fields.Float(
+        string="Total Early Check Out",
+        compute="_compute_attendance_summary_fields",
+    )
+    tot_early_checkout_amount = fields.Float(
+        string="Total Early Check Out Amount",
+        compute="_compute_attendance_summary_fields",
+    )
+    early_check_out_minutes = fields.Float(
+        string="Total Early Checkout Minutes",
+        compute="_compute_attendance_summary_fields",
+    )
     no_absence = fields.Integer(related="attendance_sheet_id.no_absence", readonly=True)
     tot_absence = fields.Float(related="attendance_sheet_id.tot_absence", readonly=True)
     tot_absence_amount = fields.Float(related="attendance_sheet_id.tot_absence_amount", readonly=True)
@@ -68,6 +84,23 @@ class HrPayslip(models.Model):
                 payslip.tot_late_in_minutes = payslip.attendance_sheet_id.tot_late_in_minutes or 0.0
             else:
                 payslip.tot_late_in_minutes = 0.0
+
+    @api.depends("attendance_sheet_id")
+    def _compute_attendance_summary_fields(self):
+        field_names = [
+            "no_early_checkout",
+            "tot_early_checkout",
+            "tot_early_checkout_amount",
+            "early_check_out_minutes",
+        ]
+        for payslip in self:
+            for field_name in field_names:
+                value = 0.0
+                if payslip.attendance_sheet_id and field_name in payslip.attendance_sheet_id._fields:
+                    value = getattr(payslip.attendance_sheet_id, field_name, 0.0) or 0.0
+                if field_name == "no_early_checkout":
+                    value = int(value)
+                setattr(payslip, field_name, value)
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
