@@ -71,7 +71,7 @@ class CustomPR(models.Model):
         'crossovered.budget',
         string='Expense',
         required=True,
-        domain="[('expense_type', '=', expense_type)]",
+        domain="[('expense_type', '=', expense_type), ('state', 'in', ['validate', 'done'])]",
     )
     allowed_cost_center_ids = fields.Many2many(
         "account.analytic.account",
@@ -277,6 +277,10 @@ class CustomPR(models.Model):
         # Check required fields
         if not rec.line_ids:
             raise ValidationError("You must add at least one line before submitting the Purchase Requisition.")
+        if rec.expense_bucket_id.state not in ("validate", "done"):
+            raise ValidationError(
+                _("Only validated budgets can be used. Please submit and approve the selected budget first.")
+            )
 
         # Enforce WO per-product mini-budget caps at submit time as a hard gate
         # (in addition to line-level constrains) so users cannot bypass via UI flow.
@@ -454,6 +458,8 @@ class CustomPR(models.Model):
         for rec in self:
             if rec.expense_bucket_id and rec.expense_type and rec.expense_bucket_id.expense_type != rec.expense_type:
                 raise ValidationError(_('Expense bucket must match selected expense type.'))
+            if rec.expense_bucket_id and rec.expense_bucket_id.state not in ("validate", "done"):
+                raise ValidationError(_('Selected budget must be validated before it can be used in PR.'))
 
 
 class CustomPRLine(models.Model):
