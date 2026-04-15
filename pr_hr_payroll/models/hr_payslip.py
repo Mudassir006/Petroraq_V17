@@ -43,6 +43,10 @@ class HrPayslip(models.Model):
     approved_overtime_hours = fields.Float(related="attendance_sheet_id.approved_overtime_hours", readonly=True)
     approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
+    tot_late_in_minutes = fields.Float(
+        string="Total Late In Minutes",
+        compute="_compute_tot_late_in_minutes",
+    )
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_in_minutes = fields.Float(compute="_compute_attendance_data_metrics", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
@@ -72,6 +76,14 @@ class HrPayslip(models.Model):
             slip.tot_early_checkout = getattr(sheet, "tot_early_checkout", 0.0) if sheet else 0.0
             slip.early_check_out_minutes = getattr(sheet, "early_check_out_minutes", 0.0) if sheet else 0.0
             slip.tot_early_checkout_amount = getattr(sheet, "tot_early_checkout_amount", 0.0) if sheet else 0.0
+
+    @api.depends("attendance_sheet_id")
+    def _compute_tot_late_in_minutes(self):
+        for payslip in self:
+            if payslip.attendance_sheet_id and "tot_late_in_minutes" in payslip.attendance_sheet_id._fields:
+                payslip.tot_late_in_minutes = payslip.attendance_sheet_id.tot_late_in_minutes or 0.0
+            else:
+                payslip.tot_late_in_minutes = 0.0
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
@@ -116,6 +128,10 @@ class HrPayslip(models.Model):
     def _get_payslip_lines(self):
         line_vals = super()._get_payslip_lines()
         for payslip in self:
+            excluded_earning_codes = set()
+            if payslip.employee_id.exclude_transportation_from_attendance_gross:
+                excluded_earning_codes.add("TRANSPORTATION")
+
             contract_id = payslip.employee_id.contract_id
             gosi_salary_rule = self.env.ref("pr_hr_payroll.hr_salary_rule_saudi_gosi")
             gosi_allow_salary_rule = self.env.ref("pr_hr_payroll.hr_salary_rule_saudi_gosi_allow")
@@ -357,7 +373,9 @@ class HrPayslip(models.Model):
             earnings = sum(
                 vals.get("total", 0)
                 for vals in line_vals
-                if vals.get("total", 0) > 0 and vals.get("code") not in ["NET", "GROSS"]
+                if vals.get("total", 0) > 0
+                and vals.get("code") not in ["NET", "GROSS"]
+                and vals.get("code") not in excluded_earning_codes
             )
 
             attendance_deductions = sum(
@@ -411,6 +429,10 @@ class HrPayslip(models.Model):
 
     def check_payslip_dates(self):
         for payslip in self:
+            excluded_earning_codes = set()
+            if payslip.employee_id.exclude_transportation_from_attendance_gross:
+                excluded_earning_codes.add("TRANSPORTATION")
+
             payslip_days = (payslip.date_to - payslip.date_from).days + 1
             start_of_month = date_utils.start_of(payslip.date_to, 'month')
             end_of_month = date_utils.end_of(payslip.date_to, 'month')
@@ -425,7 +447,9 @@ class HrPayslip(models.Model):
 
             earnings = sum(
                 l.total for l in payslip.line_ids
-                if l.total > 0 and l.code not in ["NET", "GROSS"]
+                if l.total > 0
+                and l.code not in ["NET", "GROSS"]
+                and l.code not in excluded_earning_codes
             )
 
             attendance_deductions = sum(
