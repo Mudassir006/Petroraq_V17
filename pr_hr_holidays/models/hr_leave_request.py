@@ -310,6 +310,9 @@ class HrLeaveRequest(models.Model):
 
     def _check_requested_days_with_allocation(self):
         for rec in self:
+            if self.env.user.has_group('pr_hr_holidays.group_leave_allocation_limit_override'):
+                continue
+
             requested_days = rec._get_requested_days_count()
             if requested_days <= 0:
                 continue

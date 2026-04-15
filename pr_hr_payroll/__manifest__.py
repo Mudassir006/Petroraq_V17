@@ -24,6 +24,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/hr_contract.xml',
+        'views/hr_employee.xml',
         'views/hr_salary_rule.xml',
         'views/hr_salary_attachment_type.xml',
         'views/hr_payslip_hold_views.xml',

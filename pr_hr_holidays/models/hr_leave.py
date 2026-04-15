@@ -197,3 +197,26 @@ class HrHolidays(models.Model):
             self.employee_ids = self.employee_id.ids
 
     # endregion [Onchange Methods]
+
+    def _check_holidays(self):
+        try:
+            return super()._check_holidays()
+        except ValidationError as error:
+            if not self.env.user.has_group('pr_hr_holidays.group_leave_allocation_limit_override'):
+                raise
+
+            message = (error.args[0] if error.args else "")
+            if not isinstance(message, str):
+                message = str(message)
+            lowered_message = message.lower()
+            allocation_limit_keywords = [
+                "allocation",
+                "remaining",
+                "available",
+                "not enough",
+                "time off",
+                "day(s)",
+            ]
+            if any(keyword in lowered_message for keyword in allocation_limit_keywords):
+                return
+            raise
