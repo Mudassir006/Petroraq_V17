@@ -43,6 +43,10 @@ class HrPayslip(models.Model):
     approved_overtime_hours = fields.Float(related="attendance_sheet_id.approved_overtime_hours", readonly=True)
     approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
+    tot_late_in_minutes = fields.Float(
+        string="Total Late In Minutes",
+        compute="_compute_tot_late_in_minutes",
+    )
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
     no_absence = fields.Integer(related="attendance_sheet_id.no_absence", readonly=True)
@@ -56,6 +60,14 @@ class HrPayslip(models.Model):
     carry_forward_diff_amount = fields.Float(related="attendance_sheet_id.carry_forward_diff_amount", readonly=True)
     carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
     carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
+
+    @api.depends("attendance_sheet_id")
+    def _compute_tot_late_in_minutes(self):
+        for payslip in self:
+            if payslip.attendance_sheet_id and "tot_late_in_minutes" in payslip.attendance_sheet_id._fields:
+                payslip.tot_late_in_minutes = payslip.attendance_sheet_id.tot_late_in_minutes or 0.0
+            else:
+                payslip.tot_late_in_minutes = 0.0
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
