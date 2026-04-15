@@ -11,7 +11,6 @@ import logging
 from datetime import datetime, timedelta, time
 import pandas as pd
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -65,7 +64,8 @@ class HrShortageRequest(models.Model):
 
     # region [Compute Methods]
 
-    @api.depends("employee_id", "employee_id.parent_id", "employee_id.parent_id.user_id", "employee_manager_id", "employee_manager_id.user_id")
+    @api.depends("employee_id", "employee_id.parent_id", "employee_id.parent_id.user_id", "employee_manager_id",
+                 "employee_manager_id.user_id")
     def _compute_employee_manager_check(self):
         for rec in self:
             employee_manager_id = rec.employee_id.parent_id
@@ -90,7 +90,6 @@ class HrShortageRequest(models.Model):
                 rec.hr_manager_check = False
 
     # region [Compute Methods]
-
 
     # region [Onchange Methods]
 
@@ -117,7 +116,8 @@ class HrShortageRequest(models.Model):
     def _send_manager_email(self):
         for rec in self:
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-            record_url = base_url + "/web#id=" + str(rec.id) + "&view_type=form&model=pr.hr.shortage.request&view_type=form"
+            record_url = base_url + "/web#id=" + str(
+                rec.id) + "&view_type=form&model=pr.hr.shortage.request&view_type=form"
 
             body_message = f"""Dear Mr/Mrs. {rec.employee_id.parent_id.name},<br/><br/>
 
@@ -166,7 +166,8 @@ class HrShortageRequest(models.Model):
     def _send_hr_manager_email(self):
         for rec in self:
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-            record_url = base_url + "/web#id=" + str(rec.id) + "&view_type=form&model=pr.hr.shortage.request&view_type=form"
+            record_url = base_url + "/web#id=" + str(
+                rec.id) + "&view_type=form&model=pr.hr.shortage.request&view_type=form"
 
             group_ids = [self.env.ref('hr_attendance.group_hr_attendance_manager').id]
             user_ids = self.env['res.users'].sudo().search([('groups_id', 'in', group_ids)])
@@ -175,7 +176,7 @@ class HrShortageRequest(models.Model):
                     employee_id = self.env["hr.employee"].sudo().search([("user_id", "=", user.id)], limit=1)
                     if employee_id and employee_id.work_email:
                         body_message = f"""Dear Mr/Mrs. {employee_id.name},<br/><br/>
-            
+
                             We wish to inform you that your employee {rec.employee_id.name} has been asked for <strong>Shortage Request For {rec.date}</strong>.<br/><br/>
                             You can check the request to take a decision by clicking this button <a class="btn btn-primary" href="{record_url}" role="button">Shortage Request</a><br/><br/><br/>
                             Thank you for your attention to this matter.<br/><br/>
@@ -265,13 +266,34 @@ class HrShortageRequest(models.Model):
 
     def _apply_shortage_in_attendance(self):
         for rec in self:
-            attendance_ids = self.env["hr.attendance"].sudo().search([("employee_id", "=", rec.employee_id.id)])
-            if attendance_ids:
-                attendance_id = attendance_ids.filtered(lambda a: a.check_in.date() == rec.date and a.check_out.date() == rec.date)
-                if attendance_id:
-                    resource_calendar_id = rec.employee_id.resource_calendar_id
-                    if resource_calendar_id.id == 4:
-                        attendance_id.sudo().write({"check_in": datetime.combine(rec.date, time(5, 0, 0)), "check_out": datetime.combine(rec.date, time(14, 0, 0))})
+            day_start = datetime.combine(rec.date, time.min)
+            day_end = day_start + timedelta(days=1)
+            attendance_id = self.env["hr.attendance"].sudo().search([
+                ("employee_id", "=", rec.employee_id.id),
+                ("check_in", ">=", day_start),
+                ("check_in", "<", day_end),
+            ], limit=1)
+
+            resource_calendar_id = rec.employee_id.resource_calendar_id
+            weekday = str(rec.date.weekday())
+            shifts = resource_calendar_id.attendance_ids.filtered(lambda a: a.dayofweek == weekday)
+            if shifts:
+                hour_from = min(shifts.mapped("hour_from"))
+                hour_to = max(shifts.mapped("hour_to"))
+            else:
+                hour_from, hour_to = 8.0, 17.0
+
+            check_in_dt = datetime.combine(rec.date, time(int(hour_from), int((hour_from % 1) * 60), 0))
+            check_out_dt = datetime.combine(rec.date, time(int(hour_to), int((hour_to % 1) * 60), 0))
+
+            if attendance_id:
+                attendance_id.sudo().write({"check_in": check_in_dt, "check_out": check_out_dt})
+            else:
+                self.env["hr.attendance"].sudo().create({
+                    "employee_id": rec.employee_id.id,
+                    "check_in": check_in_dt,
+                    "check_out": check_out_dt,
+                })
 
     def action_hr_manager_reject(self):
         for rec in self:
@@ -331,4 +353,3 @@ class HrShortageRequest(models.Model):
         return super().unlink()
 
     # endregion [Crud]
-
