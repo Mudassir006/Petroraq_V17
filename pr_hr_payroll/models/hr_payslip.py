@@ -44,7 +44,12 @@ class HrPayslip(models.Model):
     approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
+    tot_late_in_minutes = fields.Float(related="attendance_sheet_id.tot_late_in_minutes", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
+    no_early_checkout = fields.Integer(related="attendance_sheet_id.no_early_checkout", readonly=True)
+    tot_early_checkout = fields.Float(related="attendance_sheet_id.tot_early_checkout", readonly=True)
+    early_check_out_minutes = fields.Float(related="attendance_sheet_id.early_check_out_minutes", readonly=True)
+    tot_early_checkout_amount = fields.Float(related="attendance_sheet_id.tot_early_checkout_amount", readonly=True)
     no_absence = fields.Integer(related="attendance_sheet_id.no_absence", readonly=True)
     tot_absence = fields.Float(related="attendance_sheet_id.tot_absence", readonly=True)
     tot_absence_amount = fields.Float(related="attendance_sheet_id.tot_absence_amount", readonly=True)
@@ -56,6 +61,7 @@ class HrPayslip(models.Model):
     carry_forward_diff_amount = fields.Float(related="attendance_sheet_id.carry_forward_diff_amount", readonly=True)
     carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
     carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
+    carry_forward_deduction = fields.Float(related="attendance_sheet_id.carry_forward_deduction", readonly=True)
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
