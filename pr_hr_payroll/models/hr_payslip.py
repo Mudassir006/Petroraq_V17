@@ -44,7 +44,12 @@ class HrPayslip(models.Model):
     approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
+    tot_late_in_minutes = fields.Float(compute="_compute_attendance_data_metrics", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
+    no_early_checkout = fields.Integer(compute="_compute_attendance_data_metrics", readonly=True)
+    tot_early_checkout = fields.Float(compute="_compute_attendance_data_metrics", readonly=True)
+    early_check_out_minutes = fields.Float(compute="_compute_attendance_data_metrics", readonly=True)
+    tot_early_checkout_amount = fields.Float(compute="_compute_attendance_data_metrics", readonly=True)
     no_absence = fields.Integer(related="attendance_sheet_id.no_absence", readonly=True)
     tot_absence = fields.Float(related="attendance_sheet_id.tot_absence", readonly=True)
     tot_absence_amount = fields.Float(related="attendance_sheet_id.tot_absence_amount", readonly=True)
@@ -56,6 +61,17 @@ class HrPayslip(models.Model):
     carry_forward_diff_amount = fields.Float(related="attendance_sheet_id.carry_forward_diff_amount", readonly=True)
     carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
     carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
+    carry_forward_deduction = fields.Float(related="attendance_sheet_id.carry_forward_deduction", readonly=True)
+
+    @api.depends("attendance_sheet_id")
+    def _compute_attendance_data_metrics(self):
+        for slip in self:
+            sheet = slip.attendance_sheet_id
+            slip.tot_late_in_minutes = getattr(sheet, "tot_late_in_minutes", 0.0) if sheet else 0.0
+            slip.no_early_checkout = getattr(sheet, "no_early_checkout", 0) if sheet else 0
+            slip.tot_early_checkout = getattr(sheet, "tot_early_checkout", 0.0) if sheet else 0.0
+            slip.early_check_out_minutes = getattr(sheet, "early_check_out_minutes", 0.0) if sheet else 0.0
+            slip.tot_early_checkout_amount = getattr(sheet, "tot_early_checkout_amount", 0.0) if sheet else 0.0
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
