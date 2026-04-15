@@ -24,9 +24,24 @@
         <field name="model">crossovered.budget</field>
         <field name="inherit_id" ref="account_budget.crossovered_budget_view_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="can_pm_approve" invisible="1"/>
+                <field name="can_accounts_approve" invisible="1"/>
+                <field name="can_md_approve" invisible="1"/>
+                <button name="action_pm_approve" type="object" string="PM Approve" class="btn-primary"
+                        invisible="state != 'confirm' or approval_state != 'pm_approval' or not can_pm_approve"/>
+                <button name="action_accounts_approve" type="object" string="Accounts Approve" class="btn-primary"
+                        invisible="state != 'confirm' or approval_state != 'accounts_approval' or not can_accounts_approve"/>
+                <field name="approval_state" widget="statusbar"
+                       statusbar_visible="draft,pm_approval,accounts_approval,md_approval,approved,rejected"/>
+            </xpath>
 
             <xpath expr="//field[@name='user_id']" position="after">
                 <field name="expense_type"/>
+            </xpath>
+
+            <xpath expr="//button[@name='action_budget_validate']" position="attributes">
+                <attribute name="invisible">state != 'confirm' or approval_state != 'md_approval' or not can_md_approve</attribute>
             </xpath>
 
         </field>
