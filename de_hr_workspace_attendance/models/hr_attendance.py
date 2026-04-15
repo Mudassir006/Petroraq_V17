@@ -142,42 +142,44 @@ class HrAttendance(models.Model):
     @api.depends("employee_id", 'check_in', 'check_out', "worked_hours", "employee_id.resource_calendar_id")
     def _compute_shortage_time_text(self):
         for rec in self:
+            rec.shortage_time = False
+            rec.show_shortage_button = False
+            if not rec.check_in or not rec.check_out:
+                continue
+
             today_date = fields.Date.today()
             pl_sign_in = rec.check_in.replace(hour=8, minute=0, second=0)
             pl_sign_out = rec.check_in.replace(hour=17, minute=0, second=0)
 
             late_in_minutes = 0
             early_check_out_minutes = 0
-            if rec.check_in:
-                check_in = rec.check_in + timedelta(hours=3)
-                check_out = rec.check_out + timedelta(hours=3)
-                if pl_sign_in + timedelta(hours=1) >= check_in >= pl_sign_in - timedelta(hours=1):
-                    late_in = 0
-                    late_in_minutes = 0
-                    pl_sign_out_custom = check_in + (pl_sign_out - pl_sign_in)
-                    if check_out < pl_sign_out_custom:
-                        early_check_out = pl_sign_out_custom - check_out
-                        early_check_out_minutes = early_check_out.total_seconds() / 60
+            check_in = rec.check_in + timedelta(hours=3)
+            check_out = rec.check_out + timedelta(hours=3)
+            if pl_sign_in + timedelta(hours=1) >= check_in >= pl_sign_in - timedelta(hours=1):
+                late_in = 0
+                late_in_minutes = 0
+                pl_sign_out_custom = check_in + (pl_sign_out - pl_sign_in)
+                if check_out < pl_sign_out_custom:
+                    early_check_out = pl_sign_out_custom - check_out
+                    early_check_out_minutes = early_check_out.total_seconds() / 60
 
-                elif check_in > pl_sign_in + timedelta(hours=1):
-                    late_in = check_in - (pl_sign_in + timedelta(hours=1))
-                    late_in_minutes = late_in.total_seconds() / 60
+            elif check_in > pl_sign_in + timedelta(hours=1):
+                late_in = check_in - (pl_sign_in + timedelta(hours=1))
+                late_in_minutes = late_in.total_seconds() / 60
 
-                    # Early Checkout
-                    pl_sign_out_custom = pl_sign_out + timedelta(hours=1)
-                    if check_out < pl_sign_out_custom:
-                        early_check_out = pl_sign_out_custom - check_out
-                        early_check_out_minutes = early_check_out.total_seconds() / 60
+                # Early Checkout
+                pl_sign_out_custom = pl_sign_out + timedelta(hours=1)
+                if check_out < pl_sign_out_custom:
+                    early_check_out = pl_sign_out_custom - check_out
+                    early_check_out_minutes = early_check_out.total_seconds() / 60
 
-
-                #############
-                elif check_in < pl_sign_in - timedelta(hours=1):
-                    late_in = 0
-                    late_in_minutes = 0
-                    pl_sign_out_custom = pl_sign_out - timedelta(hours=1)
-                    if check_out < pl_sign_out_custom:
-                        early_check_out = pl_sign_out_custom - check_out
-                        early_check_out_minutes = early_check_out / 60
+            elif check_in < pl_sign_in - timedelta(hours=1):
+                late_in = 0
+                late_in_minutes = 0
+                pl_sign_out_custom = pl_sign_out - timedelta(hours=1)
+                if check_out < pl_sign_out_custom:
+                    early_check_out = pl_sign_out_custom - check_out
+                    early_check_out_minutes = early_check_out / 60
 
             if isinstance(late_in_minutes, timedelta):
                 late_in_minutes = late_in_minutes.total_seconds() / 60 / 60
@@ -193,9 +195,6 @@ class HrAttendance(models.Model):
                     rec.show_shortage_button = True
                 else:
                     rec.show_shortage_button = False
-            else:
-                rec.shortage_time = False
-                rec.show_shortage_button = False
 
     @api.depends("employee_id", "check_in", "employee_id.contract_id", "employee_id.resource_calendar_id", "employee_id.resource_calendar_id.hours_per_day")
     def _compute_minute_rate_text(self):
@@ -215,4 +214,3 @@ class HrAttendance(models.Model):
                 rec.minute_rate = f"{round((hour_amount_rate / 60), 2)} SR"
             else:
                 rec.minute_rate = False
-
