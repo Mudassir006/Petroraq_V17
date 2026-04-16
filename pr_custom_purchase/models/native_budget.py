@@ -100,7 +100,7 @@ class CrossoveredBudget(models.Model):
             grouped = BudgetLine.read_group(
                 domain=[
                     ("analytic_account_id", "in", analytics.ids),
-                    ("crossovered_budget_id.approval_state", "=", "approved"),
+                    ("crossovered_budget_id.state", "in", ["validate", "done"]),
                 ],
                 fields=["analytic_account_id", "planned_amount:sum"],
                 groupby=["analytic_account_id"],
