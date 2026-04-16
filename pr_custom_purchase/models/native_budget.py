@@ -76,7 +76,44 @@ class CrossoveredBudget(models.Model):
         for rec in self:
             if rec.state in ("validate", "done"):
                 rec.approval_state = "approved"
+                rec._sync_cost_center_budget_allowance()
         return res
+
+    def action_budget_done(self):
+        res = super().action_budget_done()
+        for rec in self:
+            if rec.state == "done":
+                rec.approval_state = "approved"
+                rec._sync_cost_center_budget_allowance()
+        return res
+
+    def _sync_cost_center_budget_allowance(self):
+        """Reflect approved budget lines into Cost Center budget allowances."""
+        BudgetLine = self.env["crossovered.budget.lines"].sudo()
+        AnalyticAccount = self.env["account.analytic.account"].sudo()
+
+        for rec in self:
+            analytics = rec.crossovered_budget_line.mapped("analytic_account_id").filtered(lambda a: a)
+            if not analytics:
+                continue
+
+            grouped = BudgetLine.read_group(
+                domain=[
+                    ("analytic_account_id", "in", analytics.ids),
+                    ("crossovered_budget_id.state", "in", ["validate", "done"]),
+                ],
+                fields=["analytic_account_id", "planned_amount:sum"],
+                groupby=["analytic_account_id"],
+                lazy=False,
+            )
+            totals = {
+                item["analytic_account_id"][0]: item.get("planned_amount_sum", item.get("planned_amount", 0.0))
+                for item in grouped
+                if item.get("analytic_account_id")
+            }
+
+            for analytic in AnalyticAccount.browse(analytics.ids):
+                analytic.budget_allowance = totals.get(analytic.id, 0.0)
 
     def write(self, vals):
         if vals.get("state") == "draft" and "approval_state" not in vals:
