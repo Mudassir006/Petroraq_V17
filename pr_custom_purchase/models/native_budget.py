@@ -79,6 +79,14 @@ class CrossoveredBudget(models.Model):
                 rec._sync_cost_center_budget_allowance()
         return res
 
+    def action_budget_done(self):
+        res = super().action_budget_done()
+        for rec in self:
+            if rec.state == "done":
+                rec.approval_state = "approved"
+                rec._sync_cost_center_budget_allowance()
+        return res
+
     def _sync_cost_center_budget_allowance(self):
         """Reflect approved budget lines into Cost Center budget allowances."""
         BudgetLine = self.env["crossovered.budget.lines"].sudo()
