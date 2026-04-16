@@ -414,6 +414,16 @@ class HrLeaveRequest(models.Model):
 
     def _create_employee_leave(self):
         for rec in self:
+            is_allocation_override = self.env.user.has_group('pr_hr_holidays.group_leave_allocation_limit_override')
+            leave_context = {
+                "tracking_disable": True,
+                "mail_activity_automation_skip": True,
+                "leave_fast_create": True,
+                "leave_skip_state_check": True,
+            }
+            if is_allocation_override:
+                leave_context["pr_leave_allocation_override"] = True
+
             leave_vals = {
                 'name': f"{rec.employee_id.name} Leave From {rec.date_from} To {rec.date_to}",
                 "employee_id": rec.employee_id.id,
@@ -422,16 +432,11 @@ class HrLeaveRequest(models.Model):
                 "request_date_to": rec.date_to,
                 "leave_request_id": rec.id,
             }
-            leave_id = self.env["hr.leave"].with_context(
-                tracking_disable=True,
-                mail_activity_automation_skip=True,
-                leave_fast_create=True,
-                leave_skip_state_check=True
-            ).sudo().create(leave_vals)
+            leave_id = self.env["hr.leave"].with_context(**leave_context).sudo().create(leave_vals)
             if leave_id:
                 rec.leave_id = leave_id.id
                 # leave_id.sudo().action_approve()
-                leave_id.sudo().state = "validate"
+                leave_id.with_context(**leave_context).sudo().state = "validate"
                 return leave_id
             else:
                 return False

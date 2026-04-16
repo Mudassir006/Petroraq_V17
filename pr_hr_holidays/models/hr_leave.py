@@ -202,7 +202,11 @@ class HrHolidays(models.Model):
         try:
             return super()._check_holidays()
         except ValidationError as error:
-            if not self.env.user.has_group('pr_hr_holidays.group_leave_allocation_limit_override'):
+            is_allocation_override = (
+                self.env.context.get("pr_leave_allocation_override")
+                or self.env.user.has_group('pr_hr_holidays.group_leave_allocation_limit_override')
+            )
+            if not is_allocation_override:
                 raise
 
             message = (error.args[0] if error.args else "")
