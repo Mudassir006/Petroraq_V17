@@ -139,5 +139,45 @@
                 </div>
             </form>
         </section>
+        <script type="text/javascript">
+            document.addEventListener("DOMContentLoaded", function () {
+                const employeeInput = document.getElementById("employee_id");
+                const dateInput = document.getElementById("date");
+                const checkInInput = document.getElementById("checkin");
+                const checkOutInput = document.getElementById("checkout");
+                const shortageInput = document.getElementById("shortage");
+
+                const fetchAttendanceByDate = async () => {
+                    if (!employeeInput || !dateInput || !dateInput.value) {
+                        return;
+                    }
+                    const queryParams = new URLSearchParams({
+                        employee_id: employeeInput.value,
+                        date: dateInput.value,
+                    });
+                    const response = await fetch(`/shortage_request/attendance_info?${queryParams.toString()}`, {
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json",
+                        },
+                    });
+                    if (!response.ok) {
+                        return;
+                    }
+                    const data = await response.json();
+                    checkInInput.value = data.check_in || "";
+                    checkOutInput.value = data.check_out || "";
+                    if (data.shortage_text) {
+                        shortageInput.value = data.shortage_text;
+                    } else if (!data.has_attendance) {
+                        shortageInput.value = "";
+                    }
+                };
+
+                if (dateInput) {
+                    dateInput.addEventListener("change", fetchAttendanceByDate);
+                }
+            });
+        </script>
     </template>
 </odoo>

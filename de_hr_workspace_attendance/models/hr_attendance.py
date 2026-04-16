@@ -81,9 +81,10 @@ class HrAttendance(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         sync_from_device = self.env.context.get('sync_from_device', False)
+        allow_late_attendance = self.env.context.get('allow_late_attendance', False)
         for vals in vals_list:
             employee = self.env['hr.employee'].browse(vals.get('employee_id')) if vals.get('employee_id') else False
-            if vals.get('check_in') and employee and not sync_from_device:
+            if vals.get('check_in') and employee and not sync_from_device and not allow_late_attendance:
                 check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
                 late_minutes = self._get_late_minutes(employee, check_in_dt)
                 if late_minutes > 0:
@@ -99,7 +100,8 @@ class HrAttendance(models.Model):
 
     def write(self, vals):
         sync_from_device = self.env.context.get('sync_from_device', False)
-        if vals.get('check_in') and not sync_from_device:
+        allow_late_attendance = self.env.context.get('allow_late_attendance', False)
+        if vals.get('check_in') and not sync_from_device and not allow_late_attendance:
             check_in_dt = fields.Datetime.to_datetime(vals['check_in'])
             for rec in self:
                 late_minutes = self._get_late_minutes(rec.employee_id, check_in_dt)
