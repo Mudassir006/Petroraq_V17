@@ -341,6 +341,16 @@ class AttendanceSheetLine(models.Model):
 
     def _get_deduction_salary_base(self, contract):
         gross_amount = contract.gross_amount if contract else 0.0
+        if not self.employee_id:
+            return gross_amount
+
+        exclude_transport_from_deduction = (
+            "exclude_transportation_from_attendance_gross" in self.employee_id._fields
+            and self.employee_id.exclude_transportation_from_attendance_gross
+        )
+        if not exclude_transport_from_deduction:
+            return gross_amount
+
         transport_amount = self._get_transportation_allowance_amount(contract)
         return max(gross_amount - transport_amount, 0.0)
 
