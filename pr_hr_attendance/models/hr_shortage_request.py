@@ -274,22 +274,17 @@ class HrShortageRequest(models.Model):
                 ("check_in", "<", day_end),
             ], limit=1)
 
-            resource_calendar_id = rec.employee_id.resource_calendar_id
-            weekday = str(rec.date.weekday())
-            shifts = resource_calendar_id.attendance_ids.filtered(lambda a: a.dayofweek == weekday)
-            if shifts:
-                hour_from = min(shifts.mapped("hour_from"))
-                hour_to = max(shifts.mapped("hour_to"))
-            else:
-                hour_from, hour_to = 8.0, 17.0
-
-            check_in_dt = datetime.combine(rec.date, time(int(hour_from), int((hour_from % 1) * 60), 0))
-            check_out_dt = datetime.combine(rec.date, time(int(hour_to), int((hour_to % 1) * 60), 0))
+            # Approved shortage requests should normalize attendance to policy hours (09:00 - 17:00).
+            check_in_dt = datetime.combine(rec.date, time(9, 0, 0))
+            check_out_dt = datetime.combine(rec.date, time(17, 0, 0))
 
             if attendance_id:
-                attendance_id.sudo().write({"check_in": check_in_dt, "check_out": check_out_dt})
+                attendance_id.sudo().with_context(allow_late_attendance=True).write({
+                    "check_in": check_in_dt,
+                    "check_out": check_out_dt,
+                })
             else:
-                self.env["hr.attendance"].sudo().create({
+                self.env["hr.attendance"].sudo().with_context(allow_late_attendance=True).create({
                     "employee_id": rec.employee_id.id,
                     "check_in": check_in_dt,
                     "check_out": check_out_dt,
