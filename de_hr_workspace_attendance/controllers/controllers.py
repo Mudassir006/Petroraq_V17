@@ -57,8 +57,8 @@ class ShortageRequestTemplate(http.Controller):
         return http.request.render('de_hr_workspace_attendance.shortage_request_template', {
             "current_employee_id": current_employee_id,
             "employee_email": email,
-            "check_in": check_in + relativedelta(hours=3) if check_in else False,
-            "check_out": check_out + relativedelta(hours=3) if check_out else False,
+            "check_in": (check_in + relativedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S") if check_in else False,
+            "check_out": (check_out + relativedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S") if check_out else False,
             "shortage_text": shortage_text or "",
             "shortage_date": shortage_date,
             "has_attendance": has_attendance,
