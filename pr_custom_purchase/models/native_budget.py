@@ -107,7 +107,7 @@ class CrossoveredBudget(models.Model):
                 lazy=False,
             )
             totals = {
-                item["analytic_account_id"][0]: item.get("planned_amount_sum", 0.0)
+                item["analytic_account_id"][0]: item.get("planned_amount_sum", item.get("planned_amount", 0.0))
                 for item in grouped
                 if item.get("analytic_account_id")
             }
