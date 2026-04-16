@@ -61,6 +61,7 @@ class HrPayslip(models.Model):
     carry_forward_diff_amount = fields.Float(related="attendance_sheet_id.carry_forward_diff_amount", readonly=True)
     carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
     carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
+    carry_forward_deduction = fields.Float(string="Carry Forward Deduction", readonly=True)
 
     def _sync_attendance_summary_fields(self):
         field_names = [
@@ -79,6 +80,12 @@ class HrPayslip(models.Model):
                 if field_name == "no_early_checkout":
                     value = int(value)
                 update_vals[field_name] = value
+            update_vals["carry_forward_deduction"] = (
+                (payslip.carry_forward_absence_amount or 0.0)
+                + (payslip.carry_forward_late_amount or 0.0)
+                + (payslip.carry_forward_diff_amount or 0.0)
+                + (payslip.carry_forward_early_checkout_amount or 0.0)
+            )
             payslip.update(update_vals)
 
 
