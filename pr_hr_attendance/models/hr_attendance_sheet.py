@@ -183,7 +183,24 @@ class HrAttendanceSheet(models.Model):
                         filtered_line = att_sheet.line_ids.filtered(lambda l: l.date == date_line)
                         if filtered_line:
                             filtered_line.status = "leave"
+            att_sheet._mark_late_checkins_as_absent()
         return res
+
+    def _mark_late_checkins_as_absent(self):
+        """Mark attendance sheet lines as absent when check-in is after 09:01."""
+        cutoff = 9 + (1 / 60)
+        for sheet in self:
+            for line in sheet.line_ids:
+                if line.status in ("leave", "weekend"):
+                    continue
+                if line.ac_sign_in and line.ac_sign_in > cutoff:
+                    line.status = "ab"
+                    line.late_in = 0
+                    line.late_in_minutes = 0
+                    line.early_check_out = 0
+                    line.early_check_out_minutes = 0
+                    line.overtime = 0
+                    line.act_overtime = 0
 
     # endregion [Compute Methods]
 
