@@ -629,6 +629,53 @@ class CustomPRLine(models.Model):
             'section_name': wo_cc.section_name,
         }
 
+    def _get_trading_sale_product_caps(self):
+        """Return allowed qty/price/amount for this cost center + product from confirmed Trading SO."""
+        self.ensure_one()
+
+        bucket = self.pr_id.expense_bucket_id
+        if not bucket or bucket.scope != "trading" or not bucket.sale_order_id:
+            return False
+        if not self.cost_center_id or not self.description:
+            return False
+
+        sale_order = bucket.sale_order_id.sudo()
+        so_lines = sale_order.order_line.filtered(
+            lambda l: not l.display_type and l.product_id and l.product_id.id == self.description.id
+        )
+        if not so_lines:
+            return {
+                "sale_order": sale_order,
+                "allowed_qty": 0.0,
+                "allowed_unit_price": 0.0,
+                "allowed_amount": 0.0,
+            }
+
+        relevant_lines = self.env["sale.order.line"]
+        for line in so_lines:
+            distribution = line.analytic_distribution or {}
+            line_cc_ids = {int(key) for key in distribution.keys() if str(key).isdigit()}
+            if line_cc_ids:
+                if self.cost_center_id.id in line_cc_ids:
+                    relevant_lines |= line
+            elif len(self.pr_id.allowed_cost_center_ids) == 1 and self.cost_center_id in self.pr_id.allowed_cost_center_ids:
+                relevant_lines |= line
+
+        if not relevant_lines:
+            return {
+                "sale_order": sale_order,
+                "allowed_qty": 0.0,
+                "allowed_unit_price": 0.0,
+                "allowed_amount": 0.0,
+            }
+
+        return {
+            "sale_order": sale_order,
+            "allowed_qty": sum(relevant_lines.mapped("product_uom_qty")),
+            "allowed_unit_price": max(relevant_lines.mapped("price_unit") or [0.0]),
+            "allowed_amount": sum(relevant_lines.mapped("price_subtotal")),
+        }
+
     @api.constrains('cost_center_id', 'description', 'quantity', 'unit_price', 'pr_id')
     def _check_work_order_product_limits(self):
         for rec in self:
@@ -674,6 +721,75 @@ class CustomPRLine(models.Model):
                                           'allowed': caps['allowed_amount'],
                                           'requested': total_requested_amount,
                                       })
+
+    @api.constrains("cost_center_id", "description", "quantity", "unit_price", "pr_id")
+    def _check_trading_sale_order_product_limits(self):
+        for rec in self:
+            if not rec.cost_center_id or not rec.description or not rec.pr_id:
+                continue
+
+            caps = rec._get_trading_sale_product_caps()
+            if not caps:
+                continue
+
+            if not caps["allowed_qty"]:
+                raise ValidationError(_(
+                    "Product '%(product)s' is not available in Sale Order '%(so)s' for cost center '%(cc)s'."
+                ) % {
+                    "product": rec.description.display_name,
+                    "so": caps["sale_order"].display_name,
+                    "cc": rec.cost_center_id.display_name,
+                })
+
+            sibling_lines = rec.pr_id.line_ids.filtered(
+                lambda l: l.cost_center_id.id == rec.cost_center_id.id
+                and l.description.id == rec.description.id
+            )
+            current_pr_qty = sum(sibling_lines.mapped("quantity"))
+            current_pr_amount = sum(sibling_lines.mapped("total_price"))
+
+            other_lines = self.env["custom.pr.line"].sudo().search([
+                ("id", "not in", rec.pr_id.line_ids.ids),
+                ("cost_center_id", "=", rec.cost_center_id.id),
+                ("description", "=", rec.description.id),
+                ("pr_id.expense_bucket_id", "=", rec.pr_id.expense_bucket_id.id),
+                ("pr_id.approval", "!=", "rejected"),
+            ])
+            total_requested_qty = current_pr_qty + sum(other_lines.mapped("quantity"))
+            total_requested_amount = current_pr_amount + sum(other_lines.mapped("total_price"))
+
+            if total_requested_qty > caps["allowed_qty"]:
+                raise ValidationError(_(
+                    "Requested quantity for '%(product)s' exceeds Sale Order '%(so)s' quantity for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
+                ) % {
+                    "product": rec.description.display_name,
+                    "so": caps["sale_order"].display_name,
+                    "cc": rec.cost_center_id.display_name,
+                    "allowed": caps["allowed_qty"],
+                    "requested": total_requested_qty,
+                })
+
+            if rec.unit_price > caps["allowed_unit_price"]:
+                raise ValidationError(_(
+                    "Unit cost for '%(product)s' cannot exceed Sale Order '%(so)s' unit price for cost center '%(cc)s'. Allowed max: %(allowed)s, Entered: %(entered)s."
+                ) % {
+                    "product": rec.description.display_name,
+                    "so": caps["sale_order"].display_name,
+                    "cc": rec.cost_center_id.display_name,
+                    "allowed": caps["allowed_unit_price"],
+                    "entered": rec.unit_price,
+                })
+
+            if total_requested_amount > caps["allowed_amount"]:
+                raise ValidationError(_(
+                    "Requested amount for '%(product)s' exceeds Sale Order '%(so)s' amount for cost center '%(cc)s'. Allowed: %(allowed)s, Requested (including other PRs): %(requested)s."
+                ) % {
+                    "product": rec.description.display_name,
+                    "so": caps["sale_order"].display_name,
+                    "cc": rec.cost_center_id.display_name,
+                    "allowed": caps["allowed_amount"],
+                    "requested": total_requested_amount,
+                })
 
 
 class PurchaseOrder(models.Model):
