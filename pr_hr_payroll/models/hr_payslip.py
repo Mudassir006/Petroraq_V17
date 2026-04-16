@@ -43,28 +43,13 @@ class HrPayslip(models.Model):
     approved_overtime_hours = fields.Float(related="attendance_sheet_id.approved_overtime_hours", readonly=True)
     approved_overtime_amount = fields.Float(related="attendance_sheet_id.approved_overtime_amount", readonly=True)
     no_late = fields.Integer(related="attendance_sheet_id.no_late", readonly=True)
-    tot_late_in_minutes = fields.Float(
-        string="Total Late In Minutes",
-        compute="_compute_tot_late_in_minutes",
-    )
+    tot_late_in_minutes = fields.Float(string="Total Late In Minutes", readonly=True)
     tot_late = fields.Float(related="attendance_sheet_id.tot_late", readonly=True)
     tot_late_amount = fields.Float(related="attendance_sheet_id.tot_late_amount", readonly=True)
-    no_early_checkout = fields.Integer(
-        string="No of Early Check Out",
-        compute="_compute_attendance_summary_fields",
-    )
-    tot_early_checkout = fields.Float(
-        string="Total Early Check Out",
-        compute="_compute_attendance_summary_fields",
-    )
-    tot_early_checkout_amount = fields.Float(
-        string="Total Early Check Out Amount",
-        compute="_compute_attendance_summary_fields",
-    )
-    early_check_out_minutes = fields.Float(
-        string="Total Early Checkout Minutes",
-        compute="_compute_attendance_summary_fields",
-    )
+    no_early_checkout = fields.Integer(string="No of Early Check Out", readonly=True)
+    tot_early_checkout = fields.Float(string="Total Early Check Out", readonly=True)
+    tot_early_checkout_amount = fields.Float(string="Total Early Check Out Amount", readonly=True)
+    early_check_out_minutes = fields.Float(string="Total Early Checkout Minutes", readonly=True)
     no_absence = fields.Integer(related="attendance_sheet_id.no_absence", readonly=True)
     tot_absence = fields.Float(related="attendance_sheet_id.tot_absence", readonly=True)
     tot_absence_amount = fields.Float(related="attendance_sheet_id.tot_absence_amount", readonly=True)
@@ -77,30 +62,24 @@ class HrPayslip(models.Model):
     carry_forward_overtime_amount = fields.Float(related="attendance_sheet_id.carry_forward_overtime_amount", readonly=True)
     carry_forward_early_checkout_amount = fields.Float(related="attendance_sheet_id.carry_forward_early_checkout_amount", readonly=True)
 
-    @api.depends("attendance_sheet_id")
-    def _compute_tot_late_in_minutes(self):
-        for payslip in self:
-            if payslip.attendance_sheet_id and "tot_late_in_minutes" in payslip.attendance_sheet_id._fields:
-                payslip.tot_late_in_minutes = payslip.attendance_sheet_id.tot_late_in_minutes or 0.0
-            else:
-                payslip.tot_late_in_minutes = 0.0
-
-    @api.depends("attendance_sheet_id")
-    def _compute_attendance_summary_fields(self):
+    def _sync_attendance_summary_fields(self):
         field_names = [
+            "tot_late_in_minutes",
             "no_early_checkout",
             "tot_early_checkout",
             "tot_early_checkout_amount",
             "early_check_out_minutes",
         ]
         for payslip in self:
+            update_vals = {}
             for field_name in field_names:
                 value = 0.0
                 if payslip.attendance_sheet_id and field_name in payslip.attendance_sheet_id._fields:
                     value = getattr(payslip.attendance_sheet_id, field_name, 0.0) or 0.0
                 if field_name == "no_early_checkout":
                     value = int(value)
-                setattr(payslip, field_name, value)
+                update_vals[field_name] = value
+            payslip.update(update_vals)
 
 
     def _upsert_attendance_deduction_line(self, line_vals, payslip, code, amount):
@@ -145,6 +124,7 @@ class HrPayslip(models.Model):
     def _get_payslip_lines(self):
         line_vals = super()._get_payslip_lines()
         for payslip in self:
+            payslip._sync_attendance_summary_fields()
             excluded_earning_codes = set()
             if payslip.employee_id.exclude_transportation_from_attendance_gross:
                 excluded_earning_codes.add("TRANSPORTATION")
@@ -446,6 +426,7 @@ class HrPayslip(models.Model):
 
     def check_payslip_dates(self):
         for payslip in self:
+            payslip._sync_attendance_summary_fields()
             excluded_earning_codes = set()
             if payslip.employee_id.exclude_transportation_from_attendance_gross:
                 excluded_earning_codes.add("TRANSPORTATION")
