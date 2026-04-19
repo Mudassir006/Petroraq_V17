@@ -72,12 +72,18 @@ class HrLeaveRequest(models.Model):
     leave_id = fields.Many2one("hr.leave", string="Leave", readonly=True)
     allocation_override_applied = fields.Boolean(
         string="Allocation Override Applied",
-        related="leave_id.allocation_override_applied",
+        default=False,
         readonly=True,
+        copy=False,
     )
     allocation_override_note = fields.Text(
         string="Allocation Override Note",
-        related="leave_id.allocation_override_note",
+        readonly=True,
+        copy=False,
+    )
+    allocation_bypassed = fields.Boolean(
+        string="Allocation Bypassed",
+        compute="_compute_allocation_bypassed",
         readonly=True,
     )
 
@@ -127,6 +133,18 @@ class HrLeaveRequest(models.Model):
                 rec.requested_days = 0.0
                 continue
             rec.requested_days = float((rec.date_to - rec.date_from).days + 1)
+
+    @api.depends("requested_days", "leave_type_id", "employee_id", "state")
+    def _compute_allocation_bypassed(self):
+        for rec in self:
+            if not rec.employee_id or not rec.leave_type_id:
+                rec.allocation_bypassed = False
+                continue
+            available_days = rec._get_available_days_for_request()
+            rec.allocation_bypassed = (
+                available_days != float("inf")
+                and rec._get_requested_days_count() > (available_days + 1e-6)
+            )
 
     @api.constrains("leave_type_id", "date_from")
     def _check_annual_leave_start_date(self):
@@ -413,6 +431,18 @@ class HrLeaveRequest(models.Model):
         )
         for rec in self:
             rec = rec.sudo()
+            available_days = rec._get_available_days_for_request()
+            bypassed_allocation_limit = (
+                actor_has_allocation_override
+                and available_days != float("inf")
+                and rec._get_requested_days_count() > (available_days + 1e-6)
+            )
+            rec.write({
+                "allocation_override_applied": bypassed_allocation_limit,
+                "allocation_override_note": _(
+                    "Advance allocation: this leave was approved without available allocation."
+                ) if bypassed_allocation_limit else False,
+            })
             rec._check_requested_days_with_allocation()
             rec.state = "hr_approve"
             rec.approval_state = "hr_approve"
@@ -447,14 +477,6 @@ class HrLeaveRequest(models.Model):
             if allocation_override:
                 leave_context["pr_leave_allocation_override"] = True
 
-            requested_days = rec._get_requested_days_count()
-            available_days = rec._get_available_days_for_request()
-            bypassed_allocation_limit = (
-                allocation_override
-                and available_days != float("inf")
-                and requested_days > (available_days + 1e-6)
-            )
-
             leave_vals = {
                 'name': f"{rec.employee_id.name} Leave From {rec.date_from} To {rec.date_to}",
                 "employee_id": rec.employee_id.id,
@@ -462,10 +484,8 @@ class HrLeaveRequest(models.Model):
                 "request_date_from": rec.date_from,
                 "request_date_to": rec.date_to,
                 "leave_request_id": rec.id,
-                "allocation_override_applied": bypassed_allocation_limit,
-                "allocation_override_note": _(
-                    "Advance allocation: this leave was approved without available allocation."
-                ) if bypassed_allocation_limit else False,
+                "allocation_override_applied": bool(rec.allocation_override_applied),
+                "allocation_override_note": rec.allocation_override_note or False,
             }
             leave_id = self.env["hr.leave"].with_context(**leave_context).sudo().create(leave_vals)
             if leave_id:
