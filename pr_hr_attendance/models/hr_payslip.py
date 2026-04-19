@@ -9,6 +9,8 @@ class HrPayslip(models.Model):
     def _get_workday_lines(self):
         for rec in self:
             if not rec.is_bool:
+                if rec.attendance_sheet_id:
+                    rec.attendance_sheet_id._mark_late_checkins_as_absent()
                 self.ensure_one()
                 rec.worked_days_line_ids = [(5, 0, 0)]
                 work_entry_obj = self.env['hr.work.entry.type']

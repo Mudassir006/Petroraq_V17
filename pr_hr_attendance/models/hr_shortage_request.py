@@ -9,6 +9,7 @@ import math
 from random import randint
 import logging
 from datetime import datetime, timedelta, time
+import pytz
 import pandas as pd
 
 _logger = logging.getLogger(__name__)
@@ -98,6 +99,23 @@ class HrShortageRequest(models.Model):
         self.ensure_one()
         if self.employee_id.company_id:
             self.company_id = self.employee_id.company_id.id
+
+    @api.onchange("employee_id", "date")
+    def _onchange_employee_id_date_attendance(self):
+        self.ensure_one()
+        if not self.employee_id or not self.date:
+            return
+        day_start = datetime.combine(self.date, time.min)
+        day_end = day_start + timedelta(days=1)
+        attendance_id = self.env["hr.attendance"].sudo().search([
+            ("employee_id", "=", self.employee_id.id),
+            ("check_in", ">=", day_start),
+            ("check_in", "<", day_end),
+        ], limit=1)
+        if attendance_id:
+            self.check_in = attendance_id.check_in
+            self.check_out = attendance_id.check_out
+            self.shortage_time = attendance_id.shortage_time or False
 
     # endregion [Onchange Methods]
 
@@ -274,22 +292,21 @@ class HrShortageRequest(models.Model):
                 ("check_in", "<", day_end),
             ], limit=1)
 
-            resource_calendar_id = rec.employee_id.resource_calendar_id
-            weekday = str(rec.date.weekday())
-            shifts = resource_calendar_id.attendance_ids.filtered(lambda a: a.dayofweek == weekday)
-            if shifts:
-                hour_from = min(shifts.mapped("hour_from"))
-                hour_to = max(shifts.mapped("hour_to"))
-            else:
-                hour_from, hour_to = 8.0, 17.0
-
-            check_in_dt = datetime.combine(rec.date, time(int(hour_from), int((hour_from % 1) * 60), 0))
-            check_out_dt = datetime.combine(rec.date, time(int(hour_to), int((hour_to % 1) * 60), 0))
+            # Approved shortage requests should normalize attendance to policy hours (09:00 - 18:00) in employee local TZ.
+            employee_tz = rec.employee_id.tz or self.env.user.tz or 'UTC'
+            tzinfo = pytz.timezone(employee_tz)
+            local_check_in = tzinfo.localize(datetime.combine(rec.date, time(9, 0, 0)))
+            local_check_out = tzinfo.localize(datetime.combine(rec.date, time(18, 0, 0)))
+            check_in_dt = fields.Datetime.to_datetime(local_check_in.astimezone(pytz.utc).replace(tzinfo=None))
+            check_out_dt = fields.Datetime.to_datetime(local_check_out.astimezone(pytz.utc).replace(tzinfo=None))
 
             if attendance_id:
-                attendance_id.sudo().write({"check_in": check_in_dt, "check_out": check_out_dt})
+                attendance_id.sudo().with_context(allow_late_attendance=True).write({
+                    "check_in": check_in_dt,
+                    "check_out": check_out_dt,
+                })
             else:
-                self.env["hr.attendance"].sudo().create({
+                self.env["hr.attendance"].sudo().with_context(allow_late_attendance=True).create({
                     "employee_id": rec.employee_id.id,
                     "check_in": check_in_dt,
                     "check_out": check_out_dt,
