@@ -254,12 +254,20 @@
                     <option value="this_year">This Year</option>
                     <option value="custom">Custom</option>
                 </select>
-                <t t-if="state.duration === 'custom'">
-                    <input type="date" class="form-control de-summary-select" t-att-value="state.date_from" t-on-change="onDateFromChange"/>
-                    <input type="date" class="form-control de-summary-select" t-att-value="state.date_to" t-on-change="onDateToChange"/>
-                </t>
             </div>
         </div>
+        <t t-if="state.duration === 'custom'">
+            <div class="d-flex gap-2 flex-wrap mb-3 de-simple-summary-controls">
+                <input type="date"
+                       class="form-control de-summary-select"
+                       t-att-value="state.date_from"
+                       t-on-change="onDateFromChange"/>
+                <input type="date"
+                       class="form-control de-summary-select"
+                       t-att-value="state.date_to"
+                       t-on-change="onDateToChange"/>
+            </div>
+        </t>
         <div class="text-muted mb-3 de-simple-summary-subtitle">
             Overall summary for <t t-esc="state.employee_name"/>
         </div>
