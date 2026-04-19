@@ -229,16 +229,19 @@ class HrAttendanceSheet(models.Model):
             raise ValidationError(_(
                 'Please Add Work Entry Type For Attendance Sheet Diff Time With Code ATTSHDT'))
 
-        overtime = [{
-            'name': "Overtime",
-            'code': 'OVT',
-            'work_entry_type_id': overtime_work_entry[0].id,
-            'sequence': 30,
-            'number_of_days': self.no_overtime,
-            'number_of_hours': self.tot_overtime,
-        }]
-        # if not self.overtime_approved:
-        #     overtime = []
+        approved_hours = self.approved_overtime_hours or 0.0
+        approved_amount = self.approved_overtime_amount or 0.0
+        overtime = []
+        if approved_hours > 0:
+            overtime = [{
+                'name': "Overtime",
+                'code': 'OVT',
+                'work_entry_type_id': overtime_work_entry[0].id,
+                'sequence': 30,
+                'number_of_days': approved_hours / (self.employee_id.contract_id.resource_calendar_id.hours_per_day or 8.0),
+                'number_of_hours': approved_hours,
+                'amount': approved_amount,
+            }]
 
         absence = [{
             'name': "Absence",
