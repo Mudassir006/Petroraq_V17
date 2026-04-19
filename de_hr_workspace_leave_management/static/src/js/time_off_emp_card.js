@@ -245,7 +245,7 @@ export class LeaveRequestCountCard extends Component {
 
     employeeLabel(employee) {
         const code = employee?.code || employee?.employee_code || '';
-        return code ? `${employee.name} [${code}]` : (employee?.name || '');
+        return code ? `${code} - ${employee.name}` : (employee?.name || '');
     }
 
     async loadMetrics() {
@@ -320,6 +320,9 @@ export class SimpleLeaveSummaryCard extends Component {
         this.state = useState({
             employee_id: this.props.id,
             employee_search: '',
+            duration: 'current_contract',
+            date_from: '',
+            date_to: '',
             lines: [],
             employee_name: '',
             employee_profile: {},
@@ -339,7 +342,7 @@ export class SimpleLeaveSummaryCard extends Component {
 
     employeeLabel(employee) {
         const code = employee?.code || employee?.employee_code || '';
-        return code ? `${employee.name} [${code}]` : (employee?.name || '');
+        return code ? `${code} - ${employee.name}` : (employee?.name || '');
     }
 
     async loadSummary() {
@@ -355,7 +358,12 @@ export class SimpleLeaveSummaryCard extends Component {
         const result = await this.orm.call(
             'hr.leave',
             'get_employee_leave_simple_summary',
-            [this.state.employee_id],
+            [
+                this.state.employee_id,
+                this.state.duration,
+                this.state.date_from || false,
+                this.state.date_to || false,
+            ],
             { context: { show_all_leave_dashboard: true } }
         );
         this.state.lines = result.lines || [];
@@ -365,6 +373,25 @@ export class SimpleLeaveSummaryCard extends Component {
 
     async onEmployeeChange(ev) {
         this.state.employee_id = parseInt(ev.target.value, 10);
+        await this.loadSummary();
+    }
+
+    async onDurationChange(ev) {
+        this.state.duration = ev.target.value;
+        if (this.state.duration !== 'custom') {
+            this.state.date_from = '';
+            this.state.date_to = '';
+        }
+        await this.loadSummary();
+    }
+
+    async onDateFromChange(ev) {
+        this.state.date_from = ev.target.value;
+        await this.loadSummary();
+    }
+
+    async onDateToChange(ev) {
+        this.state.date_to = ev.target.value;
         await this.loadSummary();
     }
 
