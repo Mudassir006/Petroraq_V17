@@ -1,6 +1,7 @@
-from odoo import models, fields, api, _, expression
+from odoo import models, fields, api, _
 from odoo.exceptions import AccessError
 from odoo.exceptions import UserError, ValidationError
+from odoo.osv import expression
 
 import logging
 
