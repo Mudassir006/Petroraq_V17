@@ -27,6 +27,16 @@ class HrHolidays(models.Model):
         tracking=True)
     leave_amount = fields.Float(string="Amount", compute="compute_leave_amount", store=True)
     leave_request_id = fields.Many2one("pr.hr.leave.request", string="Leave Request", readonly=True)
+    allocation_override_applied = fields.Boolean(
+        string="Allocation Override Applied",
+        default=False,
+        readonly=True,
+        help="Checked when this leave was approved using allocation-limit override.",
+    )
+    allocation_override_note = fields.Text(
+        string="Allocation Override Note",
+        readonly=True,
+    )
     # leave_amount = fields.Float(string="Amount")
 
     # endregion [Fields]
