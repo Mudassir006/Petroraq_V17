@@ -10,6 +10,7 @@ from random import randint
 import logging
 from datetime import datetime, timedelta
 import pandas as pd
+import pytz
 
 _logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class HrAttendanceSheet(models.Model):
     @api.depends('line_ids.status',
                  'line_ids.day_amount',
                  'line_ids.overtime',
+                 'line_ids.worked_hours',
                  'line_ids.overtime_amount',
                  'line_ids.diff_time',
                  'line_ids.diff_amount',
@@ -58,12 +60,28 @@ class HrAttendanceSheet(models.Model):
                  'line_ids.absence_amount',
                  'line_ids.early_check_out',
                  'line_ids.early_check_out_minutes',
-                 'line_ids.early_check_out_amount')
+                 'line_ids.early_check_out_amount',
+                 'employee_id',
+                 'employee_id.add_overtime',
+                 'employee_id.resource_calendar_id',
+                 'employee_id.contract_id',
+                 'employee_id.contract_id.wage')
     def _compute_sheet_total(self):
         """
         """
         res = super()._compute_sheet_total()
         for sheet in self:
+            # Keep sheet overtime totals aligned with the overtime values already
+            # computed per day on line level.
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0)
+            if sheet.employee_id.add_overtime:
+                sheet.tot_overtime = sum(overtime_lines.mapped("overtime"))
+                sheet.tot_overtime_amount = sum(overtime_lines.mapped("overtime_amount"))
+            else:
+                sheet.tot_overtime = 0.0
+                sheet.tot_overtime_amount = 0.0
+            sheet.no_overtime = len(overtime_lines)
+
             # Compute Late In Minutes
             late_lines = sheet.line_ids.filtered(lambda l: l.late_in > 0)
             sheet.tot_late_in_minutes = sum(late_lines.mapped("late_in_minutes")) if late_lines else 0
@@ -183,8 +201,23 @@ class HrAttendanceSheet(models.Model):
                         filtered_line = att_sheet.line_ids.filtered(lambda l: l.date == date_line)
                         if filtered_line:
                             filtered_line.status = "leave"
+            att_sheet._sync_line_overtime_approval_from_attendance()
             att_sheet._mark_late_checkins_as_absent()
         return res
+
+    def _sync_line_overtime_approval_from_attendance(self):
+        for sheet in self:
+            timezone_name = sheet.employee_id.tz or self.env.user.tz or "UTC"
+            tz = pytz.timezone(timezone_name)
+            allows_overtime = sheet._employee_allows_overtime() if hasattr(sheet, "_employee_allows_overtime") else bool(sheet.employee_id.add_overtime)
+            for line in sheet.line_ids:
+                if not allows_overtime or line.overtime <= 0:
+                    line.overtime_approval_state = "not_required"
+                    continue
+                if line.date and sheet._is_overtime_approved_for_day(sheet.employee_id, line.date, tz):
+                    line.overtime_approval_state = "approved"
+                elif line.overtime_approval_state == "not_required":
+                    line.overtime_approval_state = "pending"
 
     def _mark_late_checkins_as_absent(self):
         """Mark attendance sheet lines as absent when check-in is after 09:01."""
@@ -229,16 +262,19 @@ class HrAttendanceSheet(models.Model):
             raise ValidationError(_(
                 'Please Add Work Entry Type For Attendance Sheet Diff Time With Code ATTSHDT'))
 
-        overtime = [{
-            'name': "Overtime",
-            'code': 'OVT',
-            'work_entry_type_id': overtime_work_entry[0].id,
-            'sequence': 30,
-            'number_of_days': self.no_overtime,
-            'number_of_hours': self.tot_overtime,
-        }]
-        # if not self.overtime_approved:
-        #     overtime = []
+        approved_hours = self.approved_overtime_hours or 0.0
+        approved_amount = self.approved_overtime_amount or 0.0
+        overtime = []
+        if approved_hours > 0:
+            overtime = [{
+                'name': "Overtime",
+                'code': 'OVT',
+                'work_entry_type_id': overtime_work_entry[0].id,
+                'sequence': 30,
+                'number_of_days': approved_hours / (self.employee_id.contract_id.resource_calendar_id.hours_per_day or 8.0),
+                'number_of_hours': approved_hours,
+                'amount': approved_amount,
+            }]
 
         absence = [{
             'name': "Absence",
@@ -436,6 +472,33 @@ class AttendanceSheetLine(models.Model):
             salary_base = line._get_deduction_salary_base(line.employee_id.contract_id)
             day_amount = salary_base / month_days if month_days else 0.0
             line.absence_amount = day_amount if line.status == "ab" else 0.0
+
+    @api.depends("overtime",
+                 "worked_hours",
+                 "employee_id",
+                 "employee_id.add_overtime",
+                 "employee_id.contract_id",
+                 "employee_id.contract_id.wage",
+                 "employee_id.contract_id.resource_calendar_id",
+                 "employee_id.contract_id.resource_calendar_id.hours_per_day")
+    def _compute_overtime_amount(self):
+        for line in self:
+            if not line.employee_id or not line.employee_id.contract_id or not line.employee_id.add_overtime:
+                line.overtime_amount = 0.0
+                continue
+            if line.overtime <= 0:
+                line.overtime_amount = 0.0
+                continue
+
+            wage = line.employee_id.contract_id.wage or 0.0
+            calendar_hours_per_day = line.employee_id.contract_id.resource_calendar_id.hours_per_day or 8.0
+
+            if line.employee_id.resource_calendar_id.id == 6:
+                hourly_rate = (wage / 30.0 / 8.0) * 1.5
+            else:
+                hourly_rate = (wage / 30.0 / calendar_hours_per_day) * 1.5
+
+            line.overtime_amount = line.overtime * hourly_rate
 
     @api.depends("employee_id",
                  "early_check_out",
