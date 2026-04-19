@@ -71,35 +71,12 @@ class HrAttendanceSheet(models.Model):
         """
         res = super()._compute_sheet_total()
         for sheet in self:
-            # Recompute overtime totals with requested thresholds:
-            # - Normal employees: overtime after calendar hours/day (typically 8).
-            # - Site employees: overtime after 10 hours (not 11).
-            calendar_hours_per_day = sheet.employee_id.resource_calendar_id.hours_per_day or 8.0
-            overtime_threshold = calendar_hours_per_day
-            if sheet.employee_id.resource_calendar_id.id == 6 and calendar_hours_per_day >= 9:
-                overtime_threshold = 10.0
-
-            overtime_lines = sheet.line_ids.filtered(
-                lambda l: l.worked_hours > overtime_threshold or (l.pl_sign_in == 0 and l.ac_sign_in > 0)
-            )
+            # Keep sheet overtime totals aligned with the overtime values already
+            # computed per day on line level.
+            overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0)
             if sheet.employee_id.add_overtime:
-                total_overtime_hours = 0.0
-                for overtime_line in overtime_lines:
-                    if overtime_line.pl_sign_in > 0 and overtime_line.ac_sign_in > 0:
-                        total_overtime_hours += max(overtime_line.worked_hours - calendar_hours_per_day, 0.0)
-                    elif overtime_line.pl_sign_in == 0 and overtime_line.ac_sign_in > 0:
-                        total_overtime_hours += overtime_line.worked_hours
-                sheet.tot_overtime = total_overtime_hours
-
-                wage = sheet.employee_id.contract_id.wage or 0.0
-                if total_overtime_hours and wage:
-                    if sheet.employee_id.resource_calendar_id.id == 6:
-                        hourly_rate = (wage / 30.0 / 8.0) * 1.5
-                    else:
-                        hourly_rate = (wage / 30.0 / calendar_hours_per_day) * 1.5
-                    sheet.tot_overtime_amount = total_overtime_hours * hourly_rate
-                else:
-                    sheet.tot_overtime_amount = 0.0
+                sheet.tot_overtime = sum(overtime_lines.mapped("overtime"))
+                sheet.tot_overtime_amount = sum(overtime_lines.mapped("overtime_amount"))
             else:
                 sheet.tot_overtime = 0.0
                 sheet.tot_overtime_amount = 0.0
