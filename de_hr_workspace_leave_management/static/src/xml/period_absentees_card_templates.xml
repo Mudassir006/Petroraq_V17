@@ -239,7 +239,7 @@
             <div class="d-flex gap-2 flex-wrap de-simple-summary-controls">
                 <input type="text"
                        class="form-control de-summary-select"
-                       placeholder="Search employee by name or ID..."
+                       placeholder="Search employee by code or name..."
                        t-att-value="state.employee_search"
                        list="de_summary_employee_filter_options"
                        t-on-input="onEmployeeSearchInput"/>
@@ -248,6 +248,16 @@
                         <option t-att-value="this.employeeLabel(employee)"/>
                     </t>
                 </datalist>
+                <select class="form-select de-summary-select" t-att-value="state.duration" t-on-change="onDurationChange">
+                    <option value="current_contract">Current Contract</option>
+                    <option value="this_month">This Month</option>
+                    <option value="this_year">This Year</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <t t-if="state.duration === 'custom'">
+                    <input type="date" class="form-control de-summary-select" t-att-value="state.date_from" t-on-change="onDateFromChange"/>
+                    <input type="date" class="form-control de-summary-select" t-att-value="state.date_to" t-on-change="onDateToChange"/>
+                </t>
             </div>
         </div>
         <div class="text-muted mb-3 de-simple-summary-subtitle">
@@ -271,10 +281,9 @@
             <div class="de-selected-employee-grid">
                 <div><i class="fa fa-id-badge me-1"/> <t t-esc="state.employee_profile.employee_code || '-'"/></div>
                 <div>DOJ: <t t-esc="state.employee_profile.joining_date || '-'"/></div>
+                <div>Current Contract Start: <t t-esc="state.employee_profile.current_contract_start_date || '-'"/></div>
                 <div><i class="fa fa-sitemap me-1"/> <t t-esc="state.employee_profile.department || '-'"/></div>
-                <div><i class="fa fa-clock-o me-1"/> <t t-esc="state.employee_profile.resource_calendar || '-'"/></div>
-                <div><i class="fa fa-envelope-o me-1"/> <t t-esc="state.employee_profile.work_email || '-'"/></div>
-                <div><i class="fa fa-phone me-1"/> <t t-esc="state.employee_profile.work_phone || '-'"/></div>
+                <div><i class="fa fa-building-o me-1"/> <t t-esc="state.employee_profile.company || '-'"/></div>
             </div>
         </div>
         <div class="row g-0 de-leave-tiles-grid de-leave-summary-strip">
