@@ -220,6 +220,15 @@ class HrHolidays(models.Model):
 
     # endregion [Onchange Methods]
 
+    @api.constrains('holiday_status_id', 'request_date_from')
+    def _check_annual_leave_start_date(self):
+        today = fields.Date.context_today(self)
+        for leave in self:
+            if not leave.holiday_status_id or not leave.request_date_from:
+                continue
+            if leave.holiday_status_id.leave_type == 'annual_leave' and leave.request_date_from <= today:
+                raise ValidationError(_("Annual Leave requests must start from tomorrow onward."))
+
     def _check_holidays(self):
         try:
             return super()._check_holidays()
