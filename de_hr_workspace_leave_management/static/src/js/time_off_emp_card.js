@@ -416,9 +416,44 @@ export class SimpleLeaveSummaryCard extends Component {
         }
     }
 
+    _todayISO() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    _computeSummaryRange() {
+        const today = this._todayISO();
+        let start = null;
+        let end = today;
+
+        if (this.state.duration === "custom" && this.state.date_from && this.state.date_to) {
+            start = this.state.date_from;
+            end = this.state.date_to;
+        } else if (this.state.duration === "this_year") {
+            const year = new Date().getFullYear();
+            start = `${year}-01-01`;
+        } else if (this.state.duration === "this_month") {
+            const now = new Date();
+            const month = `${now.getMonth() + 1}`.padStart(2, "0");
+            start = `${now.getFullYear()}-${month}-01`;
+        } else {
+            start = this.state.employee_profile.current_contract_start_date || `${new Date().getFullYear()}-01-01`;
+        }
+
+        return { start, end };
+    }
+
     openLeaveRequests(line) {
         if (!this.state.employee_id || !line?.leave_type_id) {
             return;
+        }
+        const { start, end } = this._computeSummaryRange();
+        const domain = [
+            ["employee_id", "=", this.state.employee_id],
+            ["holiday_status_id", "=", line.leave_type_id],
+        ];
+        if (start && end) {
+            domain.push(["request_date_from", "<=", end]);
+            domain.push(["request_date_to", ">=", start]);
         }
         return this.actionService.doAction({
             type: "ir.actions.act_window",
@@ -427,10 +462,7 @@ export class SimpleLeaveSummaryCard extends Component {
             views: [[false, "list"], [false, "form"]],
             view_mode: "list,form",
             target: "current",
-            domain: [
-                ["employee_id", "=", this.state.employee_id],
-                ["holiday_status_id", "=", line.leave_type_id],
-            ],
+            domain,
             context: {
                 search_default_employee_id: this.state.employee_id,
                 default_employee_id: this.state.employee_id,
