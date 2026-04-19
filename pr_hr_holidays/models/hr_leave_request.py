@@ -70,6 +70,16 @@ class HrLeaveRequest(models.Model):
     hr_supervisor_check = fields.Boolean(compute="_compute_hr_supervisor_check")
     hr_manager_check = fields.Boolean(compute="_compute_hr_manager_check")
     leave_id = fields.Many2one("hr.leave", string="Leave", readonly=True)
+    allocation_override_applied = fields.Boolean(
+        string="Allocation Override Applied",
+        related="leave_id.allocation_override_applied",
+        readonly=True,
+    )
+    allocation_override_note = fields.Text(
+        string="Allocation Override Note",
+        related="leave_id.allocation_override_note",
+        readonly=True,
+    )
 
     # endregion [Fields]
 
@@ -444,6 +454,10 @@ class HrLeaveRequest(models.Model):
                 "request_date_from": rec.date_from,
                 "request_date_to": rec.date_to,
                 "leave_request_id": rec.id,
+                "allocation_override_applied": bool(allocation_override),
+                "allocation_override_note": _(
+                    "Advance allocation: this leave was approved without available allocation."
+                ) if allocation_override else False,
             }
             leave_id = self.env["hr.leave"].with_context(**leave_context).sudo().create(leave_vals)
             if leave_id:
