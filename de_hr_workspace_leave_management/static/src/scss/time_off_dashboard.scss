@@ -112,12 +112,30 @@
     gap: 8px !important;
 }
 
-.de_leave_mgmt_dashboard .de-simple-summary-controls .de-summary-select:first-child {
+.de_leave_mgmt_dashboard .de-simple-summary-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    gap: 8px;
+    align-items: center;
+}
+
+.de_leave_mgmt_dashboard .de-simple-summary-filter-grid .de-summary-select {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+}
+
+.de_leave_mgmt_dashboard .de-simple-summary-filter-grid .de-summary-select:first-child {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.de_leave_mgmt_dashboard .de-simple-summary-controls:not(.de-simple-summary-filter-grid) .de-summary-select:first-child {
     min-width: 240px;
     max-width: 280px;
 }
 
-.de_leave_mgmt_dashboard .de-simple-summary-controls input[type="date"].de-summary-select {
+.de_leave_mgmt_dashboard .de-simple-summary-controls:not(.de-simple-summary-filter-grid) input[type="date"].de-summary-select {
     min-width: 140px;
     max-width: 160px;
 }
@@ -434,6 +452,10 @@
 
     .de_leave_mgmt_dashboard .de-simple-summary-controls {
         width: 100%;
+    }
+
+    .de_leave_mgmt_dashboard .de-simple-summary-filter-grid {
+        grid-template-columns: 1fr;
     }
 
     .de_leave_mgmt_dashboard .de-simple-summary-controls .de-summary-select,
