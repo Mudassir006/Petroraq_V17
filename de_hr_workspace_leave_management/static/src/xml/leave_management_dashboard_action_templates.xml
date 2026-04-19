@@ -29,9 +29,6 @@
                     <SimpleLeaveSummaryCard id="currentEmployee.data.id"
                                             employees="currentEmployee.data.children"/>
                 </div>
-                <div class="w-100 d-flex flex-wrap gap-2">
-                    <LeaveRequestCountCard id="currentEmployee.data.id"/>
-                </div>
             </div>
         </div>
     </t>
