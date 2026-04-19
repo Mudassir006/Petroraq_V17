@@ -234,9 +234,9 @@
 
     <div t-name="de_hr_workspace_leave_management.SimpleLeaveSummaryCard" owl="1"
          class="o_timeoff_card py-3 text-odoo de-simple-summary-card" style="flex:1 1 100%;">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 de-simple-summary-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3 de-simple-summary-header">
             <strong class="de-simple-summary-title">Search Employee</strong>
-            <div class="d-flex gap-2 flex-wrap de-simple-summary-controls">
+            <div class="de-simple-summary-controls de-simple-summary-filter-grid">
                 <input type="text"
                        class="form-control de-summary-select"
                        placeholder="Search employee by code or name..."
@@ -254,20 +254,18 @@
                     <option value="this_year">This Year</option>
                     <option value="custom">Custom</option>
                 </select>
+                <t t-if="state.duration === 'custom'">
+                    <input type="date"
+                           class="form-control de-summary-select"
+                           t-att-value="state.date_from"
+                           t-on-change="onDateFromChange"/>
+                    <input type="date"
+                           class="form-control de-summary-select"
+                           t-att-value="state.date_to"
+                           t-on-change="onDateToChange"/>
+                </t>
             </div>
         </div>
-        <t t-if="state.duration === 'custom'">
-            <div class="d-flex gap-2 flex-wrap mb-3 de-simple-summary-controls">
-                <input type="date"
-                       class="form-control de-summary-select"
-                       t-att-value="state.date_from"
-                       t-on-change="onDateFromChange"/>
-                <input type="date"
-                       class="form-control de-summary-select"
-                       t-att-value="state.date_to"
-                       t-on-change="onDateToChange"/>
-            </div>
-        </t>
         <div class="text-muted mb-3 de-simple-summary-subtitle">
             Overall summary for <t t-esc="state.employee_name"/>
         </div>
