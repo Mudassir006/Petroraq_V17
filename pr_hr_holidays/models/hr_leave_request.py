@@ -118,6 +118,15 @@ class HrLeaveRequest(models.Model):
                 continue
             rec.requested_days = float((rec.date_to - rec.date_from).days + 1)
 
+    @api.constrains("leave_type_id", "date_from")
+    def _check_annual_leave_start_date(self):
+        today = fields.Date.context_today(self)
+        for rec in self:
+            if not rec.leave_type_id or not rec.date_from:
+                continue
+            if rec.leave_type_id.leave_type == "annual_leave" and rec.date_from <= today:
+                raise ValidationError(_("Annual Leave requests must start from tomorrow onward."))
+
     # endregion [Compute Methods]
 
     # region [Onchange Methods]
