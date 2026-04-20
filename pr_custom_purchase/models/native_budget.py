@@ -8,10 +8,18 @@ class CrossoveredBudget(models.Model):
     expense_type = fields.Selection(
         [("opex", "Opex"), ("capex", "Capex")],
         string="Expense Type",
+        required=True,
     )
     scope = fields.Selection(
         [("department", "Department"), ("project", "Project"), ("trading", "Trading")],
         string="Applies To",
+    )
+    department_id = fields.Many2one("hr.department", string="Department")
+    department_manager_user_id = fields.Many2one(
+        "res.users",
+        string="Department Manager",
+        related="department_id.manager_id.user_id",
+        readonly=True,
     )
     sale_order_id = fields.Many2one("sale.order", string="Sale Order")
     work_order_id = fields.Many2one("pr.work.order", string="Work Order")
@@ -20,7 +28,7 @@ class CrossoveredBudget(models.Model):
     approval_state = fields.Selection(
         [
             ("draft", "Draft"),
-            ("pm_approval", "Pending Project Manager"),
+            ("pm_approval", "Pending Department/Project Manager"),
             ("accounts_approval", "Pending Accounts"),
             ("md_approval", "Pending Managing Director"),
             ("approved", "Approved"),
@@ -41,11 +49,28 @@ class CrossoveredBudget(models.Model):
         is_accounts = user.has_group("account.group_account_manager") or user.has_group("account.group_account_user")
         is_md = user.has_group("pr_custom_purchase.managing_director")
         for rec in self:
-            rec.can_pm_approve = is_pm
+            is_department_manager = bool(
+                rec.department_id
+                and rec.department_manager_user_id
+                and rec.department_manager_user_id == user
+            )
+            rec.can_pm_approve = is_department_manager or is_pm
             rec.can_accounts_approve = is_accounts
             rec.can_md_approve = is_md
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("name") or vals.get("name") in ("/", _("New"), "New"):
+                vals["name"] = self.env["ir.sequence"].next_by_code("crossovered.budget.custom") or _("New")
+            if vals.get("department_id") and not vals.get("scope"):
+                vals["scope"] = "department"
+        return super().create(vals_list)
+
     def action_budget_confirm(self):
+        for rec in self:
+            if rec.department_id and not rec.department_manager_user_id:
+                raise UserError(_("Please set a Department Manager user for the selected department before submitting."))
         res = super().action_budget_confirm()
         for rec in self:
             if rec.state == "confirm" and rec.approval_state == "draft":
@@ -57,7 +82,7 @@ class CrossoveredBudget(models.Model):
             if rec.state != "confirm" or rec.approval_state != "pm_approval":
                 continue
             if not rec.can_pm_approve:
-                raise UserError(_("Only Project Manager can approve at this stage."))
+                raise UserError(_("Only Department Manager or Project Manager can approve at this stage."))
             rec.approval_state = "accounts_approval"
 
     def action_accounts_approve(self):
