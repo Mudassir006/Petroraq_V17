@@ -5,7 +5,7 @@
     "category": "Tools",
     "author": "Petroraq",
     "license": "OEEL-1",
-    "depends": ["base", "mail"],
+    "depends": ["base", "mail", "sale_management", "purchase", "service_receipt_note"],
     "data": [
         "security/approval_security.xml",
         "security/ir.model.access.csv",

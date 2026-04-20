@@ -10,9 +10,6 @@ class SaleOrder(models.Model):
         self.ensure_one()
         return self.state in ("draft", "sent")
 
-    def _approval_auto_buttons_enabled(self):
-        return True
-
     def action_confirm(self):
         for order in self:
             workflow = order._approval_get_applicable_workflow()
