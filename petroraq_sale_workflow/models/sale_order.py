@@ -7,6 +7,7 @@ from odoo.tools.float_utils import float_round, float_compare
 
 
 class SaleOrder(models.Model):
+    _name = "sale.order"
     _inherit = ["sale.order", "approval.stage.mixin"]
     _description = "Quotation"
 

@@ -9,6 +9,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PurchaseOrder(models.Model):
+    _name = "purchase.order"
     _inherit = ["purchase.order", "approval.stage.mixin"]
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
