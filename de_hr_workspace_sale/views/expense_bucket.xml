@@ -18,5 +18,5 @@
               name="Budgets"
               action="pr_sale_expense_bucket_approvals_action"
               sequence="6"
-              groups="pr_custom_purchase.project_manager,account.group_account_manager,account.group_account_user,pr_custom_purchase.managing_director"/>
+              groups="de_hr_workspace.group_hr_employee_approvals,pr_custom_purchase.project_manager,account.group_account_manager,account.group_account_user,pr_custom_purchase.managing_director"/>
 </odoo>

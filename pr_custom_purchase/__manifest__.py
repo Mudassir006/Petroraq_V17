@@ -45,6 +45,7 @@
         'data/custom_pr_ir_sequence_data.xml',
         'data/custom_purchase_rfq_sequence.xml',
         'data/budget_increase_sequence.xml',
+        'data/crossovered_budget_sequence.xml',
         'data/user_portal_ir_sequence_data.xml',
         'data/mail_template.xml',
     ],
