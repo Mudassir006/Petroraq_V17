@@ -75,6 +75,18 @@ class ApprovalWorkflow(models.Model):
             raise ValidationError(_("Condition domain must evaluate to a list/tuple domain."))
         return list(parsed)
 
+
+    @api.model
+    def get_applicable_workflow(self, record):
+        workflows = self.sudo().search([
+            ("active", "=", True),
+            ("model_name", "=", record._name),
+            "|",
+            ("company_id", "=", False),
+            ("company_id", "=", getattr(record, "company_id", self.env.company).id),
+        ], order="sequence, id")
+        return next((wf for wf in workflows if wf._matches_record(record)), False)
+
     def _matches_record(self, record):
         self.ensure_one()
         if self.model_name != record._name:

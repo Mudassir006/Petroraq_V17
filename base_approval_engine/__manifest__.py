@@ -13,6 +13,7 @@
         "views/approval_workflow_views.xml",
         "views/approval_request_views.xml",
         "views/approval_menus.xml",
+        "views/approval_enforcement_views.xml",
         "views/approval_reject_wizard_views.xml",
     ],
     "installable": True,

@@ -71,6 +71,42 @@ class ApprovalRequest(models.Model):
                     raise ValidationError(_("A pending approval request already exists for this document."))
         return super().create(vals_list)
 
+
+    @api.model
+    def create_request_from_workflow(self, workflow, record):
+        pending = self.search_count([
+            ("res_model", "=", record._name),
+            ("res_id", "=", record.id),
+            ("state", "=", "pending"),
+        ])
+        if pending:
+            raise ValidationError(_("A pending approval request already exists for this document."))
+
+        request = self.create({
+            "workflow_id": workflow.id,
+            "res_model": record._name,
+            "res_id": record.id,
+            "company_id": getattr(record, "company_id", self.env.company).id,
+        })
+
+        line_vals = []
+        for line in workflow.line_ids.sorted(key=lambda x: (x.sequence, x.id)):
+            users = line._resolve_approvers(record)
+            if not users and line.required:
+                raise ValidationError(_("No approver resolved for step '%s'.") % line.name)
+            for user in users:
+                line_vals.append({
+                    "request_id": request.id,
+                    "sequence": line.sequence,
+                    "approver_id": user.id,
+                    "source_type": line.approver_type,
+                    "required": line.required,
+                })
+        if not line_vals:
+            raise ValidationError(_("No approvers resolved from workflow '%s'.") % workflow.name)
+        self.env["approval.request.line"].create(line_vals)
+        return request
+
     def action_submit(self):
         for request in self:
             if request.state != "draft":

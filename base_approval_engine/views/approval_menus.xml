@@ -7,4 +7,6 @@
     <menuitem id="menu_approval_engine_config" name="Configuration" parent="menu_approval_engine_root" sequence="90" groups="base_approval_engine.group_approval_engine_admin"/>
 
     <menuitem id="menu_approval_engine_workflows" name="Workflows" parent="menu_approval_engine_config" action="action_approval_workflow" sequence="10" groups="base_approval_engine.group_approval_engine_admin"/>
+
+    <menuitem id="menu_approval_engine_enforcement" name="Enforcement Rules" parent="menu_approval_engine_config" action="action_approval_enforcement_rule" sequence="20" groups="base_approval_engine.group_approval_engine_admin"/>
 </odoo>
