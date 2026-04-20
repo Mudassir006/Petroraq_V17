@@ -74,13 +74,14 @@ class HrAttendanceSheet(models.Model):
             # Keep sheet overtime totals aligned with the overtime values already
             # computed per day on line level.
             overtime_lines = sheet.line_ids.filtered(lambda l: l.overtime > 0)
+            approved_overtime_lines = overtime_lines.filtered(lambda l: l.overtime_approval_state == 'approved')
             if sheet.employee_id.add_overtime:
-                sheet.tot_overtime = sum(overtime_lines.mapped("overtime"))
-                sheet.tot_overtime_amount = sum(overtime_lines.mapped("overtime_amount"))
+                sheet.tot_overtime = sum(approved_overtime_lines.mapped("approved_overtime_hours"))
+                sheet.tot_overtime_amount = sum(approved_overtime_lines.mapped("approved_overtime_amount"))
             else:
                 sheet.tot_overtime = 0.0
                 sheet.tot_overtime_amount = 0.0
-            sheet.no_overtime = len(overtime_lines)
+            sheet.no_overtime = len(approved_overtime_lines)
 
             # Compute Late In Minutes
             late_lines = sheet.line_ids.filtered(lambda l: l.late_in > 0)
