@@ -99,7 +99,7 @@
                             string="Create PR"
                             class="btn-primary"
                             groups="pr_custom_purchase.group_custom_pr_end_user"
-                            invisible="state not in ['acc_approval', 'final_approval', 'approved', 'in_progress', 'done']"/>
+                            invisible="state not in ['approved','in_progress']"/>
 
 
                     <field name="state" widget="statusbar"
