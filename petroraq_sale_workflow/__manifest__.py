@@ -12,6 +12,7 @@
         "account",
         "stock",
         "pr_work_order",
+        "pr_multi_approval_base",
         "base_revision",
         "sale_order_revision",
     ],

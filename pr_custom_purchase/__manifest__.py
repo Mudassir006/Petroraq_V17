@@ -9,6 +9,7 @@
     'version': '17.0.1.0.7',
     'license': 'LGPL-3',
     'depends': ['base', 'portal', 'product', 'hr', 'mail', 'web', 'purchase', 'purchase_stock', 'stock', 'bus',
+                'pr_multi_approval_base',
                 'project', 'account', 'account_budget'],
     'data': [
         'security/custom_pr_groups.xml',

@@ -7,7 +7,7 @@ from odoo.tools.float_utils import float_round, float_compare
 
 
 class SaleOrder(models.Model):
-    _inherit = "sale.order"
+    _inherit = ["sale.order", "approval.stage.mixin"]
     _description = "Quotation"
 
     def _notify_approval_users(self, users, subject, body_html, summary):
@@ -736,13 +736,51 @@ class SaleOrder(models.Model):
                         "petroraq_sale_workflow.group_sale_approval_md"))
             )
 
-    def action_manager_approve(self):
+    def _approval_get_state_stages(self):
+        self.ensure_one()
+        return [
+            {
+                "state": "to_manager",
+                "group": "petroraq_sale_workflow.group_sale_approval_manager",
+                "next_state": "to_md",
+                "label": "Manager",
+            },
+            {
+                "state": "to_md",
+                "group": "petroraq_sale_workflow.group_sale_approval_md",
+                "next_state": "approved",
+                "label": "Managing Director",
+            },
+        ]
+
+    def _action_approve_current_chain_stage(self, expected_state):
         for order in self:
-            if order.approval_state != "to_manager":
-                raise UserError(_("This quotation is not awaiting manager approval."))
-            order.approval_state = "to_md"
-            order.locked = True
-            order._notify_md_approval()
+            if order.approval_state != expected_state:
+                raise UserError(_("This quotation is not awaiting the selected approval stage."))
+
+            stages = order._approval_get_state_stages()
+            current_idx = order._approval_get_state_stage_index(stages, order.approval_state)
+            if current_idx is False:
+                raise UserError(_("No approval stage is configured for the current state."))
+
+            user = self.env.user
+            current_stage = stages[current_idx]
+            if not user.has_group(current_stage["group"]):
+                raise UserError(_("You can approve only your current approval stage."))
+
+            last_idx = order._approval_get_last_consecutive_stage_index(stages, current_idx, user)
+            next_state = stages[last_idx]["next_state"]
+            order.write({
+                "approval_state": next_state,
+                "locked": True,
+            })
+
+            if next_state == "to_md":
+                order._notify_md_approval()
+        return True
+
+    def action_manager_approve(self):
+        return self._action_approve_current_chain_stage("to_manager")
 
     def action_confirm_quotation(self):
         for order in self:
@@ -764,11 +802,7 @@ class SaleOrder(models.Model):
         return True
 
     def action_md_approve(self):
-        for order in self:
-            if order.approval_state != "to_md":
-                raise UserError(_("This quotation is not awaiting MD approval."))
-            order.approval_state = "approved"
-        return True
+        return self._action_approve_current_chain_stage("to_md")
 
     def action_reject(self):
         for order in self:
