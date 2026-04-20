@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_approval_workflow_tree" model="ir.ui.view">
+        <field name="name">approval.workflow.tree</field>
+        <field name="model">approval.workflow</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence"/>
+                <field name="name"/>
+                <field name="model_id"/>
+                <field name="company_id"/>
+                <field name="approval_mode"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_approval_workflow_form" model="ir.ui.view">
+        <field name="name">approval.workflow.form</field>
+        <field name="model">approval.workflow</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                            <field name="model_id" options="{'no_create': True}"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group>
+                            <field name="approval_mode"/>
+                            <field name="allow_dynamic_approvers"/>
+                            <field name="auto_lock_record"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="condition_domain" widget="text" placeholder="[('amount_total', '&gt;', 1000)]"/>
+                        <field name="notes"/>
+                    </group>
+                    <notebook>
+                        <page string="Steps">
+                            <field name="line_ids" context="{'default_workflow_id': id}">
+                                <tree editable="bottom">
+                                    <field name="sequence"/>
+                                    <field name="name"/>
+                                    <field name="approver_type"/>
+                                    <field name="user_id"/>
+                                    <field name="group_id"/>
+                                    <field name="field_name"/>
+                                    <field name="related_path"/>
+                                    <field name="required"/>
+                                    <field name="min_approvers"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_approval_workflow" model="ir.actions.act_window">
+        <field name="name">Approval Workflows</field>
+        <field name="res_model">approval.workflow</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>
