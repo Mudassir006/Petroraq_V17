@@ -1372,9 +1372,9 @@ class AttendanceSheet(models.Model):
             ('id', '!=', self.id),
             ('predictive_mode', '=', True),
             ('predictive_cutoff_date', '!=', False),
-            ('date_to', '<', self.date_from),
             ('carry_forward_settled_sheet_id', '=', False),
-        ], order='date_to asc')
+            ('id', '<', self.id),
+        ], order='date_to asc, id asc')
 
         for prev_sheet in previous_sheets:
             if not prev_sheet.predictive_cutoff_date or prev_sheet.predictive_cutoff_date >= prev_sheet.date_to:
@@ -1397,7 +1397,8 @@ class AttendanceSheet(models.Model):
             source_early_checkout_amount = sum(pending_lines.mapped(
                 'early_check_out_amount')) if 'early_check_out_amount' in pending_lines._fields else 0.0
             if prev_sheet.employee_id.add_overtime:
-                source_overtime_amount = sum([v for v in pending_lines.mapped('overtime_amount') if v > 0])
+                overtime_source_field = 'approved_overtime_amount' if 'approved_overtime_amount' in pending_lines._fields else 'overtime_amount'
+                source_overtime_amount = sum([v for v in pending_lines.mapped(overtime_source_field) if v > 0])
             else:
                 source_overtime_amount = 0.0
             source_amount = source_absence_amount + source_late_amount + source_diff_amount + source_early_checkout_amount - source_overtime_amount
