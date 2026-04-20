@@ -6,7 +6,7 @@ from odoo.exceptions import ValidationError, UserError
 class HrRecruitmentRequest(models.Model):
     _name = 'hr.recruitment.request'
     _description = 'HR Recruitment Request'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'approval.stage.mixin']
     _order = "id desc"
 
     name = fields.Char(string="Request Reference", required=True, copy=False, readonly=True, default="/")
@@ -169,62 +169,108 @@ class HrRecruitmentRequest(models.Model):
         if not self.env.user.has_group("hr.group_hr_manager"):
             raise UserError(_("Only MD (HR Manager) can perform this approval."))
 
-    def action_approve_department(self):
-        for rec in self:
-            if rec.state != "dept_approval":
-                continue
-            rec._check_department_approver()
-            rec.sudo().write({
+    def _approval_get_state_field_name(self):
+        self.ensure_one()
+        return "state"
+
+    def _approval_get_state_stages(self):
+        self.ensure_one()
+        return [
+            {
+                "state": "dept_approval",
+                "next_state": "hr_approval",
+                "label": "Department Manager",
+            },
+            {
                 "state": "hr_approval",
+                "group": "hr_recruitment.group_hr_recruitment_manager",
+                "next_state": "md_approval",
+                "label": "HR Supervisor",
+            },
+            {
+                "state": "md_approval",
+                "group": "hr.group_hr_manager",
+                "next_state": "approved",
+                "label": "MD",
+            },
+        ]
+
+    def _approval_is_user_allowed_for_state_stage(self, stage, user):
+        self.ensure_one()
+        if stage["state"] == "dept_approval":
+            return bool(self.department_manager_user_id and self.department_manager_user_id == user)
+        return super()._approval_is_user_allowed_for_state_stage(stage, user)
+
+    def _approval_apply_stage_audit(self, stage):
+        self.ensure_one()
+        now = fields.Datetime.now()
+        if stage["state"] == "dept_approval":
+            self.sudo().write({
                 "department_approved_by_id": self.env.user.id,
-                "department_approved_date": fields.Datetime.now(),
+                "department_approved_date": now,
             })
+        elif stage["state"] == "hr_approval":
+            self.sudo().write({
+                "hr_approved_by_id": self.env.user.id,
+                "hr_approved_date": now,
+            })
+        elif stage["state"] == "md_approval":
+            self.sudo().write({
+                "md_approved_by_id": self.env.user.id,
+                "md_approved_date": now,
+            })
+
+    def _approval_apply_md_business_logic(self):
+        self.ensure_one()
+        HrJob = self.env["hr.job"]
+        job = self.job_id
+        if self.is_new_position:
+            job_vals = {
+                "name": self.new_job_name,
+                "department_id": self.department_id.id,
+                "no_of_recruitment": self.requested_employees,
+                "contract_type_id": self.contract_type_id.id,
+                "job_salary": self.job_salary,
+                "experience_years": self.experience_years,
+                "description": self.job_summary,
+            }
+            job = HrJob.create(job_vals)
+            self.created_job_id = job
+        else:
+            if job:
+                job.no_of_recruitment += self.requested_employees
+            else:
+                raise UserError(_("no job position is configured for this request"))
+
+    def _approval_progress_state_chain(self, expected_state):
+        for rec in self:
+            if rec.state != expected_state:
+                continue
+            stages = rec._approval_get_state_stages()
+            stage_idx = rec._approval_get_state_stage_index(stages, rec.state)
+            if stage_idx is False:
+                continue
+            current_stage = stages[stage_idx]
+            if not rec._approval_is_user_allowed_for_state_stage(current_stage, self.env.user):
+                raise UserError(_("You can approve only your current approval stage."))
+
+            last_idx = rec._approval_get_last_consecutive_stage_index(stages, stage_idx, self.env.user)
+            for idx in range(stage_idx, last_idx + 1):
+                stage = stages[idx]
+                rec._approval_apply_stage_audit(stage)
+                if stage["state"] == "md_approval":
+                    rec._approval_apply_md_business_logic()
+
+            rec.sudo().write({"state": stages[last_idx]["next_state"]})
+
+    def action_approve_department(self):
+        return self._approval_progress_state_chain("dept_approval")
 
     def action_approve_hr_supervisor(self):
-        for rec in self:
-            if rec.state != "hr_approval":
-                continue
-            rec._check_hr_supervisor_approver()
-            rec.sudo().write({
-                "state": "md_approval",
-                "hr_approved_by_id": self.env.user.id,
-                "hr_approved_date": fields.Datetime.now(),
-            })
+        return self._approval_progress_state_chain("hr_approval")
 
     def action_approve_md(self):
-        HrJob = self.env["hr.job"]
-        for rec in self:
-            if rec.state != "md_approval":
-                continue
-            rec._check_md_approver()
-            job = rec.job_id
-            if rec.is_new_position:
-                job_vals = {
-                    "name": rec.new_job_name,
-                    "department_id": rec.department_id.id,
-                    "no_of_recruitment": rec.requested_employees,
-
-                    # new fields
-                    "contract_type_id": rec.contract_type_id.id,
-                    "job_salary": rec.job_salary,
-                    "experience_years": rec.experience_years,
-                    "description": rec.job_summary,
-                }
-
-                job = HrJob.create(job_vals)
-                rec.created_job_id = job
-
-            else:
-                if job:
-                    job.no_of_recruitment += rec.requested_employees
-                else:
-                    raise UserError(_("no job position is configured for this request"))
-
-            rec.sudo().write({
-                "state": "approved",
-                "md_approved_by_id": self.env.user.id,
-                "md_approved_date": fields.Datetime.now(),
-            })
+        return self._approval_progress_state_chain("md_approval")
 
     def action_approve(self):
         return self.action_approve_md()

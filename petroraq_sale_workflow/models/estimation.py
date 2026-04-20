@@ -13,7 +13,7 @@ SECTION_TYPES = [
 class PetroraqEstimation(models.Model):
     _name = "petroraq.estimation"
     _description = "Estimation"
-    _inherit = ["mail.thread", "mail.activity.mixin", "base.revision"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "base.revision", "approval.stage.mixin"]
 
     current_revision_id = fields.Many2one(
         comodel_name="petroraq.estimation",
@@ -623,17 +623,48 @@ class PetroraqEstimation(models.Model):
             record.approval_state = "to_manager"
             record.approval_comment = False
 
-    def action_manager_approve(self):
+    def _approval_get_state_stages(self):
+        self.ensure_one()
+        return [
+            {
+                "state": "to_manager",
+                "group": "petroraq_sale_workflow.group_sale_approval_manager",
+                "next_state": "to_md",
+                "label": "Manager",
+            },
+            {
+                "state": "to_md",
+                "group": "petroraq_sale_workflow.group_sale_approval_md",
+                "next_state": "approved",
+                "label": "Managing Director",
+            },
+        ]
+
+    def _action_approve_current_chain_stage(self, expected_state):
         for record in self:
-            if record.approval_state != "to_manager":
-                raise UserError(_("This estimation is not awaiting manager approval."))
-            record.approval_state = "to_md"
+            if record.approval_state != expected_state:
+                raise UserError(_("This estimation is not awaiting the selected approval stage."))
+
+            stages = record._approval_get_state_stages()
+            current_idx = record._approval_get_state_stage_index(stages, record.approval_state)
+            if current_idx is False:
+                raise UserError(_("No approval stage is configured for the current state."))
+
+            user = self.env.user
+            current_stage = stages[current_idx]
+            if not user.has_group(current_stage["group"]):
+                raise UserError(_("You can approve only your current approval stage."))
+
+            last_idx = record._approval_get_last_consecutive_stage_index(stages, current_idx, user)
+            next_state = stages[last_idx]["next_state"]
+            record.approval_state = next_state
+        return True
+
+    def action_manager_approve(self):
+        return self._action_approve_current_chain_stage("to_manager")
 
     def action_md_approve(self):
-        for record in self:
-            if record.approval_state != "to_md":
-                raise UserError(_("This estimation is not awaiting MD approval."))
-            record.approval_state = "approved"
+        return self._action_approve_current_chain_stage("to_md")
 
     def action_reject(self):
         for record in self:

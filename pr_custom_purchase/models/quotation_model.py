@@ -9,7 +9,8 @@ _logger = logging.getLogger(__name__)
 
 
 class PurchaseOrder(models.Model):
-    _inherit = "purchase.order"
+    _name = "purchase.order"
+    _inherit = ["purchase.order", "approval.stage.mixin"]
 
     requisition_id = fields.Many2one("purchase.requisition", string="Source PR", readonly=True, ondelete="set null")
     linked_pr_state = fields.Selection([
@@ -375,78 +376,72 @@ class PurchaseOrder(models.Model):
                     "body_html": f"<p>{note}</p>",
                 }).send()
 
+    def _approval_get_stages(self):
+        """Return required approval stages in order based on current subtotal."""
+        self.ensure_one()
+        amount = self.subtotal
+        stages = [
+            {
+                "key": "pe",
+                "field": "pe_approved",
+                "group": "pr_custom_purchase.project_engineer",
+                "label": "Procurement Manager",
+            },
+            {
+                "key": "pm",
+                "field": "pm_approved",
+                "group": "pr_custom_purchase.project_manager",
+                "label": "Project Manager",
+            },
+            {
+                "key": "od",
+                "field": "od_approved",
+                "group": "pr_custom_purchase.operations_director",
+                "label": "Operations Director",
+            },
+            {
+                "key": "md",
+                "field": "md_approved",
+                "group": "pr_custom_purchase.managing_director",
+                "label": "Managing Director",
+            },
+        ]
+        if amount <= 10000:
+            return stages[:1]
+        if amount <= 100000:
+            return stages[:2]
+        if amount <= 500000:
+            return stages[:3]
+        return stages
+
     # main approval logic
     def action_approve(self):
         self.ensure_one()
-        amount = self.subtotal
+        stages = self._approval_get_stages()
+        pending_idx = self._approval_get_pending_stage_index(stages)
+        if pending_idx is False:
+            return self._reload_action()
 
-        if amount <= 10000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body="Approved by Procurement Manager.")
+        user = self.env.user
+        current_stage = stages[pending_idx]
+        if not user.has_group(current_stage["group"]):
+            raise UserError(_("You can approve only your current approval stage."))
 
-        elif amount <= 100000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body="Approved by Procurement Manager.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by PE. Please review.",
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True})
-                self.message_post(body="Approved by Project Manager.")
+        last_idx = self._approval_get_last_consecutive_stage_index(stages, pending_idx, user)
+        vals = {stage["field"]: True for stage in stages[pending_idx:last_idx + 1]}
+        self.write(vals)
 
-        elif amount <= 500000:
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body="Approved by Procurement Manager.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by PE. Please review.",
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True})
-                self.message_post(body="Approved by Project Manager.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.operations_director",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by PM. Please review.",
-                )
-            elif not self.od_approved:
-                self.write({"od_approved": True})
-                self.message_post(body="Approved by Operations Director.")
+        for stage in stages[pending_idx:last_idx + 1]:
+            self.message_post(body=_("Approved by %s.") % stage["label"])
 
-        else:  # Above 500k
-            if not self.pe_approved:
-                self.write({"pe_approved": True})
-                self.message_post(body="Approved by Procurement Manager.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.project_manager",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by PE. Please review.",
-                )
-            elif not self.pm_approved:
-                self.write({"pm_approved": True})
-                self.message_post(body="Approved by Project Manager.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.operations_director",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by PM. Please review.",
-                )
-            elif not self.od_approved:
-                self.write({"od_approved": True})
-                self.message_post(body="Approved by Operations Director.")
-                self._schedule_activity_for_group(
-                    "pr_custom_purchase.managing_director",
-                    "Review Purchase Order",
-                    f"PO {self.name} approved by OD. Please review.",
-                )
-            elif not self.md_approved:
-                self.write({"md_approved": True})
-                self.message_post(body="Approved by Managing Director.")
+        next_stage_idx = last_idx + 1
+        if next_stage_idx < len(stages):
+            next_stage = stages[next_stage_idx]
+            self._schedule_activity_for_group(
+                next_stage["group"],
+                "Review Purchase Order",
+                f"PO {self.name} approved by {user.name}. Please review.",
+            )
 
         return self._reload_action()
 
@@ -484,7 +479,7 @@ class PurchaseOrder(models.Model):
 
     @api.depends("state", "subtotal", "pe_approved", "pm_approved", "od_approved", "md_approved")
     def _compute_show_approvals(self):
-        """Show only one approval button for the next required stage."""
+        """Show only one approval button for the last consecutive stage the user can handle."""
         user = self.env.user
         for order in self:
             order.show_pe_approved = False
@@ -495,35 +490,19 @@ class PurchaseOrder(models.Model):
             if order.state != "pending":
                 continue
 
-            amount = order.subtotal
-            if amount <= 10000:
-                required_stage = "pe"
-            elif amount <= 100000:
-                required_stage = "pm" if order.pe_approved else "pe"
-            elif amount <= 500000:
-                if not order.pe_approved:
-                    required_stage = "pe"
-                elif not order.pm_approved:
-                    required_stage = "pm"
-                else:
-                    required_stage = "od"
-            else:
-                if not order.pe_approved:
-                    required_stage = "pe"
-                elif not order.pm_approved:
-                    required_stage = "pm"
-                elif not order.od_approved:
-                    required_stage = "od"
-                else:
-                    required_stage = "md"
+            stages = order._approval_get_stages()
+            visible_stage = order._approval_get_visible_stage(stages, user)
+            if not visible_stage:
+                continue
 
-            if required_stage == "pe" and user.has_group("pr_custom_purchase.project_engineer"):
+            stage_key = visible_stage["key"]
+            if stage_key == "pe":
                 order.show_pe_approved = True
-            elif required_stage == "pm" and user.has_group("pr_custom_purchase.project_manager"):
+            elif stage_key == "pm":
                 order.show_pm_approved = True
-            elif required_stage == "od" and user.has_group("pr_custom_purchase.operations_director"):
+            elif stage_key == "od":
                 order.show_od_approved = True
-            elif required_stage == "md" and user.has_group("pr_custom_purchase.managing_director"):
+            elif stage_key == "md":
                 order.show_md_approved = True
 
     def _compute_is_current_user_approver(self):

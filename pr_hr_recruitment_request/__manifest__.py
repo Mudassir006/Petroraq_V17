@@ -6,7 +6,7 @@
     'website': 'https://www.petroraq.com',
     'license': 'LGPL-3',
     'summary': 'HR Recruitment Request',
-    'depends': ['hr_recruitment','hr','mail', 'de_hr_workspace'],
+    'depends': ['hr_recruitment','hr','mail', 'de_hr_workspace', 'pr_multi_approval_base'],
     'data': [
         'security/ir.model.access.csv',
         'data/hr_recruitment_request_sequence.xml',
