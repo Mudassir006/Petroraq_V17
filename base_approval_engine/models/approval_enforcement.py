@@ -14,7 +14,12 @@ class ApprovalEnforcementRule(models.Model):
     name = fields.Char(required=True)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
-    model_id = fields.Many2one("ir.model", required=True, domain="[(\"transient\", \"=\", False)]")
+    model_id = fields.Many2one(
+        "ir.model",
+        required=True,
+        domain="[(\"transient\", \"=\", False)]",
+        ondelete="cascade",
+    )
     model_name = fields.Char(related="model_id.model", store=True, index=True)
     method_name = fields.Char(required=True, help="Technical method to protect, e.g. action_post, action_confirm")
     required_request_state = fields.Selection(
