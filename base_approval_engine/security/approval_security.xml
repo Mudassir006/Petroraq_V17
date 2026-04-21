@@ -30,4 +30,16 @@
             ('approver_id', '=', user.id)
         ]</field>
     </record>
+
+
+    <record id="access_approval_enforcement_rule_admin_xml" model="ir.model.access">
+        <field name="name">approval.enforcement.rule admin xml</field>
+        <field name="model_id" search="[('model', '=', 'approval.enforcement.rule')]"/>
+        <field name="group_id" ref="base_approval_engine.group_approval_engine_admin"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
 </odoo>

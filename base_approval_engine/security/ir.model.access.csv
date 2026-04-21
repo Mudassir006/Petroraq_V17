@@ -6,4 +6,3 @@ access_approval_request_line_admin,approval.request.line admin,model_approval_re
 access_approval_request_user,approval.request user,model_approval_request,base_approval_engine.group_approval_engine_user,1,1,1,0
 access_approval_request_line_user,approval.request.line user,model_approval_request_line,base_approval_engine.group_approval_engine_user,1,1,0,0
 access_approval_reject_wizard_user,approval.reject.wizard user,model_approval_reject_wizard,base_approval_engine.group_approval_engine_user,1,1,1,1
-access_approval_enforcement_rule_admin,approval.enforcement.rule admin,model_approval_enforcement_rule,base_approval_engine.group_approval_engine_admin,1,1,1,1
