@@ -5,8 +5,6 @@ from odoo.exceptions import UserError
 
 
 class GlobalApprovalBase(models.AbstractModel):
-    _name = "global.approval.base"
-    _description = "Global Approval Base"
     _inherit = "base"
 
     @api.model
