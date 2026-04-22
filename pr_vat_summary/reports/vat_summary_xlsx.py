@@ -6,7 +6,10 @@ class VatSummaryXlsx(models.AbstractModel):
     _name = "report.pr_vat_summary.vat_summary_xlsx"
     _inherit = "report.report_xlsx.abstract"
 
-    def _write_detail_section(self, sheet, row, title, details, header_fmt, cell_left, cell_right, section_fmt):
+    def _write_detail_section(
+        self, sheet, row, title, details, section_vat_overrides,
+        header_fmt, cell_left, cell_right, section_fmt
+    ):
         sheet.merge_range(row, 0, row, 6, title, header_fmt)
         row += 1
         headers = ["Journal Entry", "Reference", "Date", "Description", "Amount", "VAT Amount", "Total Amount"]
@@ -15,19 +18,18 @@ class VatSummaryXlsx(models.AbstractModel):
         row += 1
 
         sections = [
-            ("Vated - Sales / Revenue", details["vated_sales"]),
-            ("Non-Vated - Sales / Revenue", details["non_vated_sales"]),
-            ("Vated - Purchases / Expenses", details["vated_purchases"]),
-            ("Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
+            ("vated_sales", "Vated - Sales / Revenue", details["vated_sales"]),
+            ("non_vated_sales", "Non-Vated - Sales / Revenue", details["non_vated_sales"]),
+            ("vated_purchases", "Vated - Purchases / Expenses", details["vated_purchases"]),
+            ("non_vated_purchases", "Non-Vated - Purchases / Expenses", details["non_vated_purchases"]),
         ]
-        all_lines = []
-        for section_title, lines in sections:
-            all_lines.extend(lines)
+        section_totals = []
+        for section_key, section_title, lines in sections:
             sheet.merge_range(row, 0, row, 6, section_title, section_fmt)
             row += 1
             section_total = sum(line.get("amount", 0.0) for line in lines)
-            section_vat_total = sum(line.get("vat_amount", 0.0) for line in lines)
-            section_grand_total = sum(line.get("total_amount", 0.0) for line in lines)
+            section_vat_total = section_vat_overrides.get(section_key, 0.0)
+            section_grand_total = section_total + section_vat_total
             if not lines:
                 sheet.merge_range(row, 0, row, 6, "No lines", cell_left)
                 row += 1
@@ -41,16 +43,16 @@ class VatSummaryXlsx(models.AbstractModel):
                     sheet.write_number(row, 5, line.get("vat_amount", 0.0), cell_right)
                     sheet.write_number(row, 6, line.get("total_amount", 0.0), cell_right)
                     row += 1
-
+            section_totals.append((section_total, section_vat_total, section_grand_total))
             sheet.merge_range(row, 0, row, 3, "Section Total", section_fmt)
             sheet.write_number(row, 4, section_total, cell_right)
             sheet.write_number(row, 5, section_vat_total, cell_right)
             sheet.write_number(row, 6, section_grand_total, cell_right)
             row += 1
 
-        total = sum(line.get("amount", 0.0) for line in all_lines)
-        vat_total = sum(line.get("vat_amount", 0.0) for line in all_lines)
-        grand_total = sum(line.get("total_amount", 0.0) for line in all_lines)
+        total = sum(t[0] for t in section_totals)
+        vat_total = sum(t[1] for t in section_totals)
+        grand_total = sum(t[2] for t in section_totals)
         sheet.merge_range(row, 0, row, 3, "Total", cell_left)
         sheet.write_number(row, 4, total, cell_right)
         sheet.write_number(row, 5, vat_total, cell_right)
@@ -260,6 +262,12 @@ class VatSummaryXlsx(models.AbstractModel):
 
         if wizard.is_detailed:
             details = wizard._prepare_detailed_lines()
+            section_vat_overrides = {
+                "vated_sales": abs(wizard.sales_vat),
+                "non_vated_sales": 0.0,
+                "vated_purchases": abs(wizard.vated_purchases_vat),
+                "non_vated_purchases": 0.0,
+            }
             row += 2
             sheet.set_column(0, 0, 20)
             sheet.set_column(1, 1, 24)
@@ -267,6 +275,6 @@ class VatSummaryXlsx(models.AbstractModel):
             sheet.set_column(3, 3, 40)
             sheet.set_column(4, 6, 18)
             self._write_detail_section(
-                sheet, row, "Detailed Transactions", details,
+                sheet, row, "Detailed Transactions", details, section_vat_overrides,
                 header_fmt, cell_left, cell_right, section_fmt,
             )
