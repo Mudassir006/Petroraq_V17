@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_approval_workflow_admin,approval.workflow admin,model_approval_workflow,base_approval_engine.group_approval_engine_admin,1,1,1,1
+access_approval_workflow_line_admin,approval.workflow.line admin,model_approval_workflow_line,base_approval_engine.group_approval_engine_admin,1,1,1,1
+access_approval_request_admin,approval.request admin,model_approval_request,base_approval_engine.group_approval_engine_admin,1,1,1,1
+access_approval_request_line_admin,approval.request.line admin,model_approval_request_line,base_approval_engine.group_approval_engine_admin,1,1,1,1
+access_approval_request_user,approval.request user,model_approval_request,base_approval_engine.group_approval_engine_user,1,1,1,0
+access_approval_request_line_user,approval.request.line user,model_approval_request_line,base_approval_engine.group_approval_engine_user,1,1,0,0
+access_approval_reject_wizard_user,approval.reject.wizard user,model_approval_reject_wizard,base_approval_engine.group_approval_engine_user,1,1,1,1

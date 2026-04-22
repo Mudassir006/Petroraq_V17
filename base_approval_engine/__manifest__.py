@@ -1,0 +1,21 @@
+{
+    "name": "Base Approval Engine",
+    "summary": "Centralized configurable multi-level approvals",
+    "version": "17.0.1.0.0",
+    "category": "Tools",
+    "author": "Petroraq",
+    "license": "OEEL-1",
+    "depends": ["base", "mail", "sale_management", "purchase", "service_receipt_note"],
+    "data": [
+        "security/approval_security.xml",
+        "security/ir.model.access.csv",
+        "data/ir_sequence_data.xml",
+        "views/approval_workflow_views.xml",
+        "views/approval_request_views.xml",
+        "views/approval_enforcement_views.xml",
+        "views/approval_menus.xml",
+        "views/approval_reject_wizard_views.xml",
+    ],
+    "installable": True,
+    "application": False,
+}

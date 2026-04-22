@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_approval_enforcement_rule_tree" model="ir.ui.view">
+        <field name="name">approval.enforcement.rule.tree</field>
+        <field name="model">approval.enforcement.rule</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence"/>
+                <field name="name"/>
+                <field name="model_id"/>
+                <field name="method_name"/>
+                <field name="required_request_state"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_approval_enforcement_rule_form" model="ir.ui.view">
+        <field name="name">approval.enforcement.rule.form</field>
+        <field name="model">approval.enforcement.rule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                            <field name="model_id" options="{'no_create': True}"/>
+                            <field name="method_name"/>
+                            <field name="required_request_state"/>
+                        </group>
+                        <group>
+                            <field name="condition_domain" widget="text"/>
+                            <field name="message"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_approval_enforcement_rule" model="ir.actions.act_window">
+        <field name="name">Enforcement Rules</field>
+        <field name="res_model">approval.enforcement.rule</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>
